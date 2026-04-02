@@ -14,7 +14,7 @@ export interface AgentState {
   error: string | null;
 }
 
-export interface ClaudeTool {
+export interface AegisTool {
   name: string;
   description: string;
   input_schema: {
