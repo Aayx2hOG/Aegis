@@ -1,0 +1,66 @@
+# ─── Node / Next.js ──────────────────────────────────────────────────────────
+
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+/coverage
+/.next/
+/out/
+/build
+
+# ─── Env ─────────────────────────────────────────────────────────────────────
+
+.env*
+!.env.example
+
+# ─── Vercel ──────────────────────────────────────────────────────────────────
+
+.vercel
+
+# ─── TypeScript ──────────────────────────────────────────────────────────────
+
+*.tsbuildinfo
+next-env.d.ts
+
+# ─── Anchor / Rust ───────────────────────────────────────────────────────────
+
+# Blanket ignore — covers debug, release, sbf-*, sbpf-*, deploy, etc.
+/anchor/target/
+
+# Re-include generated IDL + TS types (imported by use-watchlist.ts)
+!/anchor/target/idl/
+!/anchor/target/types/
+
+# Local validator ledger
+.anchor/
+test-ledger/
+**/test-ledger/
+
+# Rust backup files
+**/*.rs.bk
+
+# ─── OS ──────────────────────────────────────────────────────────────────────
+
+.DS_Store
+Thumbs.db
+*.pem
+
+# ─── Debug logs ──────────────────────────────────────────────────────────────
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Editor ──────────────────────────────────────────────────────────────────
+
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
