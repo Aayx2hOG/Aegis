@@ -4,11 +4,11 @@ import { useBasicProgram } from './basic-data-access'
 import { Button } from '@/components/ui/button'
 
 export function BasicCreate() {
-  const { greet } = useBasicProgram()
+  const { initialize } = useBasicProgram()
 
   return (
-    <Button onClick={() => greet.mutateAsync()} disabled={greet.isPending}>
-      Run program{greet.isPending && '...'}
+    <Button onClick={() => initialize.mutateAsync()} disabled={initialize.isPending}>
+      Initialize program{initialize.isPending && '...'}
     </Button>
   )
 }

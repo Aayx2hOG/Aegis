@@ -5,14 +5,41 @@ import { useAtom } from 'jotai';
 import { agentStateAtom } from '@/store/research-store';
 import type { ResearchBrief, ToolCallRecord } from '@/lib/types/research';
 
+import { useWatchlist } from '@/hooks/use-watchlist';
+
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+
 const QUICK_PICKS = ['raydium', 'orca', 'marinade', 'jito', 'kamino', 'drift', 'marginfi'];
 
 export default function ResearchPage() {
-  const [query, setQuery] = useState('');
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
+        <span className="loading loading-spinner loading-lg text-primary" />
+      </div>
+    }>
+      <ResearchContent />
+    </Suspense>
+  );
+}
+
+function ResearchContent() {
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get('q') || '');
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
   const [agentState, setAgentState] = useAtom(agentStateAtom);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isWatched, toggle, add, remove, watchlist, needsInit, initialize, isInitializing, isConnected } = useWatchlist();
+
+  // Auto-run if query param exists
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) {
+      runResearch(q);
+    }
+  }, []);
 
   // Auto-set status message based on timing
   const [statusMsg, setStatusMsg] = useState('Initializing analyst...');
@@ -107,13 +134,14 @@ export default function ResearchPage() {
                 disabled={loading}
               />
               <button
-                className="absolute right-2 h-10 px-6 bg-primary hover:bg-primary/90 text-primary-content rounded-lg font-bold shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+                className="absolute right-2 h-10 px-6 bg-primary hover:bg-primary/90 text-primary-content rounded-lg font-bold shadow-lg shadow-primary/20 transition-all disabled:opacity-50 bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
                 onClick={() => runResearch(query)}
                 disabled={loading || !query.trim()}
               >
                 {loading ? <span className="loading loading-spinner loading-xs" /> : 'Launch'}
               </button>
             </div>
+
 
             <div className="flex flex-wrap items-center gap-3 px-1">
               <span className="text-xs font-bold text-zinc-500 uppercase tracking-tighter">Popular:</span>
@@ -185,7 +213,39 @@ export default function ResearchPage() {
             </details>
 
             {/* Main Brief */}
-            <article className="glass-card bg-zinc-900/40 border border-zinc-800/80 rounded-3xl overflow-hidden shadow-2xl">
+            <article className="glass-card bg-zinc-900/40 border border-zinc-800/80 rounded-3xl overflow-hidden shadow-2xl relative">
+              {/* Watchlist Actions */}
+              <div className="absolute top-6 right-6 flex gap-2">
+                {!isConnected ? (
+                  <div className="px-4 py-2 bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px] font-bold rounded-lg uppercase tracking-tight">
+                    Connect wallet to bookmark
+                  </div>
+                ) : needsInit ? (
+                  <button 
+                    onClick={() => initialize()}
+                    disabled={isInitializing}
+                    className="px-4 py-2 bg-primary text-zinc-950 text-xs font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
+                  >
+                    {isInitializing ? <span className="loading loading-spinner loading-xs" /> : 'Initialize Watchlist'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const slug = brief.protocol.toLowerCase();
+                      console.log('Toggling watchlist for:', slug);
+                      toggle(slug);
+                    }}
+                    disabled={isInitializing}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                      isWatched(brief.protocol.toLowerCase())
+                        ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                        : 'bg-primary text-zinc-950 hover:bg-primary/90 shadow-lg shadow-primary/20'
+                    }`}
+                  >
+                    {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
+                  </button>
+                )}
+              </div>
               <div className="p-10">
                 <MarkdownBrief content={brief.brief} />
               </div>

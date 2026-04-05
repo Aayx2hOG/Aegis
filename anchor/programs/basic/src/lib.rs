@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("JAVuBXeBZqXNtS73azhBDAoYaaAFfo4gWXoZe2e7Jf8H");
+declare_id!("GShanJRUVq5ANTvdVcy76Zd8KT2qdv7ggh1Aw5BhNsEm");
 
 // Max slugs per watchlist (keeps account size bounded)
 const MAX_PROTOCOLS: usize = 20;

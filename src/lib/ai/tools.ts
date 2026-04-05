@@ -59,6 +59,24 @@ export const TOOLS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_jupiter_price',
+      description:
+        'Fetch current price and confidence for a Solana token via Jupiter Price API v2.',
+      parameters: {
+        type: 'object',
+        properties: {
+          address: {
+            type: 'string',
+            description: 'Token mint address',
+          },
+        },
+        required: ['address'],
+      },
+    },
+  },
 ];
 
 // Tool executor (server-side only)
@@ -112,6 +130,19 @@ export async function executeTool(
       const res = await fetch(`${base}/api/birdeye?address=${address}`);
       if (!res.ok) throw new Error(`Birdeye proxy error ${res.status}`);
       return res.json();
+    }
+    
+    case 'get_jupiter_price': {
+      const address = input.address as string;
+      const res = await fetch(`https://api.jup.ag/price/v2?ids=${address}`);
+      if (!res.ok) throw new Error(`Jupiter price error ${res.status}`);
+      const data = await res.json() as Record<string, any>;
+      const result = data.data?.[address];
+      return result ? {
+        price: result.price,
+        extraInfo: result.extraInfo,
+        address,
+      } : { error: 'Price not found' };
     }
 
     default:
