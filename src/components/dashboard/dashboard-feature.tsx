@@ -19,6 +19,7 @@ export function DashboardFeature() {
         fetchBrief(slug);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlist, isLoading]);
 
   async function fetchBrief(slug: string) {
@@ -59,7 +60,7 @@ export function DashboardFeature() {
           <div className="glass-card p-12 text-center rounded-3xl border border-zinc-800 bg-zinc-900/40">
             <h2 className="text-2xl font-bold mb-4">Initialize Your Watchlist</h2>
             <p className="text-zinc-400 mb-8 max-w-md mx-auto">
-              Aegis stores your watchlist on the Solana blockchain. You'll need to initialize your account once to start bookmarking protocols.
+              Aegis stores your watchlist on the Solana blockchain. You&apos;ll need to initialize your account once to start bookmarking protocols.
             </p>
             <button
               onClick={() => initialize()}

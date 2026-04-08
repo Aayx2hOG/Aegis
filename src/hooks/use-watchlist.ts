@@ -40,6 +40,7 @@ export function useWatchlist() {
     queryKey: ['watchlist', wallet.publicKey?.toBase58()],
     queryFn: async () => {
       if (!program || !pda) return [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const account = await (program.account as any).watchlist.fetch(pda);
       return account.slugs as string[];
     },
@@ -57,6 +58,7 @@ export function useWatchlist() {
   const initialize = useMutation({
     mutationFn: async () => {
       if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
         .initialize()
         .accounts({ authority: wallet.publicKey })
@@ -76,6 +78,7 @@ export function useWatchlist() {
     mutationFn: async (slug: string) => {
       if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
       console.log('Adding protocol to watchlist:', slug);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
         .addProtocol(slug)
         .accounts({ authority: wallet.publicKey })
@@ -95,6 +98,7 @@ export function useWatchlist() {
     mutationFn: async (slug: string) => {
       if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
       console.log('Removing protocol from watchlist:', slug);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
         .removeProtocol(slug)
         .accounts({ authority: wallet.publicKey })

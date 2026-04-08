@@ -11,12 +11,18 @@ export async function getRecentTransactions(address: string, limit = 10): Promis
   return res.json();
 }
 
-export async function getTokenHolders(mint: string) {
-  const res = await fetch(`${BASE}/token-metadata?api-key=${KEY}`, {
+export async function getTokenMetadata(mint: string) {
+  const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mintAccounts: [mint] }),
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'my-id',
+      method: 'getAsset',
+      params: { id: mint },
+    }),
   });
-  if (!res.ok) throw new Error(`Helius error: ${res.status}`);
-  return res.json();
+  if (!res.ok) throw new Error(`Helius DAS error: ${res.status}`);
+  const { result } = await res.json();
+  return result;
 }

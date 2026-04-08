@@ -9,6 +9,8 @@ import { useWatchlist } from '@/hooks/use-watchlist';
 
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import Link from 'next/link';
+import { Star } from 'lucide-react';
 
 const QUICK_PICKS = ['raydium', 'orca', 'marinade', 'jito', 'kamino', 'drift', 'marginfi'];
 
@@ -28,10 +30,10 @@ function ResearchContent() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
-  const [agentState, setAgentState] = useAtom(agentStateAtom);
+  const [, setAgentState] = useAtom(agentStateAtom);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isWatched, toggle, add, remove, watchlist, needsInit, initialize, isInitializing, isConnected } = useWatchlist();
+  const { isWatched, toggle, initialize, isInitializing, isConnected, needsInit } = useWatchlist();
 
   // Auto-run if query param exists
   useEffect(() => {
@@ -39,7 +41,8 @@ function ResearchContent() {
     if (q) {
       runResearch(q);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Auto-set status message based on timing
   const [statusMsg, setStatusMsg] = useState('Initializing analyst...');
@@ -108,7 +111,13 @@ function ResearchContent() {
 
       <div className="relative max-w-4xl mx-auto py-16 px-6 space-y-10">
         {/* Header */}
-        <header className="text-center space-y-4">
+        <header className="relative text-center space-y-4">
+          <Link 
+            href="/watchlist"
+            className="absolute top-0 right-0 group flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-primary hover:border-primary/50 transition-all text-[10px] font-black uppercase tracking-widest shadow-xl"
+          >
+            My Watchlist <Star className="w-3 h-3 group-hover:scale-125 transition-transform" />
+          </Link>
           <div className="inline-block px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-bold tracking-widest uppercase mb-2">
             Aegis Intelligence
           </div>
@@ -277,69 +286,82 @@ function ResearchContent() {
   );
 }
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 function MarkdownBrief({ content }: { content: string }) {
-  const lines = content.split('\n');
   return (
-    <div className="space-y-6">
-      {lines.map((line, i) => {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('### ')) return <h3 key={i} className="text-xl font-bold text-white mt-8 mb-2 border-l-4 border-primary pl-4">{trimmed.slice(4)}</h3>;
-        if (trimmed.startsWith('## '))  return <h2 key={i} className="text-2xl font-black text-white mt-10 mb-4 tracking-tight">{trimmed.slice(3)}</h2>;
-        if (trimmed.startsWith('# '))   return <h1 key={i} className="text-4xl font-black text-white mt-12 mb-6 tracking-tighter capitalize">{trimmed.slice(2)}</h1>;
-        
-        // Match both - and * for lists
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          return (
-            <div key={i} className="flex gap-3 text-zinc-300 ml-2 group">
-              <span className="text-primary mt-1 group-hover:scale-125 transition-transform">•</span>
-              <p className="leading-relaxed">{parseInline(trimmed.slice(2))}</p>
+    <div className="prose prose-invert max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => (
+            <h1 className="text-4xl font-black text-white mt-12 mb-6 tracking-tighter capitalize border-b border-zinc-800 pb-4">
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-2xl font-black text-white mt-10 mb-4 tracking-tight">
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-xl font-bold text-white mt-8 mb-2 border-l-4 border-primary pl-4">
+              {children}
+            </h3>
+          ),
+          p: ({ children }) => (
+            <p className="text-zinc-300 leading-relaxed text-lg font-light tracking-wide mb-6">
+              {children}
+            </p>
+          ),
+          ul: ({ children }) => (
+            <ul className="space-y-4 mb-8">
+              {children}
+            </ul>
+          ),
+          li: ({ children }) => (
+            <li className="flex gap-3 text-zinc-300 ml-2 group">
+              <span className="text-primary mt-1.5 group-hover:scale-125 transition-transform flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--p),0.5)]" />
+              <div className="leading-relaxed">{children}</div>
+            </li>
+          ),
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-8 rounded-xl border border-zinc-800 bg-zinc-950/30">
+              <table className="w-full text-sm text-left">
+                {children}
+              </table>
             </div>
-          );
-        }
-        
-        if (trimmed.startsWith('|'))   return <EnhancedTable key={i} line={trimmed} />;
-        
-        // Ignore Setext header underlines
-        if (/^={3,}$/.test(trimmed) || /^-{3,}$/.test(trimmed)) return null;
-        
-        if (trimmed === '') return null;
-        
-        return <p key={i} className="text-zinc-300 leading-relaxed text-lg font-light tracking-wide">{parseInline(line)}</p>;
-      })}
-    </div>
-  );
-}
-
-// Simple inline parser for bold text
-function parseInline(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-bold text-white">{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
-}
-
-
-function EnhancedTable({ line }: { line: string }) {
-  // Remove leading and trailing pipes before splitting
-  const content = line.replace(/^\||\|$/g, '');
-  const cells = content.split('|').map((c) => c.trim());
-  
-  // If it's a separator row (e.g. |---|---|), hide it.
-  if (cells.every((c) => c.length > 0 && /^[:\-\s]+$/.test(c))) return null;
-  
-  return (
-    <div className="flex items-center border-b border-zinc-800 py-3 hover:bg-white/5 px-2 rounded-lg transition-colors group">
-      {cells.map((c, i) => (
-        <span key={i} className={`
-          ${i === 0 ? 'text-zinc-500 font-bold w-48 text-xs uppercase tracking-widest' : 'text-zinc-200 font-medium overflow-hidden text-ellipsis'}
-          ${i === 1 && c.includes('$') ? 'text-primary' : ''}
-        `}>
-          {c}
-        </span>
-      ))}
+          ),
+          thead: ({ children }) => (
+            <thead className="bg-zinc-900/50 text-zinc-500 uppercase text-[10px] font-black tracking-widest border-b border-zinc-800">
+              {children}
+            </thead>
+          ),
+          th: ({ children }) => (
+            <th className="px-6 py-4 font-black">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="px-6 py-4 text-zinc-300 border-b border-zinc-800/50 font-medium">
+              {children}
+            </td>
+          ),
+          strong: ({ children }) => (
+            <strong className="font-bold text-white">
+              {children}
+            </strong>
+          ),
+          code: ({ children }) => (
+            <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-primary font-mono text-sm">
+              {children}
+            </code>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
