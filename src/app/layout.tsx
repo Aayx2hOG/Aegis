@@ -13,7 +13,7 @@ const links: { label: string; path: string }[] = [
   { label: 'Home', path: '/' },
   { label: 'Research', path: '/research' },
   { label: 'War Room', path: '/war-room' },
-  { label: 'Account', path: '/account' },
+  { label: 'Watchlist', path: '/watchlist' },
 ]
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

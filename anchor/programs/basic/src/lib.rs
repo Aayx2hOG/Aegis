@@ -6,6 +6,11 @@ declare_id!("GShanJRUVq5ANTvdVcy76Zd8KT2qdv7ggh1Aw5BhNsEm");
 const MAX_PROTOCOLS: usize = 20;
 // Max bytes per slug (e.g. "raydium-amm-v4" = 14 chars, give headroom)
 const MAX_SLUG_LEN: usize = 32;
+const DISCRIMINATOR_BYTES: usize = 8;
+const PUBKEY_BYTES: usize = 32;
+const VEC_LEN_BYTES: usize = 4;
+const STRING_LEN_PREFIX_BYTES: usize = 4;
+const BUMP_BYTES: usize = 1;
 
 #[program]
 pub mod basic {
@@ -23,7 +28,7 @@ pub mod basic {
     }
 
     /// Adds a protocol slug to the caller's watchlist.
-    pub fn add_protocol(ctx: Context<ModifyWatchlist>, slug: String) -> Result<()> {
+    pub fn add_protocol(ctx: Context<AddProtocol>, slug: String) -> Result<()> {
         require!(slug.len() <= MAX_SLUG_LEN, WatchlistError::SlugTooLong);
 
         let watchlist = &mut ctx.accounts.watchlist;
@@ -42,7 +47,7 @@ pub mod basic {
     }
 
     /// Removes a protocol slug from the caller's watchlist.
-    pub fn remove_protocol(ctx: Context<ModifyWatchlist>, slug: String) -> Result<()> {
+    pub fn remove_protocol(ctx: Context<RemoveProtocol>, slug: String) -> Result<()> {
         let watchlist = &mut ctx.accounts.watchlist;
         let before = watchlist.slugs.len();
         watchlist.slugs.retain(|s| s != &slug);
@@ -59,7 +64,8 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority,
-        space = Watchlist::space(),
+        // Start with only fixed fields + empty vec header; grow lazily on add_protocol.
+        space = Watchlist::initial_space(),
         seeds = [b"watchlist", authority.key().as_ref()],
         bump
     )]
@@ -72,15 +78,32 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-pub struct ModifyWatchlist<'info> {
+#[instruction(slug: String)]
+pub struct AddProtocol<'info> {
     #[account(
         mut,
         seeds = [b"watchlist", authority.key().as_ref()],
         bump = watchlist.bump,
         has_one = authority,  // ensures only owner can modify
-        realloc = Watchlist::space(),
+        realloc = Watchlist::space_after_add(&watchlist.slugs, &slug),
         realloc::payer = authority,
         realloc::zero = false,
+    )]
+    pub watchlist: Account<'info, Watchlist>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RemoveProtocol<'info> {
+    #[account(
+        mut,
+        seeds = [b"watchlist", authority.key().as_ref()],
+        bump = watchlist.bump,
+        has_one = authority,
     )]
     pub watchlist: Account<'info, Watchlist>,
 
@@ -100,11 +123,33 @@ pub struct Watchlist {
 }
 
 impl Watchlist {
-    pub fn space() -> usize {
-        8                                          // discriminator
-        + 32                                       // authority
-        + 4 + (MAX_PROTOCOLS * (4 + MAX_SLUG_LEN)) // slugs vec
-        + 1 // bump
+    pub fn initial_space() -> usize {
+        DISCRIMINATOR_BYTES + PUBKEY_BYTES + VEC_LEN_BYTES + BUMP_BYTES
+    }
+
+    pub fn max_space() -> usize {
+        DISCRIMINATOR_BYTES
+            + PUBKEY_BYTES
+            + VEC_LEN_BYTES
+            + (MAX_PROTOCOLS * (STRING_LEN_PREFIX_BYTES + MAX_SLUG_LEN))
+            + BUMP_BYTES
+    }
+
+    pub fn space_after_add(existing: &[String], new_slug: &str) -> usize {
+        let bounded_len = std::cmp::min(new_slug.len(), MAX_SLUG_LEN);
+        let existing_bytes: usize = existing
+            .iter()
+            .map(|s| STRING_LEN_PREFIX_BYTES + s.len())
+            .sum();
+
+        let target = DISCRIMINATOR_BYTES
+            + PUBKEY_BYTES
+            + VEC_LEN_BYTES
+            + existing_bytes
+            + (STRING_LEN_PREFIX_BYTES + bounded_len)
+            + BUMP_BYTES;
+
+        std::cmp::min(target, Self::max_space())
     }
 }
 

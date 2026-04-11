@@ -41,7 +41,7 @@ export function ClusterChecker({ children }: { children: ReactNode }) {
     return (
       <AppAlert
         action={
-          <Button variant="outline" onClick={() => query.refetch()}>
+          <Button className="bg-zinc-800 text-zinc-100 hover:bg-zinc-700" onClick={() => query.refetch()}>
             Refresh
           </Button>
         }
@@ -58,7 +58,7 @@ export function ClusterUiSelect() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">{cluster.name}</Button>
+        <Button className="bg-zinc-900/70 text-zinc-200 hover:bg-zinc-800">{cluster.name}</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {clusters.map((item) => (

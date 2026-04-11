@@ -84,11 +84,11 @@ function ResearchContent() {
       setAgentState({
         status: 'done',
         currentTool: null,
-        toolCalls: data.toolCalls.map((tc) => ({ 
-          toolName: tc.tool, 
-          input: tc.input, 
-          output: tc.output, 
-          durationMs: tc.durationMs 
+        toolCalls: data.toolCalls.map((tc) => ({
+          toolName: tc.tool,
+          input: tc.input,
+          output: tc.output,
+          durationMs: tc.durationMs
         })),
         error: null,
       });
@@ -102,40 +102,40 @@ function ResearchContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 selection:bg-primary/30">
+    <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
       {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full" />
-        <div className="absolute top-[20%] -right-[10%] w-[30%] h-[30%] bg-blue-500/10 blur-[100px] rounded-full" />
+        <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
       </div>
 
-      <div className="relative max-w-4xl mx-auto py-16 px-6 space-y-10">
+      <div className="relative mx-auto max-w-5xl space-y-8 px-4 py-10 md:space-y-10 md:px-6 md:py-14">
         {/* Header */}
-        <header className="relative text-center space-y-4">
-          <Link 
+        <header className="relative space-y-4 text-center md:space-y-5">
+          <Link
             href="/watchlist"
-            className="absolute top-0 right-0 group flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-primary hover:border-primary/50 transition-all text-[10px] font-black uppercase tracking-widest shadow-xl"
+            className="mx-auto flex w-fit items-center gap-2 rounded-xl bg-zinc-900/60 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 shadow-xl transition-all hover:bg-zinc-800/80 hover:text-cyan-100 md:absolute md:right-0 md:top-0"
           >
             My Watchlist <Star className="w-3 h-3 group-hover:scale-125 transition-transform" />
           </Link>
-          <div className="inline-block px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-bold tracking-widest uppercase mb-2">
+          <div className="mb-2 inline-block rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
             Aegis Intelligence
           </div>
-          <h1 className="text-5xl font-black tracking-tight text-white">
-            Solana <span className="text-primary">Research</span>
+          <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
+            Solana <span className="text-cyan-200">Research</span>
           </h1>
-          <p className="text-zinc-400 max-w-lg mx-auto">
+          <p className="mx-auto max-w-2xl text-zinc-300">
             Autonomous AI analyst generating deep-dive reports via live on-chain and market data integration.
           </p>
         </header>
 
         {/* Search Section */}
-        <section className="glass-card p-1 rounded-2xl bg-zinc-900/50 border border-zinc-800/50 shadow-2xl backdrop-blur-xl">
+        <section className="glass-card rounded-2xl bg-zinc-900/45 p-1 shadow-2xl backdrop-blur-xl">
           <div className="p-4 space-y-4">
             <div className="relative flex items-center">
               <input
                 type="text"
-                className="w-full h-14 bg-zinc-950/50 border-2 border-zinc-800 focus:border-primary rounded-xl px-5 text-lg outline-none transition-all placeholder:text-zinc-600 font-medium"
+                className="h-14 w-full rounded-xl bg-zinc-950/60 px-5 text-lg font-medium outline-none ring-1 ring-zinc-800/60 transition-all placeholder:text-zinc-600 focus:ring-2 focus:ring-cyan-300/70"
                 placeholder="Enter protocol slug (e.g. raydium, orca, jito...)"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -143,7 +143,7 @@ function ResearchContent() {
                 disabled={loading}
               />
               <button
-                className="absolute right-2 h-10 px-6 bg-primary hover:bg-primary/90 text-primary-content rounded-lg font-bold shadow-lg shadow-primary/20 transition-all disabled:opacity-50 bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                className="absolute right-2 h-10 rounded-lg bg-cyan-300 px-6 font-bold text-zinc-950 shadow-lg shadow-cyan-400/20 transition-all hover:bg-cyan-200 disabled:opacity-50"
                 onClick={() => runResearch(query)}
                 disabled={loading || !query.trim()}
               >
@@ -157,7 +157,7 @@ function ResearchContent() {
               {QUICK_PICKS.map((p) => (
                 <button
                   key={p}
-                  className="px-3 py-1 rounded-md text-xs font-semibold bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/30 text-zinc-300 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+                  className="px-3 py-1 rounded-md text-xs font-semibold bg-zinc-800/60 hover:bg-zinc-700/70 text-zinc-300 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
                   onClick={() => { setQuery(p); runResearch(p); }}
                   disabled={loading}
                 >
@@ -170,7 +170,7 @@ function ResearchContent() {
 
         {/* Active Thinking State */}
         {loading && (
-          <div className="glass-card overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-900/30 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-2xl bg-zinc-900/35 backdrop-blur-md duration-500">
             <div className="h-1 bg-zinc-800 w-full">
               <div className="h-full bg-primary animate-progress-fast shadow-[0_0_10px_rgb(var(--p))]" />
             </div>
@@ -180,7 +180,7 @@ function ResearchContent() {
                 <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-primary animate-spin" />
               </div>
               <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold text-white leading-none tracking-tight">{statusMsg}</h3>
+                <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
                 <p className="text-zinc-500 text-sm">Aegis is processing high-dimensional data flows...</p>
               </div>
             </div>
@@ -189,28 +189,28 @@ function ResearchContent() {
 
         {/* Error State */}
         {error && (
-          <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 text-sm flex items-start gap-3">
-             <span className="mt-0.5">⚠️</span>
-             <p className="flex-1 font-medium">{error}</p>
+          <div className="p-4 rounded-xl bg-red-500/10 text-red-300 text-sm flex items-start gap-3">
+            <span className="mt-0.5">⚠️</span>
+            <p className="flex-1 font-medium">{error}</p>
           </div>
         )}
 
         {/* Results */}
         {brief && !loading && (
-          <div className="space-y-8 animate-in fade-in duration-700">
+          <div className="animate-in space-y-8 fade-in duration-700">
             {/* Thinking Trace */}
             <details className="group">
-              <summary className="flex items-center gap-2 cursor-pointer text-zinc-500 hover:text-zinc-300 transition-colors list-none">
+              <summary className="flex list-none cursor-pointer items-center gap-2 text-zinc-500 transition-colors hover:text-zinc-300">
                 <div className="w-5 h-5 flex items-center justify-center rounded-md bg-zinc-800 group-open:rotate-180 transition-transform">
-                  <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                  <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
                 </div>
                 <span className="text-xs font-bold uppercase tracking-widest">Analyst Thinking Trace ({brief.toolCalls.length} Steps)</span>
               </summary>
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {brief.toolCalls.map((tc: ToolCallRecord, i: number) => (
-                  <div key={i} className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50 flex flex-col gap-2">
+                  <div key={i} className="p-4 rounded-xl bg-zinc-900/55 flex flex-col gap-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-primary uppercase bg-primary/10 px-1.5 py-0.5 rounded">STEP {i+1}</span>
+                      <span className="text-[10px] font-black text-primary uppercase bg-primary/10 px-1.5 py-0.5 rounded">STEP {i + 1}</span>
                       <span className="text-[10px] font-mono text-zinc-600">{tc.durationMs}ms</span>
                     </div>
                     <div className="font-mono text-xs font-bold text-zinc-300">{tc.tool}</div>
@@ -222,15 +222,15 @@ function ResearchContent() {
             </details>
 
             {/* Main Brief */}
-            <article className="glass-card bg-zinc-900/40 border border-zinc-800/80 rounded-3xl overflow-hidden shadow-2xl relative">
+            <article className="glass-card relative overflow-hidden rounded-3xl bg-zinc-900/50 shadow-2xl">
               {/* Watchlist Actions */}
               <div className="absolute top-6 right-6 flex gap-2">
                 {!isConnected ? (
-                  <div className="px-4 py-2 bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px] font-bold rounded-lg uppercase tracking-tight">
+                  <div className="px-4 py-2 bg-zinc-800/80 text-zinc-400 text-[10px] font-bold rounded-lg uppercase tracking-tight">
                     Connect wallet to bookmark
                   </div>
                 ) : needsInit ? (
-                  <button 
+                  <button
                     onClick={() => initialize()}
                     disabled={isInitializing}
                     className="px-4 py-2 bg-primary text-zinc-950 text-xs font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
@@ -245,24 +245,23 @@ function ResearchContent() {
                       toggle(slug);
                     }}
                     disabled={isInitializing}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-                      isWatched(brief.protocol.toLowerCase())
-                        ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
-                        : 'bg-primary text-zinc-950 hover:bg-primary/90 shadow-lg shadow-primary/20'
-                    }`}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${isWatched(brief.protocol.toLowerCase())
+                      ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                      : 'bg-primary text-zinc-950 hover:bg-primary/90 shadow-lg shadow-primary/20'
+                      }`}
                   >
                     {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
                   </button>
                 )}
               </div>
-              <div className="p-10">
+              <div className="p-6 md:p-10">
                 <MarkdownBrief content={brief.brief} />
               </div>
             </article>
 
             {/* Footer Tip */}
             <div className="text-center pb-20">
-               <p className="text-zinc-600 text-xs">Reports are generated in real-time. Verify critical data independently.</p>
+              <p className="text-zinc-600 text-xs">Reports are generated in real-time. Verify critical data independently.</p>
             </div>
           </div>
         )}
@@ -296,7 +295,7 @@ function MarkdownBrief({ content }: { content: string }) {
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="text-4xl font-black text-white mt-12 mb-6 tracking-tighter capitalize border-b border-zinc-800 pb-4">
+            <h1 className="text-4xl font-black text-white mt-12 mb-6 tracking-tighter capitalize pb-4">
               {children}
             </h1>
           ),
@@ -306,35 +305,35 @@ function MarkdownBrief({ content }: { content: string }) {
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-xl font-bold text-white mt-8 mb-2 border-l-4 border-primary pl-4">
+            <h3 className="mt-8 mb-2 pl-1 text-xl font-bold text-white">
               {children}
             </h3>
           ),
           p: ({ children }) => (
-            <p className="text-zinc-300 leading-relaxed text-lg font-light tracking-wide mb-6">
+            <p className="mb-4 text-base leading-7 tracking-wide text-zinc-300 md:text-[1.02rem]">
               {children}
             </p>
           ),
           ul: ({ children }) => (
-            <ul className="space-y-4 mb-8">
+            <ul className="mb-7 space-y-3">
               {children}
             </ul>
           ),
           li: ({ children }) => (
-            <li className="flex gap-3 text-zinc-300 ml-2 group">
-              <span className="text-primary mt-1.5 group-hover:scale-125 transition-transform flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--p),0.5)]" />
-              <div className="leading-relaxed">{children}</div>
+            <li className="group ml-1 flex items-start gap-3 break-words text-zinc-300 [&>p]:mb-0 [&_code]:break-all">
+              <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.45)] transition-transform group-hover:scale-125" />
+              <div className="min-w-0 leading-7">{children}</div>
             </li>
           ),
           table: ({ children }) => (
-            <div className="overflow-x-auto my-8 rounded-xl border border-zinc-800 bg-zinc-950/30">
+            <div className="overflow-x-auto my-8 rounded-xl bg-zinc-950/40">
               <table className="w-full text-sm text-left">
                 {children}
               </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-zinc-900/50 text-zinc-500 uppercase text-[10px] font-black tracking-widest border-b border-zinc-800">
+            <thead className="bg-zinc-900/70 text-zinc-500 uppercase text-[10px] font-black tracking-widest">
               {children}
             </thead>
           ),
@@ -344,7 +343,7 @@ function MarkdownBrief({ content }: { content: string }) {
             </th>
           ),
           td: ({ children }) => (
-            <td className="px-6 py-4 text-zinc-300 border-b border-zinc-800/50 font-medium">
+            <td className="px-6 py-4 text-zinc-300 font-medium">
               {children}
             </td>
           ),
@@ -354,7 +353,7 @@ function MarkdownBrief({ content }: { content: string }) {
             </strong>
           ),
           code: ({ children }) => (
-            <code className="px-1.5 py-0.5 rounded bg-zinc-800 text-primary font-mono text-sm">
+            <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-sm text-cyan-200">
               {children}
             </code>
           ),

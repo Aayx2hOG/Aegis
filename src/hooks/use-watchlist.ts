@@ -10,7 +10,9 @@ import { ClusterNetwork, useCluster } from '@/components/cluster/cluster-data-ac
 import { useTransactionToast } from '@/components/use-transaction-toast';
 import { toast } from 'sonner';
 
-const MIN_INIT_BALANCE_SOL = 0.002;
+// discriminator + authority + empty vec length + bump
+const WATCHLIST_INITIAL_SPACE_BYTES = 8 + 32 + 4 + 1;
+const TX_FEE_BUFFER_LAMPORTS = 15_000;
 
 function getWatchlistCacheKey(walletAddress: string, clusterName: string) {
   return `watchlist-cache:${clusterName}:${walletAddress}`;
@@ -172,11 +174,16 @@ export function useWatchlist() {
       await assertProgramDeployed(connection, programId, cluster.name);
 
       const balanceLamports = await connection.getBalance(wallet.publicKey, 'confirmed');
-      const minimumLamports = Math.ceil(MIN_INIT_BALANCE_SOL * LAMPORTS_PER_SOL);
+      const rentExemptLamports = await connection.getMinimumBalanceForRentExemption(
+        WATCHLIST_INITIAL_SPACE_BYTES,
+        'confirmed'
+      );
+      const minimumLamports = rentExemptLamports + TX_FEE_BUFFER_LAMPORTS;
       if (balanceLamports < minimumLamports) {
         const balanceSol = balanceLamports / LAMPORTS_PER_SOL;
+        const requiredSol = minimumLamports / LAMPORTS_PER_SOL;
         throw new Error(
-          `Need at least ${MIN_INIT_BALANCE_SOL} SOL on ${cluster.name} (current: ${balanceSol.toFixed(6)} SOL).`
+          `Need about ${requiredSol.toFixed(6)} SOL on ${cluster.name} for rent + fee buffer (current: ${balanceSol.toFixed(6)} SOL).`
         );
       }
 

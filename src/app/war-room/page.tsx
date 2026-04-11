@@ -128,10 +128,10 @@ export default function WarRoomPage() {
     }
 
     return (
-        <div className="min-h-screen text-zinc-100 bg-[radial-gradient(circle_at_10%_15%,rgba(23,110,255,0.22),transparent_35%),radial-gradient(circle_at_90%_0%,rgba(23,194,136,0.14),transparent_28%),linear-gradient(160deg,#06090f,#0b1017_48%,#090d14)]">
-            <div className="mx-auto max-w-6xl px-6 py-12 space-y-8">
+        <div className="min-h-screen text-zinc-100 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
+            <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 md:px-6 md:py-14">
                 <header className="space-y-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-cyan-300/80 font-semibold">Aegis War Room</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300/80">Aegis War Room</p>
                     <h1 className="text-4xl md:text-5xl font-black tracking-tight">Protocol Digital Twin + Crisis Simulator</h1>
                     <p className="text-zinc-300 max-w-3xl">
                         Simulate portfolio stress scenarios, measure liquidation risk in seconds, and produce action playbooks before market chaos hits.
@@ -139,7 +139,7 @@ export default function WarRoomPage() {
                 </header>
 
                 <section className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    <div className="lg:col-span-3 rounded-2xl border border-cyan-900/50 bg-zinc-950/50 backdrop-blur-md p-5 space-y-4">
+                    <div className="lg:col-span-3 rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
                         <div className="flex items-center justify-between">
                             <h2 className="font-bold text-lg">Treasury Exposure Map</h2>
                             <span className="text-xs text-zinc-400">Total: {formatCurrency(totalValue)}</span>
@@ -147,7 +147,7 @@ export default function WarRoomPage() {
 
                         <div className="space-y-3">
                             {positions.map((position) => (
-                                <div key={position.id} className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 grid grid-cols-1 md:grid-cols-7 gap-2 items-center">
+                                <div key={position.id} className="grid grid-cols-1 items-center gap-2 rounded-xl bg-zinc-900/65 p-3 md:grid-cols-7">
                                     <div className="md:col-span-3">
                                         <p className="font-semibold text-sm">{position.label}</p>
                                         <p className="text-xs text-zinc-400 uppercase tracking-wide">{position.protocol} • {position.kind}</p>
@@ -160,7 +160,7 @@ export default function WarRoomPage() {
                                             step={1000}
                                             value={position.usdValue}
                                             onChange={(e) => updatePositionValue(position.id, Number(e.target.value))}
-                                            className="w-full rounded-md bg-zinc-950 border border-zinc-700 px-2 py-1.5 text-sm font-medium"
+                                            className="w-full rounded-md bg-zinc-950 px-2 py-1.5 text-sm font-medium ring-1 ring-zinc-800/60"
                                         />
                                     </div>
                                 </div>
@@ -168,7 +168,7 @@ export default function WarRoomPage() {
                         </div>
                     </div>
 
-                    <div className="lg:col-span-2 rounded-2xl border border-emerald-900/40 bg-zinc-950/50 backdrop-blur-md p-5 space-y-4">
+                    <div className="lg:col-span-2 rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
                         <h2 className="font-bold text-lg">Shock Scenario</h2>
 
                         <div className="space-y-2">
@@ -176,9 +176,9 @@ export default function WarRoomPage() {
                                 <button
                                     key={scenario.title}
                                     onClick={() => setSelectedScenarioIdx(idx)}
-                                    className={`w-full rounded-lg border px-3 py-2 text-left transition ${idx === selectedScenarioIdx
-                                            ? 'border-emerald-400 bg-emerald-500/10 text-emerald-200'
-                                            : 'border-zinc-700 bg-zinc-900/70 text-zinc-300 hover:border-zinc-500'
+                                    className={`w-full rounded-lg px-3 py-2 text-left transition ${idx === selectedScenarioIdx
+                                        ? 'bg-cyan-400/15 text-cyan-100'
+                                        : 'bg-zinc-900/70 text-zinc-300 hover:bg-zinc-800/80'
                                         }`}
                                 >
                                     <p className="text-sm font-semibold">{scenario.title}</p>
@@ -190,7 +190,7 @@ export default function WarRoomPage() {
                         <button
                             onClick={runSimulation}
                             disabled={loading}
-                            className="w-full rounded-xl bg-cyan-400 text-zinc-950 font-black py-3 tracking-wide hover:bg-cyan-300 transition disabled:opacity-60"
+                            className="w-full rounded-xl bg-cyan-300 py-3 font-black tracking-wide text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-60"
                         >
                             {loading ? 'Simulating Crisis...' : 'Run War-Game Simulation'}
                         </button>
@@ -209,7 +209,7 @@ export default function WarRoomPage() {
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                            <div className="lg:col-span-2 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 space-y-3">
+                            <div className="lg:col-span-2 rounded-2xl bg-zinc-900/60 p-5 space-y-3">
                                 <h3 className="font-bold">Risk Delta</h3>
                                 <p className="text-sm text-zinc-300">Before shock: <span className="font-semibold">{result.summary.riskScoreBefore}</span></p>
                                 <p className="text-sm text-zinc-300">After shock: <span className="font-semibold text-amber-300">{result.summary.riskScoreAfterShock}</span></p>
@@ -224,11 +224,11 @@ export default function WarRoomPage() {
                                 </div>
                             </div>
 
-                            <div className="lg:col-span-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5">
+                            <div className="lg:col-span-3 rounded-2xl bg-zinc-900/60 p-5">
                                 <h3 className="font-bold mb-4">AI Action Playbook (Ranked)</h3>
                                 <div className="space-y-3">
                                     {result.topActions.map((action) => (
-                                        <div key={action.id} className="border border-zinc-800 rounded-xl p-4 bg-zinc-900/60">
+                                        <div key={action.id} className="rounded-xl p-4 bg-zinc-900/70">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <p className="font-semibold text-cyan-200">{action.title}</p>
                                                 <p className="text-xs text-zinc-400">Confidence {(action.impact.confidence * 100).toFixed(0)}%</p>
@@ -251,7 +251,7 @@ export default function WarRoomPage() {
 
 function MetricCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
     return (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/65 p-4">
+        <div className="rounded-xl bg-zinc-950/70 p-4">
             <p className="text-xs uppercase tracking-widest text-zinc-500">{label}</p>
             <p className={`text-2xl font-black mt-2 ${accent ?? 'text-zinc-100'}`}>{value}</p>
         </div>

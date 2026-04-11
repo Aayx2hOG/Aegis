@@ -17,18 +17,21 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
   }
 
   return (
-    <header className="relative z-50 px-4 py-2 bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-400">
-      <div className="mx-auto flex justify-between items-center">
+    <header className="sticky top-0 z-50 bg-[#050910]/80 px-4 py-3 text-zinc-300 shadow-[0_6px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between">
         <div className="flex items-baseline gap-4">
-          <Link className="text-xl hover:text-neutral-500 dark:hover:text-white" href="/">
-            <span>AgenticScResearch</span>
+          <Link className="text-lg font-black tracking-tight text-zinc-100 transition hover:text-cyan-200" href="/">
+            <span>Aegis Intelligence</span>
           </Link>
           <div className="hidden md:flex items-center">
             <ul className="flex gap-4 flex-nowrap items-center">
               {links.map(({ label, path }) => (
                 <li key={path}>
                   <Link
-                    className={`hover:text-neutral-500 dark:hover:text-white ${isActive(path) ? 'text-neutral-500 dark:text-white' : ''}`}
+                    className={`text-sm font-semibold uppercase tracking-wide transition ${isActive(path)
+                      ? 'text-cyan-200'
+                      : 'text-zinc-400 hover:text-zinc-100'
+                      }`}
                     href={path}
                   >
                     {label}
@@ -39,7 +42,12 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
           </div>
         </div>
 
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setShowMenu(!showMenu)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="bg-zinc-900/70 text-zinc-300 hover:bg-zinc-800 md:hidden"
+          onClick={() => setShowMenu(!showMenu)}
+        >
           {showMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>
 
@@ -50,13 +58,14 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
         </div>
 
         {showMenu && (
-          <div className="md:hidden fixed inset-x-0 top-[52px] bottom-0 bg-neutral-100/95 dark:bg-neutral-900/95 backdrop-blur-sm">
-            <div className="flex flex-col p-4 gap-4 border-t dark:border-neutral-800">
+          <div className="fixed inset-x-0 bottom-0 top-[64px] bg-[#060b13]/95 backdrop-blur md:hidden">
+            <div className="flex flex-col gap-4 p-4">
               <ul className="flex flex-col gap-4">
                 {links.map(({ label, path }) => (
                   <li key={path}>
                     <Link
-                      className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-2  ${isActive(path) ? 'text-neutral-500 dark:text-white' : ''} `}
+                      className={`block py-2 text-base font-semibold uppercase tracking-wide transition ${isActive(path) ? 'text-cyan-200' : 'text-zinc-300 hover:text-zinc-100'
+                        }`}
                       href={path}
                       onClick={() => setShowMenu(false)}
                     >

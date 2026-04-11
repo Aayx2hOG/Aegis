@@ -127,6 +127,18 @@
 
 .wallet-adapter-button-trigger {
   height: auto !important;
-  @apply !border !bg-background !shadow-xs hover:!bg-accent !text-accent-foreground hover:!text-accent-foreground dark:!bg-input/30 !border-input/10 dark:!border-input dark:hover:!bg-input/50;
+  @apply !bg-background !shadow-xs !text-accent-foreground;
   @apply !px-2 !py-[6px] !rounded-md !text-sm !font-semibold !shadow-sm !transition-all;
+}
+
+.wallet-adapter-button-trigger:hover {
+  @apply !bg-accent !text-accent-foreground;
+}
+
+.dark .wallet-adapter-button-trigger {
+  @apply !bg-input/30;
+}
+
+.dark .wallet-adapter-button-trigger:hover {
+  @apply !bg-input/50;
 }

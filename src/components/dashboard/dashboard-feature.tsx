@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useWatchlist } from '@/hooks/use-watchlist';
-import { AppHero } from '@/components/app-hero';
 import type { ResearchBrief } from '@/lib/types/research';
 import { WalletButton } from '@/components/solana/solana-provider';
 import Link from 'next/link';
+import { Activity, ArrowRight, BookOpenText, Radar, ShieldAlert, Telescope } from 'lucide-react';
 
 export function DashboardFeature() {
   const { watchlist, isLoading, isInitializing, initialize, needsInit, isConnected } = useWatchlist();
@@ -39,17 +39,61 @@ export function DashboardFeature() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
-      <AppHero 
-        title="Agentic Watchlist" 
-        subtitle="Your on-chain bookmarks, automatically researched by Aegis AI." 
-      />
+    <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
+      </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-12 space-y-12">
+      <div className="relative mx-auto max-w-6xl space-y-10 px-4 py-10 md:space-y-12 md:px-6 md:py-14">
+        <section className="space-y-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
+            Aegis Command Center
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-white md:text-6xl">
+            Signal-First Solana
+            <span className="block text-cyan-200">Research Workspace</span>
+          </h1>
+          <p className="mx-auto max-w-2xl text-zinc-300">
+            Build a watchlist, run live research briefs, and stress test your exposure in one unified workspace.
+          </p>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <QuickLinkCard
+            href="/research"
+            title="Launch Research"
+            description="Generate live protocol intelligence briefs from on-chain and market feeds."
+            icon={<BookOpenText className="h-5 w-5" />}
+          />
+          <QuickLinkCard
+            href="/war-room"
+            title="Open War Room"
+            description="Run scenario simulations and rank mitigation actions by expected impact."
+            icon={<ShieldAlert className="h-5 w-5" />}
+          />
+          <QuickLinkCard
+            href="/watchlist"
+            title="Manage Watchlist"
+            description="Track protocol priorities and keep your monitored stack current."
+            icon={<Radar className="h-5 w-5" />}
+          />
+        </section>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <StatCard label="Tracked Protocols" value={String(watchlist.length)} sub="Live on-chain state" />
+          <StatCard label="Brief Cache" value={String(Object.keys(briefs).length)} sub="Auto-refreshed summaries" />
+          <StatCard
+            label="Connection"
+            value={isConnected ? 'Online' : 'Disconnected'}
+            sub={isConnected ? 'Wallet session active' : 'Connect wallet to enable actions'}
+          />
+        </div>
+
         {!isConnected ? (
-          <div className="glass-card p-12 text-center rounded-3xl border border-zinc-800 bg-zinc-900/40">
-            <h2 className="text-2xl font-bold mb-4">Connect Your Wallet</h2>
-            <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+          <div className="glass-card rounded-3xl bg-zinc-900/45 p-12 text-center shadow-2xl">
+            <h2 className="mb-4 text-2xl font-bold">Connect Your Wallet</h2>
+            <p className="mx-auto mb-8 max-w-md text-zinc-400">
               Connect your Solana wallet to access your on-chain research watchlist.
             </p>
             <div className="flex justify-center">
@@ -57,15 +101,15 @@ export function DashboardFeature() {
             </div>
           </div>
         ) : needsInit ? (
-          <div className="glass-card p-12 text-center rounded-3xl border border-zinc-800 bg-zinc-900/40">
-            <h2 className="text-2xl font-bold mb-4">Initialize Your Watchlist</h2>
-            <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+          <div className="glass-card rounded-3xl bg-zinc-900/45 p-12 text-center shadow-2xl">
+            <h2 className="mb-4 text-2xl font-bold">Initialize Your Watchlist</h2>
+            <p className="mx-auto mb-8 max-w-md text-zinc-400">
               Aegis stores your watchlist on the Solana blockchain. You&apos;ll need to initialize your account once to start bookmarking protocols.
             </p>
             <button
               onClick={() => initialize()}
               disabled={isInitializing}
-              className="px-8 py-3 bg-primary text-zinc-950 font-bold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50"
+              className="rounded-xl bg-cyan-300 px-8 py-3 font-bold text-zinc-950 shadow-lg shadow-cyan-500/25 transition-all hover:bg-cyan-200 disabled:opacity-50"
             >
               {isInitializing ? 'Initializing...' : 'Create Watchlist Account'}
             </button>
@@ -73,64 +117,109 @@ export function DashboardFeature() {
         ) : (
           <>
             {watchlist.length === 0 && !isLoading ? (
-              <div className="glass-card p-16 text-center rounded-3xl border border-zinc-800 bg-zinc-900/40">
-                <div className="text-5xl mb-6Opacity-50">🔭</div>
-                <h2 className="text-2xl font-bold mb-2">Watchlist is Empty</h2>
-                <p className="text-zinc-400 mb-8">Start by researching a protocol and adding it to your watchlist.</p>
-                <Link 
+              <div className="glass-card rounded-3xl bg-zinc-900/45 p-16 text-center shadow-2xl">
+                <div className="mb-6 flex justify-center text-cyan-200/80">
+                  <Telescope className="h-10 w-10" />
+                </div>
+                <h2 className="mb-2 text-2xl font-bold">Watchlist is Empty</h2>
+                <p className="mb-8 text-zinc-400">Start by researching a protocol and adding it to your watchlist.</p>
+                <Link
                   href="/research"
-                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-all"
+                  className="inline-flex items-center gap-2 rounded-xl bg-zinc-800 px-6 py-3 font-bold text-white transition-all hover:bg-zinc-700"
                 >
-                  Go to Research
+                  Go to Research <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {watchlist.map((slug) => (
-                  <div key={slug} className="glass-card bg-zinc-900/50 border border-zinc-800/80 rounded-2xl overflow-hidden hover:border-primary/30 transition-all group">
-                    <div className="p-6 space-y-4">
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-xl font-black tracking-tight text-white capitalize">{slug}</h3>
-                        <div className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded uppercase">On-Chain</div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-zinc-400">
+                  <Activity className="h-4 w-4 text-cyan-200" />
+                  Live Watchlist Feed
+                </div>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {watchlist.map((slug) => (
+                    <div key={slug} className="glass-card group overflow-hidden rounded-2xl bg-zinc-900/50 shadow-xl transition-all hover:bg-zinc-900/65">
+                      <div className="p-6 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-xl font-black tracking-tight text-white capitalize">{slug}</h3>
+                          <div className="rounded bg-cyan-400/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-200">On-Chain</div>
+                        </div>
+
+                        {briefs[slug] === 'loading' ? (
+                          <div className="py-8 flex flex-col items-center justify-center space-y-3">
+                            <span className="loading loading-spinner loading-md text-cyan-300" />
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Aegis Thinking...</span>
+                          </div>
+                        ) : briefs[slug] === 'error' ? (
+                          <div className="py-4 text-center">
+                            <p className="text-red-400 text-xs mb-2">Failed to update brief</p>
+                            <button onClick={() => fetchBrief(slug)} className="cursor-pointer text-[10px] font-bold uppercase text-zinc-400 underline hover:text-white">Retry</button>
+                          </div>
+                        ) : briefs[slug] ? (
+                          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <p className="text-zinc-400 text-sm line-clamp-3 italic">
+                              {(briefs[slug] as ResearchBrief).brief.split('\n')[0].replace(/^#+\s*/, '')}
+                            </p>
+                            <Link
+                              href={`/research?q=${slug}`}
+                              className="block rounded-lg bg-zinc-800 py-2 text-center text-xs font-bold transition-colors hover:bg-zinc-700"
+                            >
+                              View Full Report
+                            </Link>
+                          </div>
+                        ) : null}
                       </div>
-                      
-                      {briefs[slug] === 'loading' ? (
-                        <div className="py-8 flex flex-col items-center justify-center space-y-3">
-                          <span className="loading loading-spinner loading-md text-primary" />
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Aegis Thinking...</span>
-                        </div>
-                      ) : briefs[slug] === 'error' ? (
-                        <div className="py-4 text-center">
-                          <p className="text-red-400 text-xs mb-2">Failed to update brief</p>
-                          <button onClick={() => fetchBrief(slug)} className="text-[10px] font-bold text-zinc-400 hover:text-white uppercase underline cursor-pointer">Retry</button>
-                        </div>
-                      ) : briefs[slug] ? (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                          <p className="text-zinc-400 text-sm line-clamp-3 italic">
-                            {(briefs[slug] as ResearchBrief).brief.split('\n')[0].replace(/^#+\s*/, '')}
-                          </p>
-                          <Link 
-                            href={`/research?q=${slug}`}
-                            className="block text-center py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold hover:bg-zinc-700 transition-colors"
-                          >
-                            View Full Report
-                          </Link>
-                        </div>
-                      ) : null}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </>
         )}
       </div>
-      
+
       <style jsx global>{`
         .glass-card {
            backdrop-filter: blur(20px);
         }
       `}</style>
+    </div>
+  );
+}
+
+function QuickLinkCard({
+  href,
+  title,
+  description,
+  icon,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-2xl bg-zinc-900/45 p-5 shadow-xl transition-all hover:bg-zinc-900/65"
+    >
+      <div className="mb-3 inline-flex rounded-lg bg-cyan-400/12 p-2 text-cyan-200">{icon}</div>
+      <h3 className="text-lg font-bold text-white">{title}</h3>
+      <p className="mt-2 text-sm text-zinc-400">{description}</p>
+      <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-cyan-200/90">
+        Open
+        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+      </span>
+    </Link>
+  );
+}
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div className="rounded-xl bg-zinc-900/45 p-4 shadow-xl">
+      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-white">{value}</p>
+      <p className="mt-1 text-xs text-zinc-500">{sub}</p>
     </div>
   );
 }
