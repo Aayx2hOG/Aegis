@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { runResearchAgent } from '@/lib/ai/gemini';
+import { runResearchAgent } from '@/lib/ai/aegis-research-agent';
 
 // POST /api/research
 // Body: { protocol: string }

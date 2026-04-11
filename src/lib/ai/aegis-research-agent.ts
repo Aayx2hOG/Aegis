@@ -1,16 +1,23 @@
 import Groq from 'groq-sdk';
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/resources/chat/completions';
-import { TOOLS, executeTool } from './tools';
-import { SYSTEM_PROMPT } from './prompts';
+import { TOOLS, executeTool } from './aegis-tools';
+import { SYSTEM_PROMPT } from './aegis-prompts';
 import type { ResearchBrief } from '@/lib/types/research';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error('GROQ_API_KEY is not set. Configure it in your deployment environment.');
+  }
+  return new Groq({ apiKey });
+}
 
 const MODEL = 'llama-3.3-70b-versatile'; // smarter at tool use, fits now that TVL is trimmed
 
 const MAX_ITERATIONS = 6;
 
 export async function runResearchAgent(protocol: string): Promise<ResearchBrief> {
+  const groq = getGroqClient();
   const toolCalls: ResearchBrief['toolCalls'] = [];
 
   const messages: ChatCompletionMessageParam[] = [
