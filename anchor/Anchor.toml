@@ -13,8 +13,8 @@ basic = "GShanJRUVq5ANTvdVcy76Zd8KT2qdv7ggh1Aw5BhNsEm"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+cluster = "devnet"
+wallet = "~/.config/solana/phantom.json"
 
 [scripts]
 test = "../node_modules/.bin/jest --preset ts-jest"

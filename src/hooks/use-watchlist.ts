@@ -5,12 +5,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Program, AnchorProvider, Idl } from '@coral-xyz/anchor';
 import { PublicKey, SendTransactionError, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BasicIDL } from '@project/anchor';
-import { useCluster } from '@/components/cluster/cluster-data-access';
+import { ClusterNetwork, useCluster } from '@/components/cluster/cluster-data-access';
 
 import { useTransactionToast } from '@/components/use-transaction-toast';
 import { toast } from 'sonner';
 
-const PROGRAM_ID = new PublicKey(BasicIDL.address);
 const MIN_INIT_BALANCE_SOL = 0.002;
 
 function getWatchlistCacheKey(walletAddress: string, clusterName: string) {
@@ -40,15 +39,15 @@ function saveCachedWatchlist(walletAddress: string, clusterName: string, slugs: 
   }
 }
 
-function useProgram() {
+function useProgram(programId: PublicKey | null) {
   const { connection } = useConnection();
   const wallet = useWallet();
-  if (!wallet.publicKey || !wallet.signTransaction) return null;
+  if (!wallet.publicKey || !wallet.signTransaction || !programId) return null;
 
   const provider = new AnchorProvider(connection, wallet as never, {
     commitment: 'confirmed',
   });
-  return new Program(BasicIDL as Idl, provider);
+  return new Program({ ...BasicIDL, address: programId.toBase58() } as Idl, provider);
 }
 
 function extractErrorMessage(err: unknown): string {
@@ -62,6 +61,9 @@ function getReadableTxError(err: unknown, clusterName: string): string {
   if (message.includes('Attempt to debit an account but found no record of a prior credit')) {
     return `Insufficient SOL on ${clusterName}. Fund this wallet on ${clusterName} and retry.`;
   }
+  if (message.includes('Attempt to load a program that does not exist')) {
+    return `Program is not deployed on ${clusterName}. Switch to a supported cluster or deploy this program there.`;
+  }
   if (message.includes('blockhash not found')) {
     return `Network is stale on ${clusterName}. Retry in a few seconds.`;
   }
@@ -74,10 +76,39 @@ function isUnreachableLocalCluster(clusterName: string): boolean {
   return host !== 'localhost' && host !== '127.0.0.1';
 }
 
-function getWatchlistPda(walletPubkey: PublicKey) {
+function getProgramIdFromEnv(value?: string): PublicKey | null {
+  if (!value) return null;
+  try {
+    return new PublicKey(value);
+  } catch {
+    return null;
+  }
+}
+
+function getProgramIdForCluster(clusterNetwork?: ClusterNetwork): PublicKey | null {
+  if (clusterNetwork === ClusterNetwork.Devnet) {
+    return getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_DEVNET);
+  }
+  if (clusterNetwork === ClusterNetwork.Testnet) {
+    return getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_TESTNET);
+  }
+  if (clusterNetwork === ClusterNetwork.Mainnet) {
+    return getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_MAINNET);
+  }
+  return new PublicKey(BasicIDL.address);
+}
+
+async function assertProgramDeployed(connection: ReturnType<typeof useConnection>['connection'], programId: PublicKey, clusterName: string) {
+  const accountInfo = await connection.getAccountInfo(programId, 'confirmed');
+  if (!accountInfo || !accountInfo.executable) {
+    throw new Error(`Watchlist program is not deployed on ${clusterName}.`);
+  }
+}
+
+function getWatchlistPda(walletPubkey: PublicKey, programId: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from('watchlist'), walletPubkey.toBuffer()],
-    PROGRAM_ID
+    programId
   )[0];
 }
 
@@ -85,11 +116,18 @@ export function useWatchlist() {
   const wallet = useWallet();
   const { connection } = useConnection();
   const { cluster } = useCluster();
-  const program = useProgram();
+  const programId = getProgramIdForCluster(cluster.network);
+  const program = useProgram(programId);
   const qc = useQueryClient();
   const transactionToast = useTransactionToast();
   const walletAddress = wallet.publicKey?.toBase58();
-  const pda = wallet.publicKey ? getWatchlistPda(wallet.publicKey) : null;
+  const pda = wallet.publicKey && programId ? getWatchlistPda(wallet.publicKey, programId) : null;
+
+  const missingProgramConfig =
+    !programId &&
+    (cluster.network === ClusterNetwork.Devnet ||
+      cluster.network === ClusterNetwork.Testnet ||
+      cluster.network === ClusterNetwork.Mainnet);
 
   const { data: watchlist, isLoading, error: queryError } = useQuery<string[]>({
     queryKey: ['watchlist', walletAddress, cluster.name],
@@ -109,7 +147,7 @@ export function useWatchlist() {
         throw err;
       }
     },
-    enabled: !!walletAddress,
+    enabled: !!walletAddress && !!programId,
     staleTime: 10_000,
     retry: false, // Don't retry if account not found
   });
@@ -122,10 +160,16 @@ export function useWatchlist() {
   // Initialize the on-chain account (call once per wallet)
   const initialize = useMutation({
     mutationFn: async () => {
-      if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
+      if (!wallet.publicKey) throw new Error('Wallet not connected');
+      if (missingProgramConfig) {
+        throw new Error(`Watchlist program ID is not configured for ${cluster.name}.`);
+      }
+      if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
       if (isUnreachableLocalCluster(cluster.name)) {
         throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
       }
+
+      await assertProgramDeployed(connection, programId, cluster.name);
 
       const balanceLamports = await connection.getBalance(wallet.publicKey, 'confirmed');
       const minimumLamports = Math.ceil(MIN_INIT_BALANCE_SOL * LAMPORTS_PER_SOL);
@@ -165,10 +209,15 @@ export function useWatchlist() {
 
   const add = useMutation({
     mutationFn: async (slug: string) => {
-      if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
+      if (!wallet.publicKey) throw new Error('Wallet not connected');
+      if (missingProgramConfig) {
+        throw new Error(`Watchlist program ID is not configured for ${cluster.name}.`);
+      }
+      if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
       if (isUnreachableLocalCluster(cluster.name)) {
         throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
       }
+      await assertProgramDeployed(connection, programId, cluster.name);
       console.log('Adding protocol to watchlist:', slug);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
@@ -192,10 +241,15 @@ export function useWatchlist() {
 
   const remove = useMutation({
     mutationFn: async (slug: string) => {
-      if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
+      if (!wallet.publicKey) throw new Error('Wallet not connected');
+      if (missingProgramConfig) {
+        throw new Error(`Watchlist program ID is not configured for ${cluster.name}.`);
+      }
+      if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
       if (isUnreachableLocalCluster(cluster.name)) {
         throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
       }
+      await assertProgramDeployed(connection, programId, cluster.name);
       console.log('Removing protocol from watchlist:', slug);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)

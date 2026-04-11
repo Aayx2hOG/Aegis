@@ -1,4 +1,29 @@
 // Tool schemas — OpenAI / Groq format
+import { getTokenPrice } from '@/lib/api/birdeye';
+import { getRecentTransactions, getTokenMetadata } from '@/lib/api/helius';
+
+function asNumber(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function getCoinGeckoMarket(geckoId: string) {
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
+    geckoId
+  )}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true`;
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) throw new Error(`CoinGecko market error ${res.status}`);
+  const data = (await res.json()) as Record<string, Record<string, unknown>>;
+  const entry = data[geckoId];
+  if (!entry) return null;
+  return {
+    source: 'coingecko',
+    price: asNumber(entry.usd),
+    priceChange24h: asNumber(entry.usd_24h_change),
+    volume24h: asNumber(entry.usd_24h_vol),
+    marketCap: asNumber(entry.usd_market_cap),
+  };
+}
 
 export const TOOLS = [
   {
@@ -13,6 +38,24 @@ export const TOOLS = [
           slug: {
             type: 'string',
             description: 'DeFiLlama protocol slug, e.g. "raydium", "orca", "marinade"',
+          },
+        },
+        required: ['slug'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_protocol_snapshot',
+      description:
+        'Fetch a protocol snapshot from DeFiLlama and derive token mint-level market and activity context for Solana protocols.',
+      parameters: {
+        type: 'object',
+        properties: {
+          slug: {
+            type: 'string',
+            description: 'DeFiLlama protocol slug, e.g. "raydium", "orca", "jito"',
           },
         },
         required: ['slug'],
@@ -137,10 +180,125 @@ export async function executeTool(
   name: string,
   input: Record<string, unknown>
 ): Promise<unknown> {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-
   try {
     switch (name) {
+      case 'get_protocol_snapshot': {
+        const slug = String(input.slug ?? '').trim().toLowerCase();
+        const res = await fetchWithTimeout(`https://api.llama.fi/protocol/${slug}`);
+        if (!res.ok) throw new Error(`DeFiLlama protocol error ${res.status}`);
+
+        const meta = (await res.json()) as Record<string, unknown>;
+        const addressField = String(meta.address ?? '');
+        const mint = addressField.startsWith('solana:') ? addressField.replace('solana:', '') : null;
+
+        let tokenPrice: unknown = null;
+        let recentTransactions: unknown = null;
+        let tokenMetadata: unknown = null;
+        let marketFallback: unknown = null;
+        let txFallback: unknown = null;
+
+        if (mint) {
+          const [priceResult, jupiterResult, txResult, metadataResult] = await Promise.allSettled([
+            getTokenPrice(mint),
+            fetchWithTimeout(`https://api.jup.ag/price/v2?ids=${mint}`),
+            getRecentTransactions(mint, 5),
+            getTokenMetadata(mint),
+          ]);
+
+          tokenPrice = priceResult.status === 'fulfilled' ? priceResult.value : { error: String(priceResult.reason) };
+
+          if (priceResult.status === 'rejected' && jupiterResult.status === 'fulfilled') {
+            try {
+              const jupData = (await jupiterResult.value.json()) as {
+                data?: Record<string, { price?: number; extraInfo?: unknown }>;
+              };
+              const jup = jupData.data?.[mint];
+              if (jup?.price != null) {
+                marketFallback = {
+                  source: 'jupiter',
+                  price: jup.price,
+                  priceChange24h: null,
+                  volume24h: null,
+                  marketCap: null,
+                  extraInfo: jup.extraInfo,
+                };
+              }
+            } catch {
+              // keep fallback null
+            }
+          }
+
+          recentTransactions =
+            txResult.status === 'fulfilled'
+              ? txResult.value.slice(0, 5).map((tx) => ({
+                signature: tx.signature,
+                type: tx.type,
+                timestamp: tx.timestamp,
+                fee: tx.fee,
+                source: tx.source,
+              }))
+              : { error: String(txResult.reason) };
+          tokenMetadata = metadataResult.status === 'fulfilled' ? metadataResult.value : { error: String(metadataResult.reason) };
+        }
+
+        const geckoId = String(meta.gecko_id ?? '').trim();
+        if (geckoId) {
+          const gecko = await Promise.allSettled([getCoinGeckoMarket(geckoId)]);
+          if (gecko[0].status === 'fulfilled' && gecko[0].value) {
+            const geckoData = gecko[0].value;
+            if (!marketFallback) {
+              marketFallback = geckoData;
+            }
+            if (!mint) {
+              tokenPrice = {
+                address: null,
+                symbol: meta.symbol,
+                price: geckoData.price,
+                priceChange24h: geckoData.priceChange24h,
+                volume24h: geckoData.volume24h,
+                marketCap: geckoData.marketCap,
+                liquidity: null,
+                source: 'coingecko',
+              };
+            }
+          }
+        }
+
+        const chainTvls = (meta.chainTvls as Record<string, unknown> | undefined) ?? {};
+        const solanaSeries = (chainTvls.Solana as { tvl?: Array<{ date: number; totalLiquidityUSD: number }> } | undefined)?.tvl ?? [];
+        if (solanaSeries.length >= 2) {
+          const latest = solanaSeries[solanaSeries.length - 1];
+          const previous = solanaSeries[solanaSeries.length - 2];
+          const delta = latest.totalLiquidityUSD - previous.totalLiquidityUSD;
+          txFallback = {
+            source: 'defillama-tvl-trend',
+            latestDate: latest.date,
+            latestTvl: latest.totalLiquidityUSD,
+            previousTvl: previous.totalLiquidityUSD,
+            delta1d: delta,
+            delta1dPct: previous.totalLiquidityUSD ? (delta / previous.totalLiquidityUSD) * 100 : null,
+          };
+        }
+
+        return {
+          slug,
+          name: meta.name,
+          symbol: meta.symbol,
+          description: meta.description,
+          twitter: meta.twitter,
+          url: meta.url,
+          logo: meta.logo,
+          address: meta.address,
+          mint,
+          geckoId: meta.gecko_id,
+          tokenPrice,
+          marketFallback,
+          recentTransactions,
+          txFallback,
+          tokenMetadata,
+        };
+      }
+
       case 'get_protocol_tvl': {
         const slug = input.slug as string;
         const [tvlRes, metaRes] = await Promise.all([
@@ -164,10 +322,8 @@ export async function executeTool(
 
       case 'get_recent_transactions': {
         const address = input.address as string;
-        const res = await fetchWithTimeout(`${base}/api/helius?address=${address}&limit=5`);
-        if (!res.ok) throw new Error(`Helius proxy error ${res.status}`);
-        const txs = (await res.json()) as Record<string, unknown>[];
-        return (Array.isArray(txs) ? txs : []).slice(0, 5).map((tx) => ({
+        const txs = await getRecentTransactions(address, 5);
+        return txs.slice(0, 5).map((tx) => ({
           signature: tx.signature,
           type: tx.type,
           timestamp: tx.timestamp,
@@ -178,9 +334,7 @@ export async function executeTool(
 
       case 'get_token_price': {
         const address = input.address as string;
-        const res = await fetchWithTimeout(`${base}/api/birdeye?address=${address}`);
-        if (!res.ok) throw new Error(`Birdeye proxy error ${res.status}`);
-        return res.json();
+        return getTokenPrice(address);
       }
 
       case 'get_jupiter_price': {
@@ -192,18 +346,16 @@ export async function executeTool(
         const result = (data.data as Record<string, any>)?.[address];
         return result
           ? {
-              price: result.price,
-              extraInfo: result.extraInfo,
-              address,
-            }
+            price: result.price,
+            extraInfo: result.extraInfo,
+            address,
+          }
           : { error: 'Price not found' };
       }
 
       case 'get_token_metadata': {
         const mint = input.mint as string;
-        const res = await fetchWithTimeout(`${base}/api/helius/metadata?mint=${mint}`);
-        if (!res.ok) throw new Error(`Helius metadata proxy error ${res.status}`);
-        return res.json();
+        return getTokenMetadata(mint);
       }
 
       case 'get_protocol_metadata': {
