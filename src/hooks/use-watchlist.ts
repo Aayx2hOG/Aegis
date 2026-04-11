@@ -3,7 +3,7 @@
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Program, AnchorProvider, Idl } from '@coral-xyz/anchor';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, SendTransactionError, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BasicIDL } from '@project/anchor';
 import { useCluster } from '@/components/cluster/cluster-data-access';
 
@@ -11,6 +11,7 @@ import { useTransactionToast } from '@/components/use-transaction-toast';
 import { toast } from 'sonner';
 
 const PROGRAM_ID = new PublicKey(BasicIDL.address);
+const MIN_INIT_BALANCE_SOL = 0.002;
 
 function getWatchlistCacheKey(walletAddress: string, clusterName: string) {
   return `watchlist-cache:${clusterName}:${walletAddress}`;
@@ -50,6 +51,29 @@ function useProgram() {
   return new Program(BasicIDL as Idl, provider);
 }
 
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return 'Unknown error';
+}
+
+function getReadableTxError(err: unknown, clusterName: string): string {
+  const message = extractErrorMessage(err);
+  if (message.includes('Attempt to debit an account but found no record of a prior credit')) {
+    return `Insufficient SOL on ${clusterName}. Fund this wallet on ${clusterName} and retry.`;
+  }
+  if (message.includes('blockhash not found')) {
+    return `Network is stale on ${clusterName}. Retry in a few seconds.`;
+  }
+  return message;
+}
+
+function isUnreachableLocalCluster(clusterName: string): boolean {
+  if (clusterName !== 'local' || typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host !== 'localhost' && host !== '127.0.0.1';
+}
+
 function getWatchlistPda(walletPubkey: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from('watchlist'), walletPubkey.toBuffer()],
@@ -59,6 +83,7 @@ function getWatchlistPda(walletPubkey: PublicKey) {
 
 export function useWatchlist() {
   const wallet = useWallet();
+  const { connection } = useConnection();
   const { cluster } = useCluster();
   const program = useProgram();
   const qc = useQueryClient();
@@ -89,7 +114,7 @@ export function useWatchlist() {
     retry: false, // Don't retry if account not found
   });
 
-  const accountNotFound = !!queryError && queryError.message.includes('Account does not exist');
+  const accountNotFound = extractErrorMessage(queryError).includes('Account does not exist');
 
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: ['watchlist', walletAddress, cluster.name] });
@@ -98,6 +123,19 @@ export function useWatchlist() {
   const initialize = useMutation({
     mutationFn: async () => {
       if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
+      if (isUnreachableLocalCluster(cluster.name)) {
+        throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
+      }
+
+      const balanceLamports = await connection.getBalance(wallet.publicKey, 'confirmed');
+      const minimumLamports = Math.ceil(MIN_INIT_BALANCE_SOL * LAMPORTS_PER_SOL);
+      if (balanceLamports < minimumLamports) {
+        const balanceSol = balanceLamports / LAMPORTS_PER_SOL;
+        throw new Error(
+          `Need at least ${MIN_INIT_BALANCE_SOL} SOL on ${cluster.name} (current: ${balanceSol.toFixed(6)} SOL).`
+        );
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
         .initialize()
@@ -109,15 +147,28 @@ export function useWatchlist() {
       invalidate();
       if (walletAddress) saveCachedWatchlist(walletAddress, cluster.name, []);
     },
-    onError: (err) => {
+    onError: async (err) => {
       console.error('Initialize failed:', err);
-      toast.error(`Initialization failed: ${err.message}`);
+
+      if (err instanceof SendTransactionError) {
+        try {
+          // Populate detailed logs for debugging in browser devtools.
+          await err.getLogs(connection);
+        } catch {
+          // Ignore log fetch failures and still show a readable message.
+        }
+      }
+
+      toast.error(`Initialization failed: ${getReadableTxError(err, cluster.name)}`);
     }
   });
 
   const add = useMutation({
     mutationFn: async (slug: string) => {
       if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
+      if (isUnreachableLocalCluster(cluster.name)) {
+        throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
+      }
       console.log('Adding protocol to watchlist:', slug);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
@@ -135,13 +186,16 @@ export function useWatchlist() {
     },
     onError: (err) => {
       console.error('Add failed:', err);
-      toast.error(`Failed to add: ${err.message}`);
+      toast.error(`Failed to add: ${getReadableTxError(err, cluster.name)}`);
     }
   });
 
   const remove = useMutation({
     mutationFn: async (slug: string) => {
       if (!program || !wallet.publicKey) throw new Error('Wallet not connected');
+      if (isUnreachableLocalCluster(cluster.name)) {
+        throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
+      }
       console.log('Removing protocol from watchlist:', slug);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
@@ -159,7 +213,7 @@ export function useWatchlist() {
     },
     onError: (err) => {
       console.error('Remove failed:', err);
-      toast.error(`Failed to remove: ${err.message}`);
+      toast.error(`Failed to remove: ${getReadableTxError(err, cluster.name)}`);
     }
   });
 
