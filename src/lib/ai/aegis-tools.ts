@@ -1,6 +1,7 @@
 // Tool schemas — OpenAI / Groq format
 import { getTokenPrice } from '@/lib/api/birdeye';
 import { getRecentTransactions, getTokenMetadata } from '@/lib/api/helius';
+import { getProtocolSlugCandidates, normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
 
 function asNumber(value: unknown): number | null {
   const n = Number(value);
@@ -176,6 +177,19 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
   }
 }
 
+async function fetchFirstAvailableProtocolBySlug(rawSlug: string): Promise<{ slug: string; meta: Record<string, unknown> }> {
+  const candidates = getProtocolSlugCandidates(rawSlug);
+
+  for (const candidate of candidates) {
+    const res = await fetchWithTimeout(`https://api.llama.fi/protocol/${candidate}`);
+    if (!res.ok) continue;
+    const meta = (await res.json()) as Record<string, unknown>;
+    return { slug: candidate, meta };
+  }
+
+  throw new Error(`DeFiLlama protocol not found for slug: ${rawSlug}`);
+}
+
 export async function executeTool(
   name: string,
   input: Record<string, unknown>
@@ -183,11 +197,8 @@ export async function executeTool(
   try {
     switch (name) {
       case 'get_protocol_snapshot': {
-        const slug = String(input.slug ?? '').trim().toLowerCase();
-        const res = await fetchWithTimeout(`https://api.llama.fi/protocol/${slug}`);
-        if (!res.ok) throw new Error(`DeFiLlama protocol error ${res.status}`);
-
-        const meta = (await res.json()) as Record<string, unknown>;
+        const inputSlug = normalizeProtocolSlug(String(input.slug ?? ''));
+        const { slug, meta } = await fetchFirstAvailableProtocolBySlug(inputSlug);
         const addressField = String(meta.address ?? '');
         const mint = addressField.startsWith('solana:') ? addressField.replace('solana:', '') : null;
 
@@ -300,7 +311,8 @@ export async function executeTool(
       }
 
       case 'get_protocol_tvl': {
-        const slug = input.slug as string;
+        const inputSlug = normalizeProtocolSlug(String(input.slug ?? ''));
+        const { slug, meta } = await fetchFirstAvailableProtocolBySlug(inputSlug);
         const [tvlRes, metaRes] = await Promise.all([
           fetchWithTimeout(`https://api.llama.fi/tvl/${slug}`),
           fetchWithTimeout(`https://api.llama.fi/protocol/${slug}`),
@@ -308,15 +320,15 @@ export async function executeTool(
         if (!tvlRes.ok) throw new Error(`DeFiLlama TVL error ${tvlRes.status}`);
         if (!metaRes.ok) throw new Error(`DeFiLlama meta error ${metaRes.status}`);
         const currentTvl = (await tvlRes.json()) as number;
-        const meta = (await metaRes.json()) as Record<string, unknown>;
+        const resolvedMeta = (await metaRes.json()) as Record<string, unknown>;
         return {
           slug,
-          name: meta.name,
+          name: resolvedMeta.name ?? meta.name,
           tvl: currentTvl,
-          change1d: meta.change_1d,
-          change7d: meta.change_7d,
-          chains: (meta.chains as string[])?.slice(0, 3),
-          category: meta.category,
+          change1d: resolvedMeta.change_1d ?? meta.change_1d,
+          change7d: resolvedMeta.change_7d ?? meta.change_7d,
+          chains: ((resolvedMeta.chains as string[]) ?? (meta.chains as string[]))?.slice(0, 3),
+          category: resolvedMeta.category ?? meta.category,
         };
       }
 
@@ -359,9 +371,19 @@ export async function executeTool(
       }
 
       case 'get_protocol_metadata': {
-        const slug = input.slug as string;
+        const slug = normalizeProtocolSlug(String(input.slug ?? ''));
         const res = await fetchWithTimeout(`https://api.llama.fi/protocol/${slug}`);
-        if (!res.ok) throw new Error(`DeFiLlama meta error ${res.status}`);
+        if (!res.ok) {
+          const resolved = await fetchFirstAvailableProtocolBySlug(slug);
+          return {
+            name: resolved.meta.name,
+            description: resolved.meta.description,
+            url: resolved.meta.url,
+            twitter: resolved.meta.twitter,
+            logo: resolved.meta.logo,
+            symbol: resolved.meta.symbol,
+          };
+        }
         const meta = (await res.json()) as Record<string, unknown>;
         return {
           name: meta.name,

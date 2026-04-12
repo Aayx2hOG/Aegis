@@ -11,6 +11,8 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
+import { toast } from 'sonner';
+import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
 
 const QUICK_PICKS = ['raydium', 'orca', 'marinade', 'jito', 'kamino', 'drift', 'marginfi'];
 
@@ -33,7 +35,7 @@ function ResearchContent() {
   const [, setAgentState] = useAtom(agentStateAtom);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isWatched, toggle, initialize, isInitializing, isConnected, needsInit } = useWatchlist();
+  const { isWatched, toggle, initializeAndAdd, isInitializing, isConnected, needsInit } = useWatchlist();
 
   // Auto-run if query param exists
   useEffect(() => {
@@ -46,6 +48,61 @@ function ResearchContent() {
 
   // Auto-set status message based on timing
   const [statusMsg, setStatusMsg] = useState('Initializing analyst...');
+
+  function buildExportFileName(protocol: string, ext: string): string {
+    const date = new Date().toISOString().slice(0, 10);
+    return `aegis-${protocol.toLowerCase()}-brief-${date}.${ext}`;
+  }
+
+  async function copyBriefMarkdown() {
+    if (!brief?.brief) return;
+    try {
+      await navigator.clipboard.writeText(brief.brief);
+      toast.success('Research brief copied to clipboard.');
+    } catch {
+      toast.error('Clipboard copy failed. You can still download the report.');
+    }
+  }
+
+  function downloadTextFile(fileName: string, content: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportBriefMarkdown() {
+    if (!brief) return;
+    downloadTextFile(buildExportFileName(brief.protocol, 'md'), brief.brief, 'text/markdown;charset=utf-8');
+  }
+
+  function exportToolAuditJson() {
+    if (!brief) return;
+    const payload = {
+      protocol: brief.protocol,
+      generatedAt: new Date().toISOString(),
+      toolCalls: brief.toolCalls,
+    };
+    downloadTextFile(
+      buildExportFileName(brief.protocol, 'audit.json'),
+      JSON.stringify(payload, null, 2),
+      'application/json;charset=utf-8'
+    );
+  }
+
+  async function initializeAndBookmarkProtocol() {
+    if (!brief?.protocol) return;
+    const slug = normalizeProtocolSlug(brief.protocol);
+    try {
+      await initializeAndAdd(slug);
+      toast.success(`${slug} added to watchlist.`);
+    } catch {
+      // Errors are already surfaced in useWatchlist mutation handlers.
+    }
+  }
 
   useEffect(() => {
     if (!loading) return;
@@ -66,7 +123,8 @@ function ResearchContent() {
   }, [loading]);
 
   async function runResearch(protocol: string) {
-    if (!protocol.trim()) return;
+    const normalizedProtocol = normalizeProtocolSlug(protocol);
+    if (!normalizedProtocol) return;
     setLoading(true);
     setError(null);
     setBrief(null);
@@ -76,7 +134,7 @@ function ResearchContent() {
       const res = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ protocol }),
+        body: JSON.stringify({ protocol: normalizedProtocol }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data: ResearchBrief = await res.json();
@@ -225,17 +283,25 @@ function ResearchContent() {
             <article className="glass-card relative overflow-hidden rounded-3xl bg-zinc-900/50 shadow-2xl">
               {/* Watchlist Actions */}
               <div className="absolute top-6 right-6 flex gap-2">
+                {brief?.protocol && (
+                  <Link
+                    href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}
+                    className="px-4 py-2 bg-cyan-300/20 text-cyan-100 text-xs font-bold rounded-lg hover:bg-cyan-300/30 transition-all"
+                  >
+                    Run War Room
+                  </Link>
+                )}
                 {!isConnected ? (
                   <div className="px-4 py-2 bg-zinc-800/80 text-zinc-400 text-[10px] font-bold rounded-lg uppercase tracking-tight">
                     Connect wallet to bookmark
                   </div>
                 ) : needsInit ? (
                   <button
-                    onClick={() => initialize()}
+                    onClick={initializeAndBookmarkProtocol}
                     disabled={isInitializing}
                     className="px-4 py-2 bg-primary text-zinc-950 text-xs font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
                   >
-                    {isInitializing ? <span className="loading loading-spinner loading-xs" /> : 'Initialize Watchlist'}
+                    {isInitializing ? <span className="loading loading-spinner loading-xs" /> : 'Initialize + Add to Watchlist'}
                   </button>
                 ) : (
                   <button
@@ -253,6 +319,28 @@ function ResearchContent() {
                     {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
                   </button>
                 )}
+              </div>
+              <div className="px-6 pt-6 md:px-10">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-zinc-950/45 p-2">
+                  <button
+                    onClick={copyBriefMarkdown}
+                    className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
+                  >
+                    Copy Markdown
+                  </button>
+                  <button
+                    onClick={exportBriefMarkdown}
+                    className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
+                  >
+                    Download .md
+                  </button>
+                  <button
+                    onClick={exportToolAuditJson}
+                    className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
+                  >
+                    Download Audit JSON
+                  </button>
+                </div>
               </div>
               <div className="p-6 md:p-10">
                 <MarkdownBrief content={brief.brief} />
@@ -320,8 +408,8 @@ function MarkdownBrief({ content }: { content: string }) {
             </ul>
           ),
           li: ({ children }) => (
-            <li className="group ml-1 flex items-start gap-3 break-words text-zinc-300 [&>p]:mb-0 [&_code]:break-all">
-              <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.45)] transition-transform group-hover:scale-125" />
+            <li className="group ml-1 flex items-start gap-3 wrap-break-word text-zinc-300 [&>p]:mb-0 [&_code]:break-all">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.45)] transition-transform group-hover:scale-125" />
               <div className="min-w-0 leading-7">{children}</div>
             </li>
           ),

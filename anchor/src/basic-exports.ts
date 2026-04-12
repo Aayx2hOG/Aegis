@@ -113,8 +113,8 @@ export function getBasicProgramId(cluster: Cluster) {
   switch (cluster) {
     case 'devnet':
     case 'testnet':
-      // This is the program ID for the Basic program on devnet and testnet.
-      return new PublicKey('6z68wfurCMYkZG51s1Et9BJEd9nJGUusjHXNt4dGbNNF')
+      // Keep cluster defaults aligned with the current synced IDL address.
+      return BASIC_PROGRAM_ID
     case 'mainnet-beta':
     default:
       return BASIC_PROGRAM_ID

@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { PortfolioPosition, ScenarioConfig, SimulationResult } from '@/lib/types/war-room'
 
 const SCENARIOS: ScenarioConfig[] = [
@@ -77,6 +78,37 @@ const DEMO_POSITIONS: PortfolioPosition[] = [
     },
 ]
 
+function buildPositionsForProtocol(protocol?: string): PortfolioPosition[] {
+    const normalized = (protocol ?? '').trim().toLowerCase()
+    if (!normalized) return DEMO_POSITIONS
+
+    const existingIdx = DEMO_POSITIONS.findIndex((position) => position.protocol.toLowerCase() === normalized)
+    if (existingIdx >= 0) {
+        const selected = {
+            ...DEMO_POSITIONS[existingIdx],
+            usdValue: Math.round(DEMO_POSITIONS[existingIdx].usdValue * 1.1),
+        }
+        const rest = DEMO_POSITIONS.filter((_, idx) => idx !== existingIdx)
+        return [selected, ...rest]
+    }
+
+    const syntheticPosition: PortfolioPosition = {
+        id: 'focused-protocol',
+        label: `${normalized.toUpperCase()} Tactical Position`,
+        symbol: normalized.toUpperCase(),
+        protocol: normalized,
+        kind: 'token',
+        usdValue: 190000,
+        volatility: 72,
+        liquidityScore: 66,
+    }
+
+    const base = [...DEMO_POSITIONS]
+    base.sort((a, b) => a.usdValue - b.usdValue)
+    base[0] = syntheticPosition
+    return base
+}
+
 function formatCurrency(value: number): string {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -86,7 +118,26 @@ function formatCurrency(value: number): string {
 }
 
 export default function WarRoomPage() {
-    const [positions, setPositions] = useState<PortfolioPosition[]>(DEMO_POSITIONS)
+    return (
+        <Suspense
+            fallback={
+                <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
+                    <span className="loading loading-spinner loading-lg text-primary" />
+                </div>
+            }
+        >
+            <WarRoomContent />
+        </Suspense>
+    )
+}
+
+function WarRoomContent() {
+    const searchParams = useSearchParams()
+    const focusedProtocol = searchParams.get('protocol')?.trim().toLowerCase()
+
+    const [positions, setPositions] = useState<PortfolioPosition[]>(() =>
+        buildPositionsForProtocol(focusedProtocol)
+    )
     const [selectedScenarioIdx, setSelectedScenarioIdx] = useState(0)
     const [result, setResult] = useState<SimulationResult | null>(null)
     const [loading, setLoading] = useState(false)
@@ -136,6 +187,11 @@ export default function WarRoomPage() {
                     <p className="text-zinc-300 max-w-3xl">
                         Simulate portfolio stress scenarios, measure liquidation risk in seconds, and produce action playbooks before market chaos hits.
                     </p>
+                    {focusedProtocol && (
+                        <div className="inline-flex items-center gap-2 rounded-lg bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100">
+                            Focused Protocol: {focusedProtocol}
+                        </div>
+                    )}
                 </header>
 
                 <section className="grid grid-cols-1 lg:grid-cols-5 gap-6">

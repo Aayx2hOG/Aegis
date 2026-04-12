@@ -4,8 +4,9 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Program, AnchorProvider, Idl } from '@coral-xyz/anchor';
 import { PublicKey, SendTransactionError, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { BasicIDL } from '@project/anchor';
+import { BasicIDL, getBasicProgramId } from '@project/anchor';
 import { ClusterNetwork, useCluster } from '@/components/cluster/cluster-data-access';
+import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
 
 import { useTransactionToast } from '@/components/use-transaction-toast';
 import { toast } from 'sonner';
@@ -87,15 +88,36 @@ function getProgramIdFromEnv(value?: string): PublicKey | null {
   }
 }
 
-function getProgramIdForCluster(clusterNetwork?: ClusterNetwork): PublicKey | null {
-  if (clusterNetwork === ClusterNetwork.Devnet) {
-    return getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_DEVNET);
+function getProgramIdForCluster(clusterNetwork?: ClusterNetwork, clusterName?: string): PublicKey | null {
+  const globalEnvId =
+    getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID) ??
+    getProgramIdFromEnv(process.env.NEXT_PUBLIC_PROGRAM_ID);
+
+  const normalizedName = clusterName?.trim().toLowerCase();
+  const isDevnet = clusterNetwork === ClusterNetwork.Devnet || normalizedName === 'devnet';
+  const isTestnet = clusterNetwork === ClusterNetwork.Testnet || normalizedName === 'testnet';
+  const isMainnet = clusterNetwork === ClusterNetwork.Mainnet || normalizedName === 'mainnet-beta';
+
+  if (isDevnet) {
+    return (
+      getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_DEVNET) ??
+      globalEnvId ??
+      getBasicProgramId('devnet')
+    );
   }
-  if (clusterNetwork === ClusterNetwork.Testnet) {
-    return getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_TESTNET);
+  if (isTestnet) {
+    return (
+      getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_TESTNET) ??
+      globalEnvId ??
+      getBasicProgramId('testnet')
+    );
   }
-  if (clusterNetwork === ClusterNetwork.Mainnet) {
-    return getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_MAINNET);
+  if (isMainnet) {
+    return (
+      getProgramIdFromEnv(process.env.NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_MAINNET) ??
+      globalEnvId ??
+      new PublicKey(BasicIDL.address)
+    );
   }
   return new PublicKey(BasicIDL.address);
 }
@@ -118,18 +140,12 @@ export function useWatchlist() {
   const wallet = useWallet();
   const { connection } = useConnection();
   const { cluster } = useCluster();
-  const programId = getProgramIdForCluster(cluster.network);
+  const programId = getProgramIdForCluster(cluster.network, cluster.name);
   const program = useProgram(programId);
   const qc = useQueryClient();
   const transactionToast = useTransactionToast();
   const walletAddress = wallet.publicKey?.toBase58();
   const pda = wallet.publicKey && programId ? getWatchlistPda(wallet.publicKey, programId) : null;
-
-  const missingProgramConfig =
-    !programId &&
-    (cluster.network === ClusterNetwork.Devnet ||
-      cluster.network === ClusterNetwork.Testnet ||
-      cluster.network === ClusterNetwork.Mainnet);
 
   const { data: watchlist, isLoading, error: queryError } = useQuery<string[]>({
     queryKey: ['watchlist', walletAddress, cluster.name],
@@ -163,9 +179,6 @@ export function useWatchlist() {
   const initialize = useMutation({
     mutationFn: async () => {
       if (!wallet.publicKey) throw new Error('Wallet not connected');
-      if (missingProgramConfig) {
-        throw new Error(`Watchlist program ID is not configured for ${cluster.name}.`);
-      }
       if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
       if (isUnreachableLocalCluster(cluster.name)) {
         throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
@@ -214,21 +227,21 @@ export function useWatchlist() {
     }
   });
 
+  const initializeAsync = async () => initialize.mutateAsync();
+
   const add = useMutation({
     mutationFn: async (slug: string) => {
+      const normalizedSlug = normalizeProtocolSlug(slug);
       if (!wallet.publicKey) throw new Error('Wallet not connected');
-      if (missingProgramConfig) {
-        throw new Error(`Watchlist program ID is not configured for ${cluster.name}.`);
-      }
       if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
       if (isUnreachableLocalCluster(cluster.name)) {
         throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
       }
       await assertProgramDeployed(connection, programId, cluster.name);
-      console.log('Adding protocol to watchlist:', slug);
+      console.log('Adding protocol to watchlist:', normalizedSlug);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
-        .addProtocol(slug)
+        .addProtocol(normalizedSlug)
         .accounts({ authority: wallet.publicKey })
         .rpc();
     },
@@ -246,21 +259,21 @@ export function useWatchlist() {
     }
   });
 
+  const addAsync = async (slug: string) => add.mutateAsync(slug);
+
   const remove = useMutation({
     mutationFn: async (slug: string) => {
+      const normalizedSlug = normalizeProtocolSlug(slug);
       if (!wallet.publicKey) throw new Error('Wallet not connected');
-      if (missingProgramConfig) {
-        throw new Error(`Watchlist program ID is not configured for ${cluster.name}.`);
-      }
       if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
       if (isUnreachableLocalCluster(cluster.name)) {
         throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
       }
       await assertProgramDeployed(connection, programId, cluster.name);
-      console.log('Removing protocol from watchlist:', slug);
+      console.log('Removing protocol from watchlist:', normalizedSlug);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (program.methods as any)
-        .removeProtocol(slug)
+        .removeProtocol(normalizedSlug)
         .accounts({ authority: wallet.publicKey })
         .rpc();
     },
@@ -278,17 +291,32 @@ export function useWatchlist() {
     }
   });
 
+  const removeAsync = async (slug: string) => remove.mutateAsync(slug);
+
+  const initializeAndAdd = async (slug: string) => {
+    await initializeAsync();
+    await addAsync(slug);
+  };
+
   return {
     watchlist: watchlist ?? [],
     isLoading,
     isConnected: !!wallet.publicKey,
-    isWatched: (slug: string) => (watchlist ?? []).includes(slug),
+    isWatched: (slug: string) => (watchlist ?? []).includes(normalizeProtocolSlug(slug)),
     initialize: () => initialize.mutate(),
+    initializeAsync,
+    initializeAndAdd,
     isInitializing: initialize.isPending,
-    add: (slug: string) => add.mutate(slug),
-    remove: (slug: string) => remove.mutate(slug),
-    toggle: (slug: string) =>
-      (watchlist ?? []).includes(slug) ? remove.mutate(slug) : add.mutate(slug),
+    add: (slug: string) => add.mutate(normalizeProtocolSlug(slug)),
+    addAsync,
+    remove: (slug: string) => remove.mutate(normalizeProtocolSlug(slug)),
+    removeAsync,
+    toggle: (slug: string) => {
+      const normalizedSlug = normalizeProtocolSlug(slug);
+      return (watchlist ?? []).includes(normalizedSlug)
+        ? remove.mutate(normalizedSlug)
+        : add.mutate(normalizedSlug);
+    },
     needsInit: !!wallet.publicKey && accountNotFound,
   };
 }
