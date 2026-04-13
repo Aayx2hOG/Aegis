@@ -8,6 +8,33 @@ function asNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+type TvlPoint = { date?: number; totalLiquidityUSD?: number };
+
+function deriveTvlChanges(meta: Record<string, unknown>): { change1d: number | null; change7d: number | null; source: string } {
+  const series = ((meta.chainTvls as Record<string, unknown> | undefined)?.Solana as { tvl?: TvlPoint[] } | undefined)?.tvl;
+  const fallback = Array.isArray(meta.tvl) ? (meta.tvl as TvlPoint[]) : undefined;
+  const points = (Array.isArray(series) && series.length > 0 ? series : fallback) ?? [];
+
+  if (points.length < 2) {
+    return { change1d: null, change7d: null, source: 'none' };
+  }
+
+  const latest = asNumber(points[points.length - 1]?.totalLiquidityUSD);
+  const prev1d = asNumber(points[points.length - 2]?.totalLiquidityUSD);
+  const prev7d = points.length >= 8 ? asNumber(points[points.length - 8]?.totalLiquidityUSD) : null;
+
+  const pct = (current: number | null, previous: number | null) => {
+    if (current == null || previous == null || previous === 0) return null;
+    return ((current - previous) / previous) * 100;
+  };
+
+  return {
+    change1d: pct(latest, prev1d),
+    change7d: pct(latest, prev7d),
+    source: Array.isArray(series) && series.length > 0 ? 'chainTvls.Solana.tvl' : 'tvl',
+  };
+}
+
 async function getCoinGeckoMarket(geckoId: string) {
   const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(
     geckoId
@@ -260,6 +287,20 @@ export async function executeTool(
             if (!marketFallback) {
               marketFallback = geckoData;
             }
+            if (tokenPrice && typeof tokenPrice === 'object' && !Array.isArray(tokenPrice)) {
+              const priceRecord = tokenPrice as Record<string, unknown>;
+              tokenPrice = {
+                ...priceRecord,
+                price: asNumber(priceRecord.price) ?? geckoData.price,
+                priceChange24h: asNumber(priceRecord.priceChange24h) ?? geckoData.priceChange24h,
+                volume24h: asNumber(priceRecord.volume24h) ?? geckoData.volume24h,
+                marketCap: asNumber(priceRecord.marketCap) ?? geckoData.marketCap,
+                source:
+                  priceRecord.source === 'coingecko' || !priceRecord.source
+                    ? 'coingecko'
+                    : `${String(priceRecord.source)}+coingecko-fallback`,
+              };
+            }
             if (!mint) {
               tokenPrice = {
                 address: null,
@@ -321,12 +362,24 @@ export async function executeTool(
         if (!metaRes.ok) throw new Error(`DeFiLlama meta error ${metaRes.status}`);
         const currentTvl = (await tvlRes.json()) as number;
         const resolvedMeta = (await metaRes.json()) as Record<string, unknown>;
+        const derived = deriveTvlChanges(resolvedMeta);
+        const change1d = asNumber(resolvedMeta.change_1d) ?? asNumber(meta.change_1d) ?? derived.change1d;
+        const change7d = asNumber(resolvedMeta.change_7d) ?? asNumber(meta.change_7d) ?? derived.change7d;
+
         return {
           slug,
           name: resolvedMeta.name ?? meta.name,
           tvl: currentTvl,
-          change1d: resolvedMeta.change_1d ?? meta.change_1d,
-          change7d: resolvedMeta.change_7d ?? meta.change_7d,
+          change1d,
+          change7d,
+          changeSource:
+            asNumber(resolvedMeta.change_1d) != null || asNumber(meta.change_1d) != null
+              ? 'defillama.change_1d'
+              : derived.source,
+          change7dSource:
+            asNumber(resolvedMeta.change_7d) != null || asNumber(meta.change_7d) != null
+              ? 'defillama.change_7d'
+              : derived.source,
           chains: ((resolvedMeta.chains as string[]) ?? (meta.chains as string[]))?.slice(0, 3),
           category: resolvedMeta.category ?? meta.category,
         };

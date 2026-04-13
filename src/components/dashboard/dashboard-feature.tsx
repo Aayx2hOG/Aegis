@@ -1,26 +1,62 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWatchlist } from '@/hooks/use-watchlist';
+import { useSolanaProtocols } from '@/hooks/use-defillama';
 import type { ResearchBrief } from '@/lib/types/research';
+import type { SolanaProtocol } from '@/lib/types/protocol';
 import { WalletButton } from '@/components/solana/solana-provider';
 import Link from 'next/link';
+import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver';
 import { Activity, ArrowRight, BookOpenText, Radar, ShieldAlert, Telescope } from 'lucide-react';
+
+function formatPct(value: number | null | undefined): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A';
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value.toFixed(1)}%`;
+}
+
+function extractBriefSnapshot(markdown: string): string {
+  const ignoredHeadings = ['overview', 'key metrics', 'on-chain activity', 'risk & opportunity', 'summary verdict'];
+  const lines = markdown.split('\n').map((line) => line.trim());
+
+  for (const raw of lines) {
+    if (!raw || raw === '---') continue;
+    if (raw.startsWith('#')) continue;
+    if (raw.startsWith('|') || raw.startsWith('```')) continue;
+
+    const cleaned = raw.replace(/^[-*]\s+/, '').trim();
+    if (!cleaned) continue;
+    if (ignoredHeadings.includes(cleaned.toLowerCase().replace(/:$/, ''))) continue;
+
+    return cleaned;
+  }
+
+  return 'Signal snapshot is still being assembled. Open Watchlist for full context.';
+}
 
 export function DashboardFeature() {
   const { watchlist, isLoading, isInitializing, initialize, needsInit, isConnected } = useWatchlist();
+  const { data: protocols = [] } = useSolanaProtocols();
   const [briefs, setBriefs] = useState<Record<string, ResearchBrief | 'loading' | 'error'>>({});
 
-  useEffect(() => {
-    if (isLoading || watchlist.length === 0) return;
+  const previewSlugs = useMemo(() => watchlist.slice(0, 3), [watchlist]);
+  const previewRows = useMemo(
+    () => previewSlugs.map((slug) => ({ slug, market: resolveProtocolFromList(slug, protocols) })),
+    [previewSlugs, protocols]
+  );
+  const hiddenCount = Math.max(0, watchlist.length - previewSlugs.length);
 
-    watchlist.forEach((slug) => {
+  useEffect(() => {
+    if (isLoading || previewSlugs.length === 0) return;
+
+    previewSlugs.forEach((slug) => {
       if (!briefs[slug]) {
         fetchBrief(slug);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchlist, isLoading]);
+  }, [previewSlugs, isLoading]);
 
   async function fetchBrief(slug: string) {
     setBriefs((prev) => ({ ...prev, [slug]: 'loading' }));
@@ -134,10 +170,10 @@ export function DashboardFeature() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-zinc-400">
                   <Activity className="h-4 w-4 text-cyan-200" />
-                  Live Watchlist Feed
+                  Live Watchlist Preview
                 </div>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {watchlist.map((slug) => (
+                  {previewRows.map(({ slug, market }) => (
                     <div key={slug} className="glass-card group overflow-hidden rounded-2xl bg-zinc-900/50 shadow-xl transition-all hover:bg-zinc-900/65">
                       <div className="p-6 space-y-4">
                         <div className="flex justify-between items-start">
@@ -157,14 +193,35 @@ export function DashboardFeature() {
                           </div>
                         ) : briefs[slug] ? (
                           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            <p className="text-zinc-400 text-sm line-clamp-3 italic">
-                              {(briefs[slug] as ResearchBrief).brief.split('\n')[0].replace(/^#+\s*/, '')}
+                            <p className="text-zinc-400 text-sm line-clamp-3">
+                              {extractBriefSnapshot((briefs[slug] as ResearchBrief).brief)}
+                            </p>
+                            <div className="grid grid-cols-3 gap-2 rounded-lg bg-zinc-950/70 p-2 text-[11px]">
+                              <div>
+                                <p className="text-zinc-500">TVL</p>
+                                <p className="font-semibold text-zinc-100">{market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-zinc-500">24h</p>
+                                <p className={`font-semibold ${(market?.change_1d ?? 0) < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
+                                  {formatPct(market?.change_1d)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-zinc-500">7d</p>
+                                <p className={`font-semibold ${(market?.change_7d ?? 0) < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
+                                  {formatPct(market?.change_7d)}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-500">
+                              Full diagnostics available in Watchlist
                             </p>
                             <Link
-                              href={`/research?q=${slug}`}
+                              href="/watchlist"
                               className="block rounded-lg bg-zinc-800 py-2 text-center text-xs font-bold transition-colors hover:bg-zinc-700"
                             >
-                              View Full Report
+                              Open Watchlist Workspace
                             </Link>
                           </div>
                         ) : null}
@@ -172,6 +229,11 @@ export function DashboardFeature() {
                     </div>
                   ))}
                 </div>
+                {hiddenCount > 0 && (
+                  <p className="text-xs text-zinc-500">
+                    +{hiddenCount} more protocol{hiddenCount === 1 ? '' : 's'} in your watchlist. Open Watchlist to review complete risk and action controls.
+                  </p>
+                )}
               </div>
             )}
           </>
