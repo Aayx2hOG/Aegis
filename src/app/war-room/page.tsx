@@ -2,12 +2,19 @@
 
 import { Suspense, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import type { PortfolioPosition, ScenarioConfig, SimulationResult } from '@/lib/types/war-room'
+import type { PortfolioPosition, RiskBreakdown, ScenarioConfig, SimulationResult } from '@/lib/types/war-room'
 
-const SCENARIOS: ScenarioConfig[] = [
+type ScenarioPreset = ScenarioConfig & {
+    beginnerLabel: string
+    beginnerSummary: string
+}
+
+const SCENARIOS: ScenarioPreset[] = [
     {
         type: 'market-crash',
-        title: 'SOL Flash Crash + Liquidity Gap',
+        title: 'Sudden SOL Price Drop',
+        beginnerLabel: 'Market drop day',
+        beginnerSummary: 'SOL falls quickly and selling gets harder for a short period.',
         marketShockPct: 32,
         stablecoinDepegPct: 0,
         liquidityDropPct: 45,
@@ -16,7 +23,9 @@ const SCENARIOS: ScenarioConfig[] = [
     },
     {
         type: 'stablecoin-depeg',
-        title: 'Stablecoin Depeg Spiral',
+        title: 'Stablecoin Loses Its Peg',
+        beginnerLabel: 'Stablecoin stress day',
+        beginnerSummary: 'A major stablecoin moves away from $1 and confidence drops.',
         marketShockPct: 16,
         stablecoinDepegPct: 14,
         liquidityDropPct: 28,
@@ -25,7 +34,9 @@ const SCENARIOS: ScenarioConfig[] = [
     },
     {
         type: 'smart-contract-incident',
-        title: 'Major Protocol Exploit Rumor',
+        title: 'Protocol Incident Scare',
+        beginnerLabel: 'Protocol incident day',
+        beginnerSummary: 'Exploit rumors spread and people rush to exit risky pools.',
         marketShockPct: 24,
         stablecoinDepegPct: 3,
         liquidityDropPct: 38,
@@ -117,6 +128,40 @@ function formatCurrency(value: number): string {
     }).format(value)
 }
 
+function formatPercent(value: number): string {
+    return `${value.toFixed(1)}%`
+}
+
+function getVolatilityLabel(volatility: number): 'Low' | 'Medium' | 'High' {
+    if (volatility < 35) return 'Low'
+    if (volatility < 70) return 'Medium'
+    return 'High'
+}
+
+function getRiskBand(score: number): { label: 'Low' | 'Medium' | 'High'; color: string } {
+    if (score < 34) return { label: 'Low', color: 'text-emerald-300' }
+    if (score < 67) return { label: 'Medium', color: 'text-amber-300' }
+    return { label: 'High', color: 'text-rose-300' }
+}
+
+function getTopRiskDrivers(risk: RiskBreakdown, limit = 3): Array<{ key: string; value: number }> {
+    const pairs = [
+        { key: 'Market swings', value: risk.marketRisk },
+        { key: 'Low liquidity', value: risk.liquidityRisk },
+        { key: 'Single protocol concentration', value: risk.concentrationRisk },
+        { key: 'Forced close risk', value: risk.liquidationRisk },
+        { key: 'Smart contract risk', value: risk.smartContractRisk },
+    ]
+
+    return pairs.sort((a, b) => b.value - a.value).slice(0, limit)
+}
+
+function getUrgencyTag(riskReduction: number): 'High Priority' | 'Medium Priority' | 'Good To Have' {
+    if (riskReduction >= 20) return 'High Priority'
+    if (riskReduction >= 10) return 'Medium Priority'
+    return 'Good To Have'
+}
+
 export default function WarRoomPage() {
     return (
         <Suspense
@@ -142,9 +187,14 @@ function WarRoomContent() {
     const [result, setResult] = useState<SimulationResult | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [beginnerMode, setBeginnerMode] = useState(true)
 
     const totalValue = useMemo(() => positions.reduce((acc, p) => acc + p.usdValue, 0), [positions])
     const selectedScenario = SCENARIOS[selectedScenarioIdx]
+    const topDrivers = useMemo(
+        () => (result ? getTopRiskDrivers(result.riskBreakdown) : []),
+        [result]
+    )
 
     async function runSimulation() {
         setLoading(true)
@@ -183,21 +233,51 @@ function WarRoomContent() {
             <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 md:px-6 md:py-14">
                 <header className="space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300/80">Aegis War Room</p>
-                    <h1 className="text-4xl md:text-5xl font-black tracking-tight">Protocol Digital Twin + Crisis Simulator</h1>
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight">See How Your Portfolio Handles a Bad Market Day</h1>
                     <p className="text-zinc-300 max-w-3xl">
-                        Simulate portfolio stress scenarios, measure liquidation risk in seconds, and produce action playbooks before market chaos hits.
+                        Pick a stress event, run a simulation, and get clear next steps to reduce potential losses.
                     </p>
-                    {focusedProtocol && (
-                        <div className="inline-flex items-center gap-2 rounded-lg bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100">
-                            Focused Protocol: {focusedProtocol}
-                        </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {focusedProtocol && (
+                            <div className="inline-flex items-center gap-2 rounded-lg bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100">
+                                Focused Protocol: {focusedProtocol}
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setBeginnerMode((current) => !current)}
+                            className="inline-flex items-center gap-2 rounded-lg border border-cyan-200/30 bg-cyan-100/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100"
+                        >
+                            Beginner Mode: {beginnerMode ? 'On' : 'Off'}
+                        </button>
+                    </div>
                 </header>
+
+                <section className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md">
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-300">How It Works</h2>
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                        <div className="rounded-xl bg-zinc-900/65 p-3">
+                            <p className="text-xs text-zinc-400">Step 1</p>
+                            <p className="mt-1 text-sm font-semibold">Review your holdings</p>
+                            <p className="mt-1 text-xs text-zinc-400">Adjust the USD amount to match your current exposure.</p>
+                        </div>
+                        <div className="rounded-xl bg-zinc-900/65 p-3">
+                            <p className="text-xs text-zinc-400">Step 2</p>
+                            <p className="mt-1 text-sm font-semibold">Choose a stress event</p>
+                            <p className="mt-1 text-xs text-zinc-400">Select one scenario to test how your positions may react.</p>
+                        </div>
+                        <div className="rounded-xl bg-zinc-900/65 p-3">
+                            <p className="text-xs text-zinc-400">Step 3</p>
+                            <p className="mt-1 text-sm font-semibold">Follow suggested actions</p>
+                            <p className="mt-1 text-xs text-zinc-400">Use ranked actions to lower risk before real volatility appears.</p>
+                        </div>
+                    </div>
+                </section>
 
                 <section className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     <div className="lg:col-span-3 rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
                         <div className="flex items-center justify-between">
-                            <h2 className="font-bold text-lg">Treasury Exposure Map</h2>
+                            <h2 className="font-bold text-lg">Your Current Holdings</h2>
                             <span className="text-xs text-zinc-400">Total: {formatCurrency(totalValue)}</span>
                         </div>
 
@@ -208,7 +288,11 @@ function WarRoomContent() {
                                         <p className="font-semibold text-sm">{position.label}</p>
                                         <p className="text-xs text-zinc-400 uppercase tracking-wide">{position.protocol} • {position.kind}</p>
                                     </div>
-                                    <div className="md:col-span-2 text-xs text-zinc-400">Volatility {position.volatility}%</div>
+                                    <div className="md:col-span-2 text-xs text-zinc-400">
+                                        {beginnerMode
+                                            ? `Price swings: ${getVolatilityLabel(position.volatility)}`
+                                            : `Volatility ${position.volatility}%`}
+                                    </div>
                                     <div className="md:col-span-2">
                                         <input
                                             type="number"
@@ -225,7 +309,7 @@ function WarRoomContent() {
                     </div>
 
                     <div className="lg:col-span-2 rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
-                        <h2 className="font-bold text-lg">Shock Scenario</h2>
+                        <h2 className="font-bold text-lg">Choose a Stress Event</h2>
 
                         <div className="space-y-2">
                             {SCENARIOS.map((scenario, idx) => (
@@ -237,8 +321,14 @@ function WarRoomContent() {
                                         : 'bg-zinc-900/70 text-zinc-300 hover:bg-zinc-800/80'
                                         }`}
                                 >
-                                    <p className="text-sm font-semibold">{scenario.title}</p>
-                                    <p className="text-xs text-zinc-400 mt-1">Market -{scenario.marketShockPct}% • Liquidity -{scenario.liquidityDropPct}%</p>
+                                    <p className="text-sm font-semibold">
+                                        {beginnerMode ? scenario.beginnerLabel : scenario.title}
+                                    </p>
+                                    <p className="text-xs text-zinc-400 mt-1">
+                                        {beginnerMode
+                                            ? scenario.beginnerSummary
+                                            : `Market -${scenario.marketShockPct}% • Liquidity -${scenario.liquidityDropPct}%`}
+                                    </p>
                                 </button>
                             ))}
                         </div>
@@ -248,7 +338,7 @@ function WarRoomContent() {
                             disabled={loading}
                             className="w-full rounded-xl bg-cyan-300 py-3 font-black tracking-wide text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-60"
                         >
-                            {loading ? 'Simulating Crisis...' : 'Run War-Game Simulation'}
+                            {loading ? 'Running Simulation...' : 'Show My Risk Outcome'}
                         </button>
 
                         {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -257,41 +347,97 @@ function WarRoomContent() {
 
                 {result && (
                     <section className="space-y-6 animate-in fade-in duration-500">
+                        <div className="rounded-2xl bg-cyan-300/10 p-4 ring-1 ring-cyan-200/20">
+                            <p className="text-sm text-cyan-100">
+                                In this scenario, your portfolio may drop about{' '}
+                                <span className="font-semibold">{formatPercent(result.summary.projectedDrawdownPct)}</span>
+                                {' '}({formatCurrency(result.summary.valueAtRiskUsd)}). The biggest pressure comes from{' '}
+                                <span className="font-semibold">{topDrivers[0]?.key ?? 'overall market risk'}</span>.
+                            </p>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <MetricCard label="Portfolio Value" value={formatCurrency(result.summary.portfolioValueUsd)} />
-                            <MetricCard label="Projected Value" value={formatCurrency(result.summary.projectedValueUsd)} />
-                            <MetricCard label="Value at Risk" value={formatCurrency(result.summary.valueAtRiskUsd)} accent="text-rose-300" />
-                            <MetricCard label="Drawdown" value={`${result.summary.projectedDrawdownPct}%`} accent="text-rose-300" />
+                            <MetricCard
+                                label="Current Portfolio Value"
+                                value={formatCurrency(result.summary.portfolioValueUsd)}
+                                helper="Your current modeled portfolio value."
+                            />
+                            <MetricCard
+                                label="Estimated Value After Event"
+                                value={formatCurrency(result.summary.projectedValueUsd)}
+                                helper="Approximate value if this scenario happens."
+                            />
+                            <MetricCard
+                                label="Estimated Possible Loss"
+                                value={formatCurrency(result.summary.valueAtRiskUsd)}
+                                helper="Potential portfolio value decrease in this simulation."
+                                accent="text-rose-300"
+                            />
+                            <MetricCard
+                                label="Estimated Drop"
+                                value={formatPercent(result.summary.projectedDrawdownPct)}
+                                helper="Percentage drop from current portfolio value."
+                                accent="text-rose-300"
+                            />
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                             <div className="lg:col-span-2 rounded-2xl bg-zinc-900/60 p-5 space-y-3">
-                                <h3 className="font-bold">Risk Delta</h3>
-                                <p className="text-sm text-zinc-300">Before shock: <span className="font-semibold">{result.summary.riskScoreBefore}</span></p>
-                                <p className="text-sm text-zinc-300">After shock: <span className="font-semibold text-amber-300">{result.summary.riskScoreAfterShock}</span></p>
-                                <p className="text-sm text-zinc-300">Liquidation probability: <span className="font-semibold text-rose-300">{result.summary.liquidationProbabilityPct}%</span></p>
+                                <h3 className="font-bold">Risk Change Summary</h3>
+                                <p className="text-sm text-zinc-300">
+                                    Before event:{' '}
+                                    <span className="font-semibold">
+                                        {result.summary.riskScoreBefore} ({getRiskBand(result.summary.riskScoreBefore).label})
+                                    </span>
+                                </p>
+                                <p className="text-sm text-zinc-300">
+                                    After event:{' '}
+                                    <span className={`font-semibold ${getRiskBand(result.summary.riskScoreAfterShock).color}`}>
+                                        {result.summary.riskScoreAfterShock} ({getRiskBand(result.summary.riskScoreAfterShock).label})
+                                    </span>
+                                </p>
+                                <p className="text-sm text-zinc-300">
+                                    Chance of forced position close:{' '}
+                                    <span className="font-semibold text-rose-300">{formatPercent(result.summary.liquidationProbabilityPct)}</span>
+                                </p>
 
-                                <div className="pt-2 space-y-2 text-xs text-zinc-400">
-                                    <p>Market risk: {result.riskBreakdown.marketRisk}</p>
-                                    <p>Liquidity risk: {result.riskBreakdown.liquidityRisk}</p>
-                                    <p>Concentration risk: {result.riskBreakdown.concentrationRisk}</p>
-                                    <p>Liquidation risk: {result.riskBreakdown.liquidationRisk}</p>
-                                    <p>Smart contract risk: {result.riskBreakdown.smartContractRisk}</p>
-                                </div>
+                                {beginnerMode ? (
+                                    <div className="pt-2 space-y-2 text-xs text-zinc-300">
+                                        <p className="font-semibold text-zinc-200">Top risk drivers</p>
+                                        {topDrivers.map((driver) => (
+                                            <p key={driver.key}>
+                                                {driver.key}: <span className={getRiskBand(driver.value).color}>{driver.value}</span>
+                                            </p>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="pt-2 space-y-2 text-xs text-zinc-400">
+                                        <p>Market risk: {result.riskBreakdown.marketRisk}</p>
+                                        <p>Liquidity risk: {result.riskBreakdown.liquidityRisk}</p>
+                                        <p>Concentration risk: {result.riskBreakdown.concentrationRisk}</p>
+                                        <p>Liquidation risk: {result.riskBreakdown.liquidationRisk}</p>
+                                        <p>Smart contract risk: {result.riskBreakdown.smartContractRisk}</p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="lg:col-span-3 rounded-2xl bg-zinc-900/60 p-5">
-                                <h3 className="font-bold mb-4">AI Action Playbook (Ranked)</h3>
+                                <h3 className="font-bold mb-4">Recommended Next Steps</h3>
                                 <div className="space-y-3">
                                     {result.topActions.map((action) => (
                                         <div key={action.id} className="rounded-xl p-4 bg-zinc-900/70">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <p className="font-semibold text-cyan-200">{action.title}</p>
-                                                <p className="text-xs text-zinc-400">Confidence {(action.impact.confidence * 100).toFixed(0)}%</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="rounded-full bg-zinc-800 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-300">
+                                                        {getUrgencyTag(action.impact.riskReduction)}
+                                                    </span>
+                                                    <p className="text-xs text-zinc-400">Model confidence {(action.impact.confidence * 100).toFixed(0)}%</p>
+                                                </div>
                                             </div>
                                             <p className="text-sm text-zinc-300 mt-2">{action.rationale}</p>
                                             <p className="text-xs text-zinc-400 mt-3">
-                                                Estimated risk reduction: {action.impact.riskReduction} points • Estimated cost: {formatCurrency(action.impact.estimatedCostUsd)}
+                                                Expected risk reduction: {action.impact.riskReduction} points • Estimated cost: {formatCurrency(action.impact.estimatedCostUsd)}
                                             </p>
                                         </div>
                                     ))}
@@ -305,11 +451,22 @@ function WarRoomContent() {
     )
 }
 
-function MetricCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function MetricCard({
+    label,
+    value,
+    helper,
+    accent,
+}: {
+    label: string
+    value: string
+    helper: string
+    accent?: string
+}) {
     return (
         <div className="rounded-xl bg-zinc-950/70 p-4">
             <p className="text-xs uppercase tracking-widest text-zinc-500">{label}</p>
             <p className={`text-2xl font-black mt-2 ${accent ?? 'text-zinc-100'}`}>{value}</p>
+            <p className="mt-2 text-xs text-zinc-400">{helper}</p>
         </div>
     )
 }

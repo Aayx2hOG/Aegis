@@ -116,8 +116,8 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
     const actions: RiskAction[] = [
         {
             id: 'hedge-beta',
-            title: 'Deploy Dynamic Hedge Overlay',
-            rationale: 'Reduce portfolio beta using perp hedges against SOL and high-beta DeFi governance tokens.',
+            title: 'Protect Part of Your Portfolio With a Hedge',
+            rationale: 'Use simple downside protection on SOL and other volatile tokens so losses are smaller during sharp drops.',
             impact: {
                 riskReduction: round(risk.marketRisk * 0.25),
                 estimatedCostUsd: round((largest?.usdValue ?? 0) * 0.004),
@@ -126,8 +126,8 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
         },
         {
             id: 'rebalance-concentration',
-            title: 'Cap Single-Protocol Exposure',
-            rationale: `Largest protocol concentration is ${protocolShare}%. Rebalance into uncorrelated venues to reduce single-point failure.`,
+            title: 'Spread Funds Across More Than One Protocol',
+            rationale: `About ${protocolShare}% of exposure is concentrated in one protocol. Splitting that exposure lowers single-point failure risk.`,
             impact: {
                 riskReduction: round(risk.concentrationRisk * 0.3),
                 estimatedCostUsd: round((largest?.usdValue ?? 0) * 0.0025),
@@ -136,8 +136,8 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
         },
         {
             id: 'raise-collateral-buffer',
-            title: 'Raise Collateral Buffer by 12%',
-            rationale: 'Improve liquidation resilience under oracle lag and sharp drawdowns by reducing borrowed notional.',
+            title: 'Increase Safety Buffer on Borrowed Positions',
+            rationale: 'Add extra collateral or reduce borrow size so positions are less likely to be force-closed during fast moves.',
             impact: {
                 riskReduction: round(risk.liquidationRisk * 0.35),
                 estimatedCostUsd: round((positions.reduce((acc, p) => acc + p.usdValue, 0) * 0.0018)),
@@ -146,8 +146,8 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
         },
         {
             id: 'emergency-runbook',
-            title: 'Enable Incident Runbook Automations',
-            rationale: 'Set trigger-based response flows for depeg, exploit rumors, and TVL freefall to cut human latency.',
+            title: 'Set Automatic Alerts and Emergency Actions',
+            rationale: 'Create automatic alerts and predefined actions for depegs, exploit news, and liquidity drops to respond faster.',
             impact: {
                 riskReduction: round((risk.smartContractRisk + risk.liquidityRisk) * 0.15),
                 estimatedCostUsd: 0,
