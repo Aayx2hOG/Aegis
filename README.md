@@ -23,6 +23,26 @@ pnpm create solana-dapp@latest -t gh:solana-foundation/templates/web3js/agentic_
 pnpm install
 ```
 
+### Environment Variables
+
+Create a `.env.local` file with:
+
+```shell
+GROQ_API_KEY=your_groq_key
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public
+```
+
+`DATABASE_URL` enables persistent research history and alert rules/events.
+
+### Prisma Setup (Postgres)
+
+After setting `DATABASE_URL`, run:
+
+```shell
+bun run prisma:generate
+bun run prisma:migrate --name init_history_alerts
+```
+
 ## Apps
 
 ### anchor

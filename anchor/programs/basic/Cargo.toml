@@ -23,4 +23,3 @@ anchor-lang = "0.32.1"
 # versions that contain the APIs it uses (store_current_index_checked, resize)
 solana-instructions-sysvar = ">=2.2.2"
 solana-account-info = ">=2.3.0"
-

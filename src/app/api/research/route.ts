@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { runResearchAgent } from '@/lib/ai/aegis-research-agent';
+import { prisma } from '@/lib/db/prisma';
+import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
 
 function compactError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
@@ -16,12 +19,29 @@ function compactError(err: unknown): string {
 // Body: { protocol: string }
 export async function POST(req: NextRequest) {
   try {
-    const { protocol } = await req.json();
+    const { protocol, walletAddress } = (await req.json()) as Partial<{ protocol: string; walletAddress: string }>;
     if (!protocol || typeof protocol !== 'string') {
       return Response.json({ error: 'protocol name required' }, { status: 400 });
     }
 
-    const brief = await runResearchAgent(protocol.trim().toLowerCase());
+    const normalizedProtocol = normalizeProtocolSlug(protocol);
+    const brief = await runResearchAgent(normalizedProtocol);
+
+    if (prisma) {
+      try {
+        await prisma.researchRun.create({
+          data: {
+            walletAddress: walletAddress?.trim() || null,
+            protocolSlug: normalizedProtocol,
+            briefMarkdown: brief.brief,
+            toolCalls: brief.toolCalls as unknown as Prisma.InputJsonValue,
+          },
+        });
+      } catch (persistErr) {
+        console.error('[/api/research] failed to persist run', persistErr);
+      }
+    }
+
     return Response.json(brief);
   } catch (err) {
     console.error('[/api/research]', err);

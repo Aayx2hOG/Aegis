@@ -1,0 +1,112 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum AlertMetric {
+    CHANGE_1D
+    CHANGE_7D
+}
+
+enum AlertDirection {
+    BELOW
+    ABOVE
+}
+
+enum ClusterName {
+    DEVNET
+    TESTNET
+    MAINNET_BETA
+    LOCAL
+}
+
+model ResearchRun {
+    id            String   @id @default(cuid())
+    walletAddress String?
+    protocolSlug  String
+    briefMarkdown String
+    toolCalls     Json
+    createdAt     DateTime @default(now())
+
+    @@index([walletAddress, createdAt])
+    @@index([protocolSlug, createdAt])
+}
+
+model AlertRule {
+    id              String         @id @default(cuid())
+    walletAddress   String
+    protocolSlug    String
+    metric          AlertMetric
+    threshold       Float
+    direction       AlertDirection
+    enabled         Boolean        @default(true)
+    lastTriggeredAt DateTime?
+    createdAt       DateTime       @default(now())
+    updatedAt       DateTime       @updatedAt
+    events          AlertEvent[]
+
+    @@index([walletAddress, enabled])
+    @@index([protocolSlug])
+}
+
+model AlertEvent {
+    id            String         @id @default(cuid())
+    ruleId        String
+    walletAddress String
+    protocolSlug  String
+    metric        AlertMetric
+    threshold     Float
+    direction     AlertDirection
+    currentValue  Float
+    triggeredAt   DateTime       @default(now())
+
+    rule AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+    @@index([walletAddress, triggeredAt])
+    @@index([ruleId, triggeredAt])
+}
+
+model WalletProfile {
+    walletAddress String   @id
+    displayName   String?
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
+    watchlistItems WatchlistItem[]
+
+    @@index([createdAt])
+}
+
+model WatchlistItem {
+    id            String      @id @default(cuid())
+    walletAddress String
+    cluster       ClusterName
+    protocolSlug  String
+    source        String      @default("app")
+    createdAt     DateTime    @default(now())
+    updatedAt     DateTime    @updatedAt
+
+    wallet WalletProfile @relation(fields: [walletAddress], references: [walletAddress], onDelete: Cascade)
+
+    @@unique([walletAddress, cluster, protocolSlug])
+    @@index([walletAddress, cluster])
+    @@index([protocolSlug, cluster])
+}
+
+model ProtocolSnapshot {
+    id           String      @id @default(cuid())
+    protocolSlug String
+    cluster      ClusterName
+    tvlUsd       Float?
+    change1dPct  Float?
+    change7dPct  Float?
+    source       String      @default("defillama")
+    capturedAt   DateTime    @default(now())
+
+    @@index([protocolSlug, cluster, capturedAt])
+    @@index([capturedAt])
+}

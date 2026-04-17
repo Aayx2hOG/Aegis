@@ -12,6 +12,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
 
 const QUICK_PICKS = ['raydium', 'orca', 'marinade', 'jito', 'kamino', 'drift', 'marginfi'];
@@ -29,6 +30,7 @@ export default function ResearchPage() {
 }
 
 function ResearchContent() {
+  const wallet = useWallet();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
@@ -134,7 +136,10 @@ function ResearchContent() {
       const res = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ protocol: normalizedProtocol }),
+        body: JSON.stringify({
+          protocol: normalizedProtocol,
+          walletAddress: wallet.publicKey?.toBase58(),
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data: ResearchBrief = await res.json();
