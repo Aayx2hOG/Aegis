@@ -357,7 +357,7 @@ export default function WatchlistPage() {
 
                         {dbStatus && (
                             <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-                                {dbStatus} Set DATABASE_URL and run Prisma migration to enable history + alerts.
+                                {dbStatus}
                             </div>
                         )}
 

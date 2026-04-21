@@ -1,5 +1,6 @@
 import { AlertDirection, AlertMetric } from '@prisma/client';
 import { NextRequest } from 'next/server';
+import { getDatabaseSetupErrorMessage } from '@/lib/db/prisma-errors';
 import { prisma } from '@/lib/db/prisma';
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
 
@@ -13,7 +14,7 @@ function isAlertDirection(value: string): value is AlertDirection {
 
 export async function GET(req: NextRequest) {
     if (!prisma) {
-        return Response.json({ error: 'DATABASE_URL is not configured.' }, { status: 503 });
+        return Response.json({ error: 'Database is not configured. Set DATABASE_URL or POSTGRES_PRISMA_URL.' }, { status: 503 });
     }
 
     const url = new URL(req.url);
@@ -23,19 +24,28 @@ export async function GET(req: NextRequest) {
         return Response.json({ error: 'walletAddress is required' }, { status: 400 });
     }
 
-    const [rules, recentEvents] = await Promise.all([
-        prisma.alertRule.findMany({
-            where: { walletAddress },
-            orderBy: { createdAt: 'desc' },
-        }),
-        prisma.alertEvent.findMany({
-            where: { walletAddress },
-            orderBy: { triggeredAt: 'desc' },
-            take: 15,
-        }),
-    ]);
+    try {
+        const [rules, recentEvents] = await Promise.all([
+            prisma.alertRule.findMany({
+                where: { walletAddress },
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma.alertEvent.findMany({
+                where: { walletAddress },
+                orderBy: { triggeredAt: 'desc' },
+                take: 15,
+            }),
+        ]);
 
-    return Response.json({ rules, recentEvents });
+        return Response.json({ rules, recentEvents });
+    } catch (err) {
+        const setupError = getDatabaseSetupErrorMessage(err);
+        if (setupError) {
+            return Response.json({ error: setupError }, { status: 503 });
+        }
+
+        return Response.json({ error: 'Alerts unavailable.' }, { status: 500 });
+    }
 }
 
 export async function POST(req: NextRequest) {
