@@ -34,6 +34,17 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public
 
 `DATABASE_URL` enables persistent research history and alert rules/events.
 
+When using Vercel Postgres, you can map `DATABASE_URL` to Vercel's provided variable:
+
+```shell
+DATABASE_URL=$POSTGRES_PRISMA_URL
+```
+
+The app also supports these fallbacks at runtime if `DATABASE_URL` is missing:
+
+- `POSTGRES_PRISMA_URL`
+- `POSTGRES_URL`
+
 ### Prisma Setup (Postgres)
 
 After setting `DATABASE_URL`, run:
@@ -42,6 +53,18 @@ After setting `DATABASE_URL`, run:
 bun run prisma:generate
 bun run prisma:migrate --name init_history_alerts
 ```
+
+For production deployments (Vercel), use deploy migrations instead of `migrate dev`:
+
+```shell
+npm run prisma:migrate:deploy
+```
+
+Recommended Vercel settings:
+
+- Add `DATABASE_URL` in Vercel Project Settings -> Environment Variables.
+- Set it to `POSTGRES_PRISMA_URL` for runtime queries.
+- Run `npm run prisma:migrate:deploy` in CI or as a pre-deploy step when new migrations are added.
 
 ## Apps
 
