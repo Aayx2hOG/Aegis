@@ -3,6 +3,16 @@ import type { TokenPrice } from '@/lib/types/protocol';
 const BASE = 'https://public-api.birdeye.so';
 const KEY = process.env.BIRDEYE_API_KEY!;
 
+function asNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function asPositiveNumber(value: unknown): number | null {
+  const parsed = asNumber(value);
+  return parsed != null && parsed > 0 ? parsed : null;
+}
+
 export async function getTokenPrice(address: string): Promise<TokenPrice> {
   const res = await fetch(`${BASE}/defi/price?address=${address}`, {
     headers: { 'X-API-KEY': KEY },
@@ -13,10 +23,10 @@ export async function getTokenPrice(address: string): Promise<TokenPrice> {
   return {
     address,
     symbol: data.symbol ?? '',
-    price: data.value ?? 0,
-    priceChange24h: data.priceChange24h ?? 0,
-    volume24h: data.v24hUSD ?? 0,
-    marketCap: data.mc ?? null,
-    liquidity: data.liquidity ?? null,
+    price: asPositiveNumber(data.value) ?? 0,
+    priceChange24h: asNumber(data.priceChange24h) ?? 0,
+    volume24h: asPositiveNumber(data.v24hUSD),
+    marketCap: asPositiveNumber(data.mc),
+    liquidity: asPositiveNumber(data.liquidity),
   };
 }

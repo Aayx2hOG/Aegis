@@ -15,7 +15,20 @@ import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
 
-const QUICK_PICKS = ['raydium', 'orca', 'marinade', 'jito', 'kamino', 'drift', 'marginfi'];
+const AVAILABLE_PROTOCOLS = [
+  { slug: 'raydium', note: 'AMM + liquidity routing' },
+  { slug: 'orca', note: 'Concentrated liquidity DEX' },
+  { slug: 'marinade', note: 'Liquid staking ecosystem' },
+  { slug: 'jito', note: 'MEV and validator infrastructure' },
+  { slug: 'kamino', note: 'Lending and vault strategies' },
+  { slug: 'drift', note: 'Perpetuals and advanced trading' },
+  { slug: 'marginfi', note: 'Lending market and risk engine' },
+] as const;
+
+function formatProtocolName(name: string): string {
+  if (!name) return '';
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
 
 export default function ResearchPage() {
   return (
@@ -216,20 +229,75 @@ function ResearchContent() {
 
 
             <div className="flex flex-wrap items-center gap-3 px-1">
-              <span className="text-xs font-bold text-zinc-500 uppercase tracking-tighter">Popular:</span>
-              {QUICK_PICKS.map((p) => (
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-tighter">Available protocols:</span>
+              {AVAILABLE_PROTOCOLS.map((protocol) => (
                 <button
-                  key={p}
+                  key={protocol.slug}
                   className="px-3 py-1 rounded-md text-xs font-semibold bg-zinc-800/60 hover:bg-zinc-700/70 text-zinc-300 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-                  onClick={() => { setQuery(p); runResearch(p); }}
+                  onClick={() => { setQuery(protocol.slug); runResearch(protocol.slug); }}
                   disabled={loading}
                 >
-                  {p}
+                  {formatProtocolName(protocol.slug)}
                 </button>
               ))}
             </div>
           </div>
         </section>
+
+        {/* Empty State */}
+        {!loading && !brief && !error && (
+          <section className="animate-in fade-in slide-in-from-bottom-3 duration-500">
+            <div className="rounded-3xl border border-zinc-800/80 bg-zinc-900/35 p-6 shadow-xl backdrop-blur-xl md:p-8">
+              <div className="grid gap-8 md:grid-cols-[1.2fr_1fr]">
+                <div className="space-y-4">
+                  <div className="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-cyan-100">
+                    Ready to Research
+                  </div>
+                  <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+                    Start with any supported Solana protocol.
+                  </h2>
+                  <p className="max-w-xl text-sm leading-6 text-zinc-300 md:text-base">
+                    Enter a protocol slug, or tap one of the accessible options to generate a full brief with market context, on-chain signals, and actionable risks to review.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {AVAILABLE_PROTOCOLS.slice(0, 4).map((protocol) => (
+                      <button
+                        key={`empty-${protocol.slug}`}
+                        onClick={() => {
+                          setQuery(protocol.slug);
+                          runResearch(protocol.slug);
+                        }}
+                        disabled={loading}
+                        className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-zinc-900"
+                      >
+                        <div className="text-sm font-bold text-zinc-100">{formatProtocolName(protocol.slug)}</div>
+                        <div className="mt-1 text-xs text-zinc-400">{protocol.note}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/45 p-4 md:p-5">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">How it works</h3>
+                  <div className="mt-4 space-y-3 text-sm text-zinc-300">
+                    <p className="rounded-lg bg-zinc-900/70 px-3 py-2">
+                      1. Choose a supported protocol.
+                    </p>
+                    <p className="rounded-lg bg-zinc-900/70 px-3 py-2">
+                      2. Aegis fetches current market + on-chain context.
+                    </p>
+                    <p className="rounded-lg bg-zinc-900/70 px-3 py-2">
+                      3. You get a structured brief and auditable tool trace.
+                    </p>
+                  </div>
+                  <div className="mt-5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400">
+                    Tip: protocol slugs are lowercase in the input, but names are displayed with uppercase initials for readability.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Active Thinking State */}
         {loading && (

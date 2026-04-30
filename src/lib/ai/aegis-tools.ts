@@ -8,6 +8,22 @@ function asNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function pickFinite(...values: unknown[]): number | null {
+  for (const value of values) {
+    const parsed = asNumber(value);
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+function pickPositive(...values: unknown[]): number | null {
+  for (const value of values) {
+    const parsed = asNumber(value);
+    if (parsed != null && parsed > 0) return parsed;
+  }
+  return null;
+}
+
 type TvlPoint = { date?: number; totalLiquidityUSD?: number };
 
 function deriveTvlChanges(meta: Record<string, unknown>): { change1d: number | null; change7d: number | null; source: string } {
@@ -50,6 +66,31 @@ async function getCoinGeckoMarket(geckoId: string) {
     priceChange24h: asNumber(entry.usd_24h_change),
     volume24h: asNumber(entry.usd_24h_vol),
     marketCap: asNumber(entry.usd_market_cap),
+  };
+}
+
+async function getCoinGeckoMarketByContract(mint: string) {
+  const url = `https://api.coingecko.com/api/v3/coins/solana/contract/${encodeURIComponent(mint)}`;
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) throw new Error(`CoinGecko contract market error ${res.status}`);
+  const data = (await res.json()) as {
+    market_data?: {
+      current_price?: { usd?: unknown };
+      price_change_percentage_24h?: unknown;
+      total_volume?: { usd?: unknown };
+      market_cap?: { usd?: unknown };
+    };
+  };
+
+  const marketData = data.market_data;
+  if (!marketData) return null;
+
+  return {
+    source: 'coingecko-contract',
+    price: asNumber(marketData.current_price?.usd),
+    priceChange24h: asNumber(marketData.price_change_percentage_24h),
+    volume24h: asNumber(marketData.total_volume?.usd),
+    marketCap: asNumber(marketData.market_cap?.usd),
   };
 }
 
@@ -236,11 +277,12 @@ export async function executeTool(
         let txFallback: unknown = null;
 
         if (mint) {
-          const [priceResult, jupiterResult, txResult, metadataResult] = await Promise.allSettled([
+          const [priceResult, jupiterResult, txResult, metadataResult, geckoContractResult] = await Promise.allSettled([
             getTokenPrice(mint),
             fetchWithTimeout(`https://api.jup.ag/price/v2?ids=${mint}`),
             getRecentTransactions(mint, 5),
             getTokenMetadata(mint),
+            getCoinGeckoMarketByContract(mint),
           ]);
 
           tokenPrice = priceResult.status === 'fulfilled' ? priceResult.value : { error: String(priceResult.reason) };
@@ -277,6 +319,10 @@ export async function executeTool(
               }))
               : { error: String(txResult.reason) };
           tokenMetadata = metadataResult.status === 'fulfilled' ? metadataResult.value : { error: String(metadataResult.reason) };
+
+          if (geckoContractResult.status === 'fulfilled' && geckoContractResult.value) {
+            marketFallback = geckoContractResult.value;
+          }
         }
 
         const geckoId = String(meta.gecko_id ?? '').trim();
@@ -284,36 +330,62 @@ export async function executeTool(
           const gecko = await Promise.allSettled([getCoinGeckoMarket(geckoId)]);
           if (gecko[0].status === 'fulfilled' && gecko[0].value) {
             const geckoData = gecko[0].value;
-            if (!marketFallback) {
-              marketFallback = geckoData;
-            }
+            const contractMarket = marketFallback && typeof marketFallback === 'object' && !Array.isArray(marketFallback)
+              ? (marketFallback as Record<string, unknown>)
+              : {};
+
+            marketFallback = {
+              source: contractMarket.source ? `${String(contractMarket.source)}+coingecko` : 'coingecko',
+              price: pickPositive(contractMarket.price, geckoData.price),
+              priceChange24h: pickFinite(contractMarket.priceChange24h, geckoData.priceChange24h),
+              volume24h: pickPositive(contractMarket.volume24h, geckoData.volume24h),
+              marketCap: pickPositive(contractMarket.marketCap, geckoData.marketCap),
+            };
+
             if (tokenPrice && typeof tokenPrice === 'object' && !Array.isArray(tokenPrice)) {
               const priceRecord = tokenPrice as Record<string, unknown>;
+              const fallbackMarket = marketFallback as Record<string, unknown>;
               tokenPrice = {
                 ...priceRecord,
-                price: asNumber(priceRecord.price) ?? geckoData.price,
-                priceChange24h: asNumber(priceRecord.priceChange24h) ?? geckoData.priceChange24h,
-                volume24h: asNumber(priceRecord.volume24h) ?? geckoData.volume24h,
-                marketCap: asNumber(priceRecord.marketCap) ?? geckoData.marketCap,
+                price: pickPositive(priceRecord.price, fallbackMarket.price),
+                priceChange24h: pickFinite(priceRecord.priceChange24h, fallbackMarket.priceChange24h),
+                volume24h: pickPositive(priceRecord.volume24h, fallbackMarket.volume24h),
+                marketCap: pickPositive(priceRecord.marketCap, meta.mcap, fallbackMarket.marketCap),
                 source:
                   priceRecord.source === 'coingecko' || !priceRecord.source
                     ? 'coingecko'
-                    : `${String(priceRecord.source)}+coingecko-fallback`,
+                    : `${String(priceRecord.source)}+market-fallback`,
               };
             }
             if (!mint) {
               tokenPrice = {
                 address: null,
                 symbol: meta.symbol,
-                price: geckoData.price,
-                priceChange24h: geckoData.priceChange24h,
-                volume24h: geckoData.volume24h,
-                marketCap: geckoData.marketCap,
+                price: pickPositive(geckoData.price) ?? 0,
+                priceChange24h: pickFinite(geckoData.priceChange24h) ?? 0,
+                volume24h: pickPositive(geckoData.volume24h),
+                marketCap: pickPositive(geckoData.marketCap, meta.mcap),
                 liquidity: null,
                 source: 'coingecko',
               };
             }
           }
+        }
+
+        if (tokenPrice && typeof tokenPrice === 'object' && !Array.isArray(tokenPrice)) {
+          const priceRecord = tokenPrice as Record<string, unknown>;
+          const fallbackMarket =
+            marketFallback && typeof marketFallback === 'object' && !Array.isArray(marketFallback)
+              ? (marketFallback as Record<string, unknown>)
+              : {};
+
+          tokenPrice = {
+            ...priceRecord,
+            price: pickPositive(priceRecord.price, fallbackMarket.price) ?? 0,
+            priceChange24h: pickFinite(priceRecord.priceChange24h, fallbackMarket.priceChange24h) ?? 0,
+            volume24h: pickPositive(priceRecord.volume24h, fallbackMarket.volume24h),
+            marketCap: pickPositive(priceRecord.marketCap, meta.mcap, fallbackMarket.marketCap),
+          };
         }
 
         const chainTvls = (meta.chainTvls as Record<string, unknown> | undefined) ?? {};

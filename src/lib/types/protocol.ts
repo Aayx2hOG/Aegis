@@ -30,7 +30,7 @@ export interface TokenPrice {
   symbol: string;
   price: number;
   priceChange24h: number;
-  volume24h: number;
+  volume24h: number | null;
   marketCap: number | null;
   liquidity: number | null;
 }
