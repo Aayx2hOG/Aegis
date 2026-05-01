@@ -6,7 +6,7 @@ import { Program, AnchorProvider, Idl } from '@coral-xyz/anchor';
 import { PublicKey, SendTransactionError, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BasicIDL, getBasicProgramId } from '@project/anchor';
 import { ClusterNetwork, useCluster } from '@/components/cluster/cluster-data-access';
-import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
+import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
 import { useTransactionToast } from '@/components/use-transaction-toast';
 import { toast } from 'sonner';

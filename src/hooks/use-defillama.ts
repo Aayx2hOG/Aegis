@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SolanaProtocol } from '@/lib/types/protocol';
+import type { SolanaProtocol } from '@/shared/types/protocol';
 
 export function useSolanaProtocols() {
   return useQuery<SolanaProtocol[]>({

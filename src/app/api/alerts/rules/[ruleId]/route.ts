@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
+import { prisma } from '@/server/db/prisma';
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ ruleId: string }> }) {
     if (!prisma) {

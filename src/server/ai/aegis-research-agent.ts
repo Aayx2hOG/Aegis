@@ -2,7 +2,7 @@ import Groq from 'groq-sdk';
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/resources/chat/completions';
 import { TOOLS, executeTool } from './aegis-tools';
 import { SYSTEM_PROMPT } from './aegis-prompts';
-import type { ResearchBrief } from '@/lib/types/research';
+import type { ResearchBrief } from '@/shared/types/research';
 
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY;
@@ -12,7 +12,7 @@ function getGroqClient() {
   return new Groq({ apiKey });
 }
 
-const MODEL = 'llama-3.3-70b-versatile'; // smarter at tool use, fits now that TVL is trimmed
+const MODEL = 'llama-3.3-70b-versatile';
 
 const MAX_ITERATIONS = 6;
 
@@ -151,15 +151,12 @@ export async function runResearchAgent(protocol: string): Promise<ResearchBrief>
       const choice = response.choices[0];
       const msg = choice.message;
 
-      // Add assistant message to history
       messages.push(msg as ChatCompletionMessageParam);
 
-      // No tool calls → final brief
       if (!msg.tool_calls || msg.tool_calls.length === 0) {
         return { protocol, brief: msg.content ?? '', toolCalls };
       }
 
-      // Execute each tool call
       for (const call of msg.tool_calls) {
         const name = call.function.name;
         const input = safeJsonParse(call.function.arguments);
@@ -183,7 +180,6 @@ export async function runResearchAgent(protocol: string): Promise<ResearchBrief>
           error,
         });
 
-        // Feed result back into conversation
         messages.push({
           role: 'tool',
           tool_call_id: call.id,

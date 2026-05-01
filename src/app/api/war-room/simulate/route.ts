@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { runWarRoomSimulation } from '@/lib/ai/war-room-engine'
-import type { SimulationRequest } from '@/lib/types/war-room'
+import { runWarRoomSimulation } from '@/server/ai/war-room-engine'
+import type { SimulationRequest } from '@/shared/types/war-room'
 
 export async function POST(req: NextRequest) {
     try {

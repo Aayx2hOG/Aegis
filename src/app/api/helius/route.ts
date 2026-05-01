@@ -1,4 +1,4 @@
-import { getRecentTransactions } from '@/lib/api/helius';
+import { getRecentTransactions } from '@/server/api/helius';
 import { NextRequest } from 'next/server';
 
 export async function GET(req: NextRequest) {

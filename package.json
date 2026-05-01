@@ -18,16 +18,16 @@
     "prisma:studio": "prisma studio",
     "start": "next start"
   },
-  "displayName": "Web3js Basic",
-  "usecase": "Legacy",
-  "description": "Next.js, Tailwind, @solana/web3.js, Wallet Adapter, basic Anchor program",
+  "displayName": "Aegis",
+  "usecase": "Solana DeFi research",
+  "description": "AI-powered Solana DeFi research workspace with watchlists, alerts, and war-room simulations",
   "keywords": [
-    "anchor-basic",
+    "solana",
+    "defi",
+    "research",
     "nextjs",
-    "react",
-    "solana-web3js",
-    "tailwind",
     "typescript",
+    "anchor",
     "wallet-adapter"
   ],
   "version": "0.0.0",

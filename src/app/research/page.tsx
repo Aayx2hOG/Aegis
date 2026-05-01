@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { agentStateAtom } from '@/store/research-store';
-import type { ResearchBrief, ToolCallRecord } from '@/lib/types/research';
+import type { ResearchBrief, ToolCallRecord } from '@/shared/types/research';
 
 import { useWatchlist } from '@/hooks/use-watchlist';
 
@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
+import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
 const AVAILABLE_PROTOCOLS = [
   { slug: 'raydium', note: 'AMM + liquidity routing' },

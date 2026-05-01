@@ -4,7 +4,7 @@ import type {
     RiskBreakdown,
     ScenarioConfig,
     SimulationResult,
-} from '@/lib/types/war-room'
+} from '@/shared/types/war-room'
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value))

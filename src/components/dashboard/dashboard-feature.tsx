@@ -3,11 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useWatchlist } from '@/hooks/use-watchlist';
 import { useSolanaProtocols } from '@/hooks/use-defillama';
-import type { ResearchBrief } from '@/lib/types/research';
-import type { SolanaProtocol } from '@/lib/types/protocol';
+import type { ResearchBrief } from '@/shared/types/research';
+import type { SolanaProtocol } from '@/shared/types/protocol';
 import { WalletButton } from '@/components/solana/solana-provider';
 import Link from 'next/link';
-import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver';
+import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
 import { Activity, ArrowRight, BookOpenText, Radar, ShieldAlert, Telescope } from 'lucide-react';
 
 function formatPct(value: number | null | undefined): string {

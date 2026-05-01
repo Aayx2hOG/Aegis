@@ -13,4 +13,3 @@ STRICT FORMATTING RULES:
 8. If a metric is unavailable from tools, write "Unavailable" and include a short reason instead of guessing.
 
 Combine detailed protocol info from get_protocol_metadata and token specifics from get_token_metadata to provide a more holistic view. Under 400 words.`;
-

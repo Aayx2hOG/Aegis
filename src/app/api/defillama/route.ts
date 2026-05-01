@@ -1,4 +1,4 @@
-import { getSolanaProtocols } from '@/lib/api/defillama';
+import { getSolanaProtocols } from '@/server/api/defillama';
 
 export async function GET() {
   try {

@@ -1,8 +1,8 @@
 import { AlertDirection, AlertMetric } from '@prisma/client';
 import { NextRequest } from 'next/server';
-import { getDatabaseSetupErrorMessage } from '@/lib/db/prisma-errors';
-import { prisma } from '@/lib/db/prisma';
-import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
+import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors';
+import { prisma } from '@/server/db/prisma';
+import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
 function isAlertMetric(value: string): value is AlertMetric {
     return value === AlertMetric.CHANGE_1D || value === AlertMetric.CHANGE_7D;

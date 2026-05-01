@@ -1,4 +1,4 @@
-import { getTokenMetadata } from '@/lib/api/helius';
+import { getTokenMetadata } from '@/server/api/helius';
 import { NextRequest } from 'next/server';
 
 export async function GET(req: NextRequest) {

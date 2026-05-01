@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getDatabaseSetupErrorMessage } from '@/lib/db/prisma-errors';
-import { prisma } from '@/lib/db/prisma';
+import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors';
+import { prisma } from '@/server/db/prisma';
 
 export async function GET(req: NextRequest) {
     if (!prisma) {

@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { runResearchAgent } from '@/lib/ai/aegis-research-agent';
-import { prisma } from '@/lib/db/prisma';
-import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
+import { runResearchAgent } from '@/server/ai/aegis-research-agent';
+import { prisma } from '@/server/db/prisma';
+import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
 function compactError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);

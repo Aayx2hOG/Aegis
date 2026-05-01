@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ParsedTransaction } from '@/lib/types/protocol';
+import type { ParsedTransaction } from '@/shared/types/protocol';
 
 export function useRecentTransactions(address: string | null, limit = 10) {
   return useQuery<ParsedTransaction[]>({

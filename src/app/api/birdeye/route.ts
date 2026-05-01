@@ -1,4 +1,4 @@
-import { getTokenPrice } from '@/lib/api/birdeye';
+import { getTokenPrice } from '@/server/api/birdeye';
 import { NextRequest } from 'next/server';
 
 export async function GET(req: NextRequest) {

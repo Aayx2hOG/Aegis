@@ -6,8 +6,8 @@ import { useSolanaProtocols } from '@/hooks/use-defillama';
 import { useWallet } from '@solana/wallet-adapter-react';
 import Link from 'next/link';
 import { ExternalLink, Star, Trash2, ArrowLeft, ShieldAlert, AlertTriangle, Activity } from 'lucide-react';
-import type { SolanaProtocol } from '@/lib/types/protocol';
-import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver';
+import type { SolanaProtocol } from '@/shared/types/protocol';
+import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
 import { toast } from 'sonner';
 
 function formatUsd(value: number | null | undefined): string {

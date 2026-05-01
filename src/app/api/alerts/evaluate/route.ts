@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
-import { evaluateAlertsForWallet } from '@/lib/alerts/evaluator';
+import { prisma } from '@/server/db/prisma';
+import { evaluateAlertsForWallet } from '@/server/alerts/evaluator';
 
 export async function POST(req: NextRequest) {
     if (!prisma) {

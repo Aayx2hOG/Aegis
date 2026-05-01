@@ -6,7 +6,7 @@ import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { WalletButton } from '@/components/solana/solana-provider'
-import type { PortfolioPosition, RiskBreakdown, ScenarioConfig, SimulationResult } from '@/lib/types/war-room'
+import type { PortfolioPosition, RiskBreakdown, ScenarioConfig, SimulationResult } from '@/shared/types/war-room'
 
 type ScenarioPreset = ScenarioConfig & {
     beginnerLabel: string

@@ -1,7 +1,7 @@
 // Tool schemas — OpenAI / Groq format
-import { getTokenPrice } from '@/lib/api/birdeye';
-import { getRecentTransactions, getTokenMetadata } from '@/lib/api/helius';
-import { getProtocolSlugCandidates, normalizeProtocolSlug } from '@/lib/protocol/slug-resolver';
+import { getTokenPrice } from '@/server/api/birdeye';
+import { getRecentTransactions, getTokenMetadata } from '@/server/api/helius';
+import { getProtocolSlugCandidates, normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
 function asNumber(value: unknown): number | null {
   const n = Number(value);
@@ -226,8 +226,6 @@ export const TOOLS = [
     },
   },
 ];
-
-// Tool executor (server-side only)
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 10000) {
   const controller = new AbortController();
