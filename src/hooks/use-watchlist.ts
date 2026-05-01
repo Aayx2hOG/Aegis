@@ -14,32 +14,47 @@ import { toast } from 'sonner';
 // discriminator + authority + empty vec length + bump
 const WATCHLIST_INITIAL_SPACE_BYTES = 8 + 32 + 4 + 1;
 const TX_FEE_BUFFER_LAMPORTS = 15_000;
+const GUEST_WATCHLIST_CACHE_KEY = 'watchlist-cache:guest';
+const MAX_WATCHLIST_ITEMS = 20;
 
 function getWatchlistCacheKey(walletAddress: string, clusterName: string) {
   return `watchlist-cache:${clusterName}:${walletAddress}`;
 }
 
-function loadCachedWatchlist(walletAddress?: string, clusterName?: string): string[] {
-  if (!walletAddress || !clusterName || typeof window === 'undefined') return [];
+function getActiveWatchlistCacheKey(walletAddress: string | undefined, clusterName: string) {
+  if (!walletAddress) return GUEST_WATCHLIST_CACHE_KEY;
+  return getWatchlistCacheKey(walletAddress, clusterName);
+}
+
+function sanitizeWatchlist(slugs: string[]): string[] {
+  const normalized = slugs.map((slug) => normalizeProtocolSlug(slug)).filter(Boolean);
+  return Array.from(new Set(normalized)).slice(0, MAX_WATCHLIST_ITEMS);
+}
+
+function loadWatchlistByKey(cacheKey: string): string[] {
+  if (typeof window === 'undefined') return [];
   try {
-    const key = getWatchlistCacheKey(walletAddress, clusterName);
-    const raw = window.localStorage.getItem(key);
+    const raw = window.localStorage.getItem(cacheKey);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+    if (!Array.isArray(parsed)) return [];
+    return sanitizeWatchlist(parsed.filter((v): v is string => typeof v === 'string'));
   } catch {
     return [];
   }
 }
 
-function saveCachedWatchlist(walletAddress: string, clusterName: string, slugs: string[]) {
+function saveWatchlistByKey(cacheKey: string, slugs: string[]) {
   if (typeof window === 'undefined') return;
   try {
-    const key = getWatchlistCacheKey(walletAddress, clusterName);
-    window.localStorage.setItem(key, JSON.stringify(slugs));
+    window.localStorage.setItem(cacheKey, JSON.stringify(sanitizeWatchlist(slugs)));
   } catch {
-    // Ignore storage errors (quota/private mode) and keep app functional.
   }
+}
+
+function saveCachedWatchlist(walletAddress: string, clusterName: string, slugs: string[]) {
+  const key = getWatchlistCacheKey(walletAddress, clusterName);
+  saveWatchlistByKey(key, slugs);
 }
 
 function useProgram(programId: PublicKey | null) {
@@ -145,35 +160,41 @@ export function useWatchlist() {
   const qc = useQueryClient();
   const transactionToast = useTransactionToast();
   const walletAddress = wallet.publicKey?.toBase58();
+  const activeCacheKey = getActiveWatchlistCacheKey(walletAddress, cluster.name);
   const pda = wallet.publicKey && programId ? getWatchlistPda(wallet.publicKey, programId) : null;
 
-  const { data: watchlist, isLoading, error: queryError } = useQuery<string[]>({
-    queryKey: ['watchlist', walletAddress, cluster.name],
+  const { data: watchlist, isLoading } = useQuery<string[]>({
+    queryKey: ['watchlist', cluster.name, walletAddress ?? 'guest'],
     queryFn: async () => {
-      const cached = loadCachedWatchlist(walletAddress, cluster.name);
-      if (!program || !pda || !walletAddress) return cached;
+      const cached = loadWatchlistByKey(activeCacheKey);
+
+      if (!walletAddress || !program || !pda) {
+        return cached;
+      }
 
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const account = await (program.account as any).watchlist.fetch(pda);
-        const onchain = (account.slugs as string[]) ?? [];
-        saveCachedWatchlist(walletAddress, cluster.name, onchain);
-        return onchain;
-      } catch (err) {
-        // If on-chain fetch fails (RPC down or local validator reset), keep UX stable via cached snapshot.
-        if (cached.length > 0) return cached;
-        throw err;
+        const onchain = sanitizeWatchlist((account.slugs as string[]) ?? []);
+
+        if (onchain.length > 0 && cached.length === 0) {
+          saveCachedWatchlist(walletAddress, cluster.name, onchain);
+          return onchain;
+        }
+
+        return cached;
+      } catch {
+        // Off-chain is the default source of truth for UX; on-chain issues should not block watchlist access.
+        return cached;
       }
     },
-    enabled: !!walletAddress && !!programId,
+    enabled: true,
     staleTime: 10_000,
-    retry: false, // Don't retry if account not found
+    retry: false,
   });
 
-  const accountNotFound = extractErrorMessage(queryError).includes('Account does not exist');
-
   const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ['watchlist', walletAddress, cluster.name] });
+    qc.invalidateQueries({ queryKey: ['watchlist', cluster.name, walletAddress ?? 'guest'] });
 
   // Initialize the on-chain account (call once per wallet)
   const initialize = useMutation({
@@ -232,30 +253,30 @@ export function useWatchlist() {
   const add = useMutation({
     mutationFn: async (slug: string) => {
       const normalizedSlug = normalizeProtocolSlug(slug);
-      if (!wallet.publicKey) throw new Error('Wallet not connected');
-      if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
-      if (isUnreachableLocalCluster(cluster.name)) {
-        throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
+
+      if (!normalizedSlug) {
+        throw new Error('Protocol slug is required.');
       }
-      await assertProgramDeployed(connection, programId, cluster.name);
-      console.log('Adding protocol to watchlist:', normalizedSlug);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (program.methods as any)
-        .addProtocol(normalizedSlug)
-        .accounts({ authority: wallet.publicKey })
-        .rpc();
+
+      const current = loadWatchlistByKey(activeCacheKey);
+      if (current.includes(normalizedSlug)) {
+        return current;
+      }
+
+      if (current.length >= MAX_WATCHLIST_ITEMS) {
+        throw new Error(`Watchlist limit reached (${MAX_WATCHLIST_ITEMS} protocols). Remove one before adding another.`);
+      }
+
+      const next = [...current, normalizedSlug];
+      saveWatchlistByKey(activeCacheKey, next);
+      return sanitizeWatchlist(next);
     },
-    onSuccess: (signature, slug) => {
-      transactionToast(signature);
-      if (walletAddress) {
-        const next = Array.from(new Set([...(watchlist ?? []), slug]));
-        saveCachedWatchlist(walletAddress, cluster.name, next);
-      }
-      invalidate();
+    onSuccess: (nextWatchlist) => {
+      qc.setQueryData(['watchlist', cluster.name, walletAddress ?? 'guest'], nextWatchlist);
     },
     onError: (err) => {
       console.error('Add failed:', err);
-      toast.error(`Failed to add: ${getReadableTxError(err, cluster.name)}`);
+      toast.error(`Failed to add: ${extractErrorMessage(err)}`);
     }
   });
 
@@ -264,37 +285,24 @@ export function useWatchlist() {
   const remove = useMutation({
     mutationFn: async (slug: string) => {
       const normalizedSlug = normalizeProtocolSlug(slug);
-      if (!wallet.publicKey) throw new Error('Wallet not connected');
-      if (!program || !programId) throw new Error('Watchlist program unavailable on this cluster');
-      if (isUnreachableLocalCluster(cluster.name)) {
-        throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
-      }
-      await assertProgramDeployed(connection, programId, cluster.name);
-      console.log('Removing protocol from watchlist:', normalizedSlug);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (program.methods as any)
-        .removeProtocol(normalizedSlug)
-        .accounts({ authority: wallet.publicKey })
-        .rpc();
+
+      const current = loadWatchlistByKey(activeCacheKey);
+      const next = current.filter((item) => item !== normalizedSlug);
+      saveWatchlistByKey(activeCacheKey, next);
+      return next;
     },
-    onSuccess: (signature, slug) => {
-      transactionToast(signature);
-      if (walletAddress) {
-        const next = (watchlist ?? []).filter((item) => item !== slug);
-        saveCachedWatchlist(walletAddress, cluster.name, next);
-      }
-      invalidate();
+    onSuccess: (nextWatchlist) => {
+      qc.setQueryData(['watchlist', cluster.name, walletAddress ?? 'guest'], nextWatchlist);
     },
     onError: (err) => {
       console.error('Remove failed:', err);
-      toast.error(`Failed to remove: ${getReadableTxError(err, cluster.name)}`);
+      toast.error(`Failed to remove: ${extractErrorMessage(err)}`);
     }
   });
 
   const removeAsync = async (slug: string) => remove.mutateAsync(slug);
 
   const initializeAndAdd = async (slug: string) => {
-    await initializeAsync();
     await addAsync(slug);
   };
 
@@ -317,6 +325,10 @@ export function useWatchlist() {
         ? remove.mutate(normalizedSlug)
         : add.mutate(normalizedSlug);
     },
-    needsInit: !!wallet.publicKey && accountNotFound,
+    needsInit: false,
+    initializeOnchain: () => initialize.mutate(),
+    initializeOnchainAsync: initializeAsync,
+    isOnchainInitializing: initialize.isPending,
+    refresh: invalidate,
   };
 }

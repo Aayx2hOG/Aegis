@@ -2,6 +2,12 @@
 
 Aegis is a Next.js Solana DeFi research workspace. It combines a watchlist, live protocol briefs, alert rules, and war-room simulations in one app.
 
+## Onboarding Modes
+
+- Guest mode (default): watchlist is stored locally in the browser and works without wallet connection.
+- Wallet-connected mode: unlocks wallet-linked research history and alert automation endpoints.
+- Optional on-chain watchlist setup remains available for advanced Solana-native flows.
+
 ## Setup
 
 Install dependencies:

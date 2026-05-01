@@ -5,7 +5,7 @@ import { useWatchlist } from '@/hooks/use-watchlist';
 import { useSolanaProtocols } from '@/hooks/use-defillama';
 import { useWallet } from '@solana/wallet-adapter-react';
 import Link from 'next/link';
-import { ExternalLink, Star, Trash2, ArrowLeft, ShieldAlert, AlertTriangle, Activity } from 'lucide-react';
+import { ExternalLink, Trash2, ArrowLeft, ShieldAlert, AlertTriangle, Activity } from 'lucide-react';
 import type { SolanaProtocol } from '@/shared/types/protocol';
 import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
 import { toast } from 'sonner';
@@ -78,7 +78,7 @@ const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
 };
 
 export default function WatchlistPage() {
-    const { watchlist, isLoading, isConnected, remove, needsInit, initialize, isInitializing } = useWatchlist();
+    const { watchlist, isLoading, isConnected, remove } = useWatchlist();
     const { data: protocols = [], isLoading: marketLoading } = useSolanaProtocols();
     const wallet = useWallet();
     const walletAddress = wallet.publicKey?.toBase58();
@@ -286,32 +286,19 @@ export default function WatchlistPage() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {isConnected && needsInit && (
-                            <button
-                                onClick={() => initialize()}
-                                disabled={isInitializing}
-                                className="flex items-center gap-2 rounded-xl bg-cyan-300 px-6 py-3 text-sm font-black text-zinc-950 shadow-lg shadow-cyan-400/20 transition-all hover:bg-cyan-200"
-                            >
-                                {isInitializing ? <span className="loading loading-spinner loading-xs" /> : 'Initialize Watchlist'}
-                            </button>
-                        )}
                         <div className="rounded-lg bg-zinc-900/70 px-4 py-2 text-[10px] font-black uppercase tracking-tighter text-zinc-400">
                             {watchlist.length} / 20 Protocols
                         </div>
                     </div>
                 </header>
 
-                {!isConnected ? (
-                    <div className="glass-card flex flex-col items-center justify-center space-y-6 rounded-3xl bg-zinc-900/35 p-20 text-center backdrop-blur-xl">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-800/50">
-                            <Star className="h-10 w-10 text-zinc-600" />
-                        </div>
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-bold text-white">Wallet Not Connected</h3>
-                            <p className="mx-auto max-w-xs text-zinc-400">Connect your Solana wallet to access your on-chain watchlist.</p>
-                        </div>
+                {!isConnected && (
+                    <div className="rounded-xl bg-zinc-900/55 px-4 py-3 text-xs text-zinc-300">
+                        Guest mode is active. Your watchlist is saved locally in this browser. Connect a wallet to enable synced research history and alert automation.
                     </div>
-                ) : isLoading ? (
+                )}
+
+                {isLoading ? (
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {[1, 2, 3].map((i) => (
                             <div key={i} className="h-48 animate-pulse rounded-2xl bg-zinc-900/35" />
@@ -362,132 +349,140 @@ export default function WatchlistPage() {
                         )}
 
                         <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                            <div className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-xl">
-                                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Alert Automation</p>
-                                        <h2 className="text-xl font-black text-white">Rules & Triggers</h2>
+                            {walletAddress ? (
+                                <>
+                                    <div className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-xl">
+                                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Alert Automation</p>
+                                                <h2 className="text-xl font-black text-white">Rules & Triggers</h2>
+                                            </div>
+                                            <button
+                                                onClick={evaluateAlertsNow}
+                                                disabled={evaluatingAlerts || !walletAddress || rules.length === 0}
+                                                className="rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-300/30 disabled:opacity-50"
+                                            >
+                                                {evaluatingAlerts ? 'Evaluating...' : 'Evaluate Now'}
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <select
+                                                value={selectedProtocol}
+                                                onChange={(e) => setSelectedProtocol(e.target.value)}
+                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
+                                            >
+                                                {watchlist.map((slug) => (
+                                                    <option key={slug} value={slug}>
+                                                        {slug}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={selectedMetric}
+                                                onChange={(e) => setSelectedMetric(e.target.value as AlertMetric)}
+                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
+                                            >
+                                                <option value="CHANGE_1D">24h % Change</option>
+                                                <option value="CHANGE_7D">7d % Change</option>
+                                            </select>
+                                            <select
+                                                value={selectedDirection}
+                                                onChange={(e) => setSelectedDirection(e.target.value as AlertDirection)}
+                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
+                                            >
+                                                <option value="BELOW">Below threshold</option>
+                                                <option value="ABOVE">Above threshold</option>
+                                            </select>
+                                            <input
+                                                type="number"
+                                                value={threshold}
+                                                onChange={(e) => setThreshold(Number(e.target.value))}
+                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
+                                                placeholder="Threshold"
+                                            />
+                                        </div>
+
+                                        <button
+                                            onClick={createAlertRule}
+                                            disabled={creatingRule || !walletAddress || !selectedProtocol}
+                                            className="mt-3 w-full rounded-lg bg-cyan-300 px-3 py-2 text-sm font-black text-zinc-950 transition-all hover:bg-cyan-200 disabled:opacity-50"
+                                        >
+                                            {creatingRule ? 'Creating Rule...' : 'Create Alert Rule'}
+                                        </button>
+
+                                        <div className="mt-4 space-y-2">
+                                            {alertsLoading ? (
+                                                <p className="text-sm text-zinc-400">Loading rules...</p>
+                                            ) : rules.length === 0 ? (
+                                                <p className="text-sm text-zinc-400">No rules yet. Create one to monitor your watchlist automatically.</p>
+                                            ) : (
+                                                rules.map((rule) => (
+                                                    <div key={rule.id} className="flex items-center justify-between rounded-lg bg-zinc-950/60 p-3">
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-zinc-100">
+                                                                {rule.protocolSlug}: {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '<=' : '>='} {rule.threshold.toFixed(2)}%
+                                                            </p>
+                                                            <p className="text-xs text-zinc-500">Created {new Date(rule.createdAt).toLocaleString()}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setRuleEnabled(rule.id, !rule.enabled)}
+                                                            className={`rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide ${rule.enabled
+                                                                ? 'bg-emerald-500/20 text-emerald-200'
+                                                                : 'bg-zinc-700 text-zinc-300'
+                                                                }`}
+                                                        >
+                                                            {rule.enabled ? 'Enabled' : 'Disabled'}
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        <div className="mt-4 space-y-2">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Recent Alert Events</p>
+                                            {events.length === 0 ? (
+                                                <p className="text-sm text-zinc-400">No alert events yet.</p>
+                                            ) : (
+                                                events.slice(0, 5).map((event) => (
+                                                    <div key={event.id} className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                                                        {event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}% ({event.direction === 'BELOW' ? '<=' : '>='} {event.threshold.toFixed(2)}%)
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={evaluateAlertsNow}
-                                        disabled={evaluatingAlerts || !walletAddress || rules.length === 0}
-                                        className="rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-300/30 disabled:opacity-50"
-                                    >
-                                        {evaluatingAlerts ? 'Evaluating...' : 'Evaluate Now'}
-                                    </button>
-                                </div>
 
-                                <div className="grid grid-cols-2 gap-2">
-                                    <select
-                                        value={selectedProtocol}
-                                        onChange={(e) => setSelectedProtocol(e.target.value)}
-                                        className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                    >
-                                        {watchlist.map((slug) => (
-                                            <option key={slug} value={slug}>
-                                                {slug}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <select
-                                        value={selectedMetric}
-                                        onChange={(e) => setSelectedMetric(e.target.value as AlertMetric)}
-                                        className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                    >
-                                        <option value="CHANGE_1D">24h % Change</option>
-                                        <option value="CHANGE_7D">7d % Change</option>
-                                    </select>
-                                    <select
-                                        value={selectedDirection}
-                                        onChange={(e) => setSelectedDirection(e.target.value as AlertDirection)}
-                                        className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                    >
-                                        <option value="BELOW">Below threshold</option>
-                                        <option value="ABOVE">Above threshold</option>
-                                    </select>
-                                    <input
-                                        type="number"
-                                        value={threshold}
-                                        onChange={(e) => setThreshold(Number(e.target.value))}
-                                        className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                        placeholder="Threshold"
-                                    />
-                                </div>
+                                    <div className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-xl">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Research Memory</p>
+                                        <h2 className="mb-4 text-xl font-black text-white">Recent Brief History</h2>
 
-                                <button
-                                    onClick={createAlertRule}
-                                    disabled={creatingRule || !walletAddress || !selectedProtocol}
-                                    className="mt-3 w-full rounded-lg bg-cyan-300 px-3 py-2 text-sm font-black text-zinc-950 transition-all hover:bg-cyan-200 disabled:opacity-50"
-                                >
-                                    {creatingRule ? 'Creating Rule...' : 'Create Alert Rule'}
-                                </button>
-
-                                <div className="mt-4 space-y-2">
-                                    {alertsLoading ? (
-                                        <p className="text-sm text-zinc-400">Loading rules...</p>
-                                    ) : rules.length === 0 ? (
-                                        <p className="text-sm text-zinc-400">No rules yet. Create one to monitor your watchlist automatically.</p>
-                                    ) : (
-                                        rules.map((rule) => (
-                                            <div key={rule.id} className="flex items-center justify-between rounded-lg bg-zinc-950/60 p-3">
-                                                <div>
-                                                    <p className="text-sm font-semibold text-zinc-100">
-                                                        {rule.protocolSlug}: {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '<=' : '>='} {rule.threshold.toFixed(2)}%
-                                                    </p>
-                                                    <p className="text-xs text-zinc-500">Created {new Date(rule.createdAt).toLocaleString()}</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => setRuleEnabled(rule.id, !rule.enabled)}
-                                                    className={`rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide ${rule.enabled
-                                                        ? 'bg-emerald-500/20 text-emerald-200'
-                                                        : 'bg-zinc-700 text-zinc-300'
-                                                        }`}
-                                                >
-                                                    {rule.enabled ? 'Enabled' : 'Disabled'}
-                                                </button>
+                                        {historyLoading ? (
+                                            <p className="text-sm text-zinc-400">Loading history...</p>
+                                        ) : history.length === 0 ? (
+                                            <p className="text-sm text-zinc-400">No saved research runs yet. Generate reports from Research to build your timeline.</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {history.map((item) => (
+                                                    <div key={item.id} className="rounded-lg bg-zinc-950/60 p-3">
+                                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                                            <Link href={`/research?q=${item.protocolSlug}`} className="text-sm font-bold uppercase tracking-wide text-cyan-200 hover:underline">
+                                                                {item.protocolSlug}
+                                                            </Link>
+                                                            <span className="text-[10px] text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span>
+                                                        </div>
+                                                        <p className="line-clamp-3 text-xs leading-relaxed text-zinc-300">{item.briefMarkdown}</p>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))
-                                    )}
-                                </div>
-
-                                <div className="mt-4 space-y-2">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Recent Alert Events</p>
-                                    {events.length === 0 ? (
-                                        <p className="text-sm text-zinc-400">No alert events yet.</p>
-                                    ) : (
-                                        events.slice(0, 5).map((event) => (
-                                            <div key={event.id} className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                                                {event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}% ({event.direction === 'BELOW' ? '<=' : '>='} {event.threshold.toFixed(2)}%)
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-xl">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Research Memory</p>
-                                <h2 className="mb-4 text-xl font-black text-white">Recent Brief History</h2>
-
-                                {historyLoading ? (
-                                    <p className="text-sm text-zinc-400">Loading history...</p>
-                                ) : history.length === 0 ? (
-                                    <p className="text-sm text-zinc-400">No saved research runs yet. Generate reports from Research to build your timeline.</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {history.map((item) => (
-                                            <div key={item.id} className="rounded-lg bg-zinc-950/60 p-3">
-                                                <div className="mb-2 flex items-center justify-between gap-2">
-                                                    <Link href={`/research?q=${item.protocolSlug}`} className="text-sm font-bold uppercase tracking-wide text-cyan-200 hover:underline">
-                                                        {item.protocolSlug}
-                                                    </Link>
-                                                    <span className="text-[10px] text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span>
-                                                </div>
-                                                <p className="line-clamp-3 text-xs leading-relaxed text-zinc-300">{item.briefMarkdown}</p>
-                                            </div>
-                                        ))}
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                </>
+                            ) : (
+                                <div className="rounded-2xl bg-zinc-900/45 p-5 text-sm text-zinc-300 backdrop-blur-xl lg:col-span-2">
+                                    Connect a wallet to enable server-synced alert rules and research history. Your protocol watchlist already works in guest mode.
+                                </div>
+                            )}
                         </section>
 
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

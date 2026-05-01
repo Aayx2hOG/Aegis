@@ -50,7 +50,7 @@ function ResearchContent() {
   const [, setAgentState] = useAtom(agentStateAtom);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isWatched, toggle, initializeAndAdd, isInitializing, isConnected, needsInit } = useWatchlist();
+  const { isWatched, toggle, isConnected } = useWatchlist();
 
   // Auto-run if query param exists
   useEffect(() => {
@@ -106,17 +106,6 @@ function ResearchContent() {
       JSON.stringify(payload, null, 2),
       'application/json;charset=utf-8'
     );
-  }
-
-  async function initializeAndBookmarkProtocol() {
-    if (!brief?.protocol) return;
-    const slug = normalizeProtocolSlug(brief.protocol);
-    try {
-      await initializeAndAdd(slug);
-      toast.success(`${slug} added to watchlist.`);
-    } catch {
-      // Errors are already surfaced in useWatchlist mutation handlers.
-    }
   }
 
   useEffect(() => {
@@ -364,35 +353,29 @@ function ResearchContent() {
                     Run War Room
                   </Link>
                 )}
-                {!isConnected ? (
-                  <div className="px-4 py-2 bg-zinc-800/80 text-zinc-400 text-[10px] font-bold rounded-lg uppercase tracking-tight">
-                    Connect wallet to bookmark
-                  </div>
-                ) : needsInit ? (
-                  <button
-                    onClick={initializeAndBookmarkProtocol}
-                    disabled={isInitializing}
-                    className="px-4 py-2 bg-primary text-zinc-950 text-xs font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
-                  >
-                    {isInitializing ? <span className="loading loading-spinner loading-xs" /> : 'Initialize + Add to Watchlist'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      const slug = brief.protocol.toLowerCase();
-                      console.log('Toggling watchlist for:', slug);
-                      toggle(slug);
-                    }}
-                    disabled={isInitializing}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${isWatched(brief.protocol.toLowerCase())
-                      ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      : 'bg-primary text-zinc-950 hover:bg-primary/90 shadow-lg shadow-primary/20'
-                      }`}
-                  >
-                    {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    const slug = brief.protocol.toLowerCase();
+                    toggle(slug);
+                    if (!isWatched(slug)) {
+                      toast.success(`${slug} added to watchlist.`);
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${isWatched(brief.protocol.toLowerCase())
+                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                    : 'bg-primary text-zinc-950 hover:bg-primary/90 shadow-lg shadow-primary/20'
+                    }`}
+                >
+                  {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
+                </button>
               </div>
+              {!isConnected && (
+                <div className="px-6 pt-6 md:px-10">
+                  <div className="rounded-lg bg-zinc-950/50 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                    Guest Mode: Watchlist is saved locally in this browser.
+                  </div>
+                </div>
+              )}
               <div className="px-6 pt-6 md:px-10">
                 <div className="flex flex-wrap items-center gap-2 rounded-xl bg-zinc-950/45 p-2">
                   <button

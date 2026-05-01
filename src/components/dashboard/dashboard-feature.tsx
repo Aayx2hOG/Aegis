@@ -4,8 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useWatchlist } from '@/hooks/use-watchlist';
 import { useSolanaProtocols } from '@/hooks/use-defillama';
 import type { ResearchBrief } from '@/shared/types/research';
-import type { SolanaProtocol } from '@/shared/types/protocol';
-import { WalletButton } from '@/components/solana/solana-provider';
 import Link from 'next/link';
 import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
 import { Activity, ArrowRight, BookOpenText, Radar, ShieldAlert, Telescope } from 'lucide-react';
@@ -36,7 +34,7 @@ function extractBriefSnapshot(markdown: string): string {
 }
 
 export function DashboardFeature() {
-  const { watchlist, isLoading, isInitializing, initialize, needsInit, isConnected } = useWatchlist();
+  const { watchlist, isLoading, isConnected } = useWatchlist();
   const { data: protocols = [] } = useSolanaProtocols();
   const [briefs, setBriefs] = useState<Record<string, ResearchBrief | 'loading' | 'error'>>({});
 
@@ -121,36 +119,18 @@ export function DashboardFeature() {
           <StatCard label="Brief Cache" value={String(Object.keys(briefs).length)} sub="Auto-refreshed summaries" />
           <StatCard
             label="Connection"
-            value={isConnected ? 'Online' : 'Disconnected'}
-            sub={isConnected ? 'Wallet session active' : 'Connect wallet to enable actions'}
+            value={isConnected ? 'Connected' : 'Guest Mode'}
+            sub={isConnected ? 'Wallet session active' : 'Local watchlist enabled'}
           />
         </div>
 
-        {!isConnected ? (
-          <div className="glass-card rounded-3xl bg-zinc-900/45 p-12 text-center shadow-2xl">
-            <h2 className="mb-4 text-2xl font-bold">Connect Your Wallet</h2>
-            <p className="mx-auto mb-8 max-w-md text-zinc-400">
-              Connect your Solana wallet to access your on-chain research watchlist.
-            </p>
-            <div className="flex justify-center">
-              <WalletButton className="btn btn-primary" />
-            </div>
+        {!isConnected && (
+          <div className="rounded-xl bg-zinc-900/55 px-4 py-3 text-xs text-zinc-300">
+            Guest mode is active. Your watchlist is saved locally in this browser. Connect a wallet to sync server-backed alerts and history.
           </div>
-        ) : needsInit ? (
-          <div className="glass-card rounded-3xl bg-zinc-900/45 p-12 text-center shadow-2xl">
-            <h2 className="mb-4 text-2xl font-bold">Initialize Your Watchlist</h2>
-            <p className="mx-auto mb-8 max-w-md text-zinc-400">
-              Aegis stores your watchlist on the Solana blockchain. You&apos;ll need to initialize your account once to start bookmarking protocols.
-            </p>
-            <button
-              onClick={() => initialize()}
-              disabled={isInitializing}
-              className="rounded-xl bg-cyan-300 px-8 py-3 font-bold text-zinc-950 shadow-lg shadow-cyan-500/25 transition-all hover:bg-cyan-200 disabled:opacity-50"
-            >
-              {isInitializing ? 'Initializing...' : 'Create Watchlist Account'}
-            </button>
-          </div>
-        ) : (
+        )}
+
+        {
           <>
             {watchlist.length === 0 && !isLoading ? (
               <div className="glass-card rounded-3xl bg-zinc-900/45 p-16 text-center shadow-2xl">
@@ -237,7 +217,7 @@ export function DashboardFeature() {
               </div>
             )}
           </>
-        )}
+        }
       </div>
 
       <style jsx global>{`
