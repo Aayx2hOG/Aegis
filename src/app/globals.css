@@ -125,6 +125,20 @@
   }
 }
 
+@layer utilities {
+  .font-black {
+    font-weight: 700;
+  }
+
+  .font-bold {
+    font-weight: 600;
+  }
+
+  .font-semibold {
+    font-weight: 500;
+  }
+}
+
 .wallet-adapter-button-trigger {
   height: auto !important;
   @apply !bg-background !shadow-xs !text-accent-foreground;

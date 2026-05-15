@@ -6,8 +6,8 @@ import type { ReactNode } from 'react'
 import '@/lib/polyfills/bigint-json'
 
 export const metadata: Metadata = {
-  title: 'Aegis — Solana DeFi Research',
-  description: 'AI-powered DeFi research briefs with live Solana data',
+  title: 'Aegis — Multichain DeFi Research',
+  description: 'AI-powered multichain DeFi research briefs, watchlists, and war-room simulations',
 }
 
 const links: { label: string; path: string }[] = [

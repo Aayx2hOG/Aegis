@@ -1,568 +1,457 @@
-'use client';
+'use client'
 
-import { useEffect, useMemo, useState } from 'react';
-import { useWatchlist } from '@/hooks/use-watchlist';
-import { useSolanaProtocols } from '@/hooks/use-defillama';
-import { useWallet } from '@solana/wallet-adapter-react';
-import Link from 'next/link';
-import { ExternalLink, Trash2, ArrowLeft, ShieldAlert, AlertTriangle, Activity } from 'lucide-react';
-import type { SolanaProtocol } from '@/shared/types/protocol';
-import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { ArrowLeft, ArrowRight, Activity, AlertTriangle, ExternalLink, Layers3, Radar, ShieldAlert, Sparkles } from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
 
-function formatUsd(value: number | null | undefined): string {
-    if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A';
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0,
-    }).format(value);
+import { useMultiChain } from '@/components/chain/chain-provider'
+import { useMultiChainWatchlist } from '@/hooks/use-multichain-watchlist'
+import { useSolanaProtocols } from '@/hooks/use-defillama'
+import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
+import { ChainType } from '@/lib/chain/types'
+import type { SolanaProtocol } from '@/shared/types/protocol'
+import { toast } from 'sonner'
+
+type AlertMetric = 'CHANGE_1D' | 'CHANGE_7D'
+type AlertDirection = 'BELOW' | 'ABOVE'
+
+interface ResearchHistoryItem {
+    id: string
+    protocolSlug: string
+    briefMarkdown: string
+    createdAt: string
+}
+
+interface AlertRuleItem {
+    id: string
+    protocolSlug: string
+    metric: AlertMetric
+    threshold: number
+    direction: AlertDirection
+    enabled: boolean
+    createdAt: string
+}
+
+interface AlertEventItem {
+    id: string
+    protocolSlug: string
+    metric: AlertMetric
+    threshold: number
+    direction: AlertDirection
+    currentValue: number
+    triggeredAt: string
 }
 
 function formatPct(value: number | null | undefined): string {
-    if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A';
-    const sign = value > 0 ? '+' : '';
-    return `${sign}${value.toFixed(2)}%`;
+    if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A'
+    const sign = value > 0 ? '+' : ''
+    return `${sign}${value.toFixed(2)}%`
 }
 
 function riskState(protocol?: SolanaProtocol): { label: string; tone: string; isRisk: boolean } {
     if (!protocol) {
-        return { label: 'No Market Data', tone: 'bg-zinc-800 text-zinc-300', isRisk: false };
+        return { label: 'No Market Data', tone: 'bg-zinc-800 text-zinc-300', isRisk: false }
     }
 
-    const d1 = protocol.change_1d ?? 0;
-    const d7 = protocol.change_7d ?? 0;
+    const d1 = protocol.change_1d ?? 0
+    const d7 = protocol.change_7d ?? 0
 
     if (d1 <= -10 || d7 <= -20) {
-        return { label: 'Critical', tone: 'bg-red-500/20 text-red-200', isRisk: true };
+        return { label: 'Critical', tone: 'bg-red-500/20 text-red-200', isRisk: true }
     }
     if (d1 <= -5 || d7 <= -12) {
-        return { label: 'Watch', tone: 'bg-amber-500/20 text-amber-200', isRisk: true };
+        return { label: 'Watch', tone: 'bg-amber-500/20 text-amber-200', isRisk: true }
     }
-    return { label: 'Stable', tone: 'bg-emerald-500/20 text-emerald-200', isRisk: false };
-}
-
-type AlertMetric = 'CHANGE_1D' | 'CHANGE_7D';
-type AlertDirection = 'BELOW' | 'ABOVE';
-
-interface ResearchHistoryItem {
-    id: string;
-    protocolSlug: string;
-    briefMarkdown: string;
-    createdAt: string;
-}
-
-interface AlertRuleItem {
-    id: string;
-    protocolSlug: string;
-    metric: AlertMetric;
-    threshold: number;
-    direction: AlertDirection;
-    enabled: boolean;
-    createdAt: string;
-}
-
-interface AlertEventItem {
-    id: string;
-    protocolSlug: string;
-    metric: AlertMetric;
-    threshold: number;
-    direction: AlertDirection;
-    currentValue: number;
-    triggeredAt: string;
+    return { label: 'Stable', tone: 'bg-emerald-500/20 text-emerald-200', isRisk: false }
 }
 
 const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
     CHANGE_1D: '24h change',
     CHANGE_7D: '7d change',
-};
+}
+
+const CHAIN_LABELS: Record<ChainType, string> = {
+    [ChainType.Solana]: 'Solana',
+    [ChainType.Ethereum]: 'Ethereum',
+    [ChainType.Polygon]: 'Polygon',
+    [ChainType.Arbitrum]: 'Arbitrum',
+    [ChainType.Optimism]: 'Optimism',
+    [ChainType.Cosmos]: 'Cosmos',
+    [ChainType.Base]: 'Base',
+}
+
+const CHAIN_TONES: Record<ChainType, string> = {
+    [ChainType.Solana]: 'bg-cyan-400/10 text-cyan-100 ring-cyan-300/20',
+    [ChainType.Ethereum]: 'bg-blue-400/10 text-blue-100 ring-blue-300/20',
+    [ChainType.Polygon]: 'bg-violet-400/10 text-violet-100 ring-violet-300/20',
+    [ChainType.Arbitrum]: 'bg-sky-400/10 text-sky-100 ring-sky-300/20',
+    [ChainType.Optimism]: 'bg-rose-400/10 text-rose-100 ring-rose-300/20',
+    [ChainType.Cosmos]: 'bg-amber-400/10 text-amber-100 ring-amber-300/20',
+    [ChainType.Base]: 'bg-emerald-400/10 text-emerald-100 ring-emerald-300/20',
+}
 
 export default function WatchlistPage() {
-    const { watchlist, isLoading, isConnected, remove } = useWatchlist();
-    const { data: protocols = [], isLoading: marketLoading } = useSolanaProtocols();
-    const wallet = useWallet();
-    const walletAddress = wallet.publicKey?.toBase58();
+    const { activeChain, activeChainConnections, allChains } = useMultiChain()
+    const { data: watchlistsByChainData, isLoading: watchlistsLoading } = useMultiChainWatchlist()
+    const { data: solanaProtocols = [], isLoading: marketLoading } = useSolanaProtocols()
+    const wallet = useWallet()
+    const walletAddress = wallet.publicKey?.toBase58()
+    const watchlistsByChain: Partial<Record<ChainType, string[]>> = watchlistsByChainData ?? {}
 
-    const [history, setHistory] = useState<ResearchHistoryItem[]>([]);
-    const [rules, setRules] = useState<AlertRuleItem[]>([]);
-    const [events, setEvents] = useState<AlertEventItem[]>([]);
-    const [dbStatus, setDbStatus] = useState<string | null>(null);
-    const [historyLoading, setHistoryLoading] = useState(false);
-    const [alertsLoading, setAlertsLoading] = useState(false);
-    const [creatingRule, setCreatingRule] = useState(false);
-    const [evaluatingAlerts, setEvaluatingAlerts] = useState(false);
-    const [selectedProtocol, setSelectedProtocol] = useState('');
-    const [selectedMetric, setSelectedMetric] = useState<AlertMetric>('CHANGE_1D');
-    const [selectedDirection, setSelectedDirection] = useState<AlertDirection>('BELOW');
-    const [threshold, setThreshold] = useState(-5);
-
-    useEffect(() => {
-        if (!watchlist.length) {
-            setSelectedProtocol('');
-            return;
-        }
-        setSelectedProtocol((current) => (current && watchlist.includes(current) ? current : watchlist[0]));
-    }, [watchlist]);
+    const [history, setHistory] = useState<ResearchHistoryItem[]>([])
+    const [rules, setRules] = useState<AlertRuleItem[]>([])
+    const [events, setEvents] = useState<AlertEventItem[]>([])
+    const [dbStatus, setDbStatus] = useState<string | null>(null)
+    const [historyLoading, setHistoryLoading] = useState(false)
+    const [alertsLoading, setAlertsLoading] = useState(false)
 
     useEffect(() => {
         if (!walletAddress) {
-            setHistory([]);
-            setRules([]);
-            setEvents([]);
-            setDbStatus(null);
-            return;
+            setHistory([])
+            setRules([])
+            setEvents([])
+            setDbStatus(null)
+            return
         }
 
-        const currentWalletAddress = walletAddress;
+        const encodedWalletAddress = encodeURIComponent(walletAddress)
 
-        let cancelled = false;
+        let cancelled = false
 
         async function loadHistory() {
-            setHistoryLoading(true);
+            setHistoryLoading(true)
             try {
-                const res = await fetch(`/api/research/history?walletAddress=${encodeURIComponent(currentWalletAddress)}&limit=6`);
+                const res = await fetch(`/api/research/history?walletAddress=${encodedWalletAddress}&limit=6`)
                 if (!res.ok) {
-                    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-                    if (!cancelled) setDbStatus(body?.error ?? 'Research history unavailable.');
-                    return;
+                    const body = (await res.json().catch(() => null)) as { error?: string } | null
+                    if (!cancelled) setDbStatus(body?.error ?? 'Research history unavailable.')
+                    return
                 }
-                const body = (await res.json()) as { runs: ResearchHistoryItem[] };
+                const body = (await res.json()) as { runs: ResearchHistoryItem[] }
                 if (!cancelled) {
-                    setHistory(body.runs ?? []);
-                    setDbStatus(null);
+                    setHistory(body.runs ?? [])
+                    setDbStatus(null)
                 }
             } catch {
-                if (!cancelled) setDbStatus('Research history unavailable.');
+                if (!cancelled) setDbStatus('Research history unavailable.')
             } finally {
-                if (!cancelled) setHistoryLoading(false);
+                if (!cancelled) setHistoryLoading(false)
             }
         }
 
         async function loadAlerts() {
-            setAlertsLoading(true);
+            setAlertsLoading(true)
             try {
-                const res = await fetch(`/api/alerts/rules?walletAddress=${encodeURIComponent(currentWalletAddress)}`);
+                const res = await fetch(`/api/alerts/rules?walletAddress=${encodedWalletAddress}`)
                 if (!res.ok) {
-                    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-                    if (!cancelled) setDbStatus(body?.error ?? 'Alerts unavailable.');
-                    return;
+                    const body = (await res.json().catch(() => null)) as { error?: string } | null
+                    if (!cancelled) setDbStatus(body?.error ?? 'Alerts unavailable.')
+                    return
                 }
-                const body = (await res.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] };
+                const body = (await res.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] }
                 if (!cancelled) {
-                    setRules(body.rules ?? []);
-                    setEvents(body.recentEvents ?? []);
-                    setDbStatus(null);
+                    setRules(body.rules ?? [])
+                    setEvents(body.recentEvents ?? [])
+                    setDbStatus(null)
                 }
             } catch {
-                if (!cancelled) setDbStatus('Alerts unavailable.');
+                if (!cancelled) setDbStatus('Alerts unavailable.')
             } finally {
-                if (!cancelled) setAlertsLoading(false);
+                if (!cancelled) setAlertsLoading(false)
             }
         }
 
-        loadHistory();
-        loadAlerts();
+        loadHistory()
+        loadAlerts()
 
         return () => {
-            cancelled = true;
-        };
-    }, [walletAddress]);
-
-    async function createAlertRule() {
-        if (!walletAddress || !selectedProtocol) return;
-        const currentWalletAddress = walletAddress;
-        setCreatingRule(true);
-        try {
-            const res = await fetch('/api/alerts/rules', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    walletAddress: currentWalletAddress,
-                    protocolSlug: selectedProtocol,
-                    metric: selectedMetric,
-                    direction: selectedDirection,
-                    threshold,
-                }),
-            });
-
-            if (!res.ok) {
-                const body = (await res.json().catch(() => null)) as { error?: string } | null;
-                throw new Error(body?.error ?? 'Failed to create alert rule.');
-            }
-
-            toast.success('Alert rule created.');
-            const refreshed = await fetch(`/api/alerts/rules?walletAddress=${encodeURIComponent(currentWalletAddress)}`);
-            if (refreshed.ok) {
-                const body = (await refreshed.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] };
-                setRules(body.rules ?? []);
-                setEvents(body.recentEvents ?? []);
-            }
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Failed to create alert rule.');
-        } finally {
-            setCreatingRule(false);
+            cancelled = true
         }
-    }
+    }, [walletAddress])
 
-    async function evaluateAlertsNow() {
-        if (!walletAddress) return;
-        const currentWalletAddress = walletAddress;
-        setEvaluatingAlerts(true);
-        try {
-            const res = await fetch('/api/alerts/evaluate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ walletAddress: currentWalletAddress }),
-            });
+    const chainViews = useMemo(() => {
+        const visibleChainTypes = activeChainConnections.length > 0 ? activeChainConnections : [activeChain.type]
 
-            if (!res.ok) {
-                const body = (await res.json().catch(() => null)) as { error?: string } | null;
-                throw new Error(body?.error ?? 'Failed to evaluate alerts.');
-            }
+        return visibleChainTypes
+            .map((chainType) => {
+                const chain = allChains.find((item) => item.type === chainType)
+                if (!chain) return null
 
-            const summary = (await res.json()) as { triggered: number; totalRules: number };
-            toast.success(`Alert scan complete: ${summary.triggered} trigger(s) across ${summary.totalRules} rules.`);
+                const slugs = watchlistsByChain[chainType] ?? []
+                const marketRows = chainType === ChainType.Solana
+                    ? slugs.map((slug) => ({ slug, market: resolveProtocolFromList(slug, solanaProtocols) }))
+                    : slugs.map((slug) => ({ slug, market: undefined }))
 
-            const refreshed = await fetch(`/api/alerts/rules?walletAddress=${encodeURIComponent(currentWalletAddress)}`);
-            if (refreshed.ok) {
-                const body = (await refreshed.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] };
-                setRules(body.rules ?? []);
-                setEvents(body.recentEvents ?? []);
-            }
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Failed to evaluate alerts.');
-        } finally {
-            setEvaluatingAlerts(false);
-        }
-    }
+                const riskyCount = marketRows.filter(({ market }) => riskState(market).isRisk).length
 
-    async function setRuleEnabled(ruleId: string, enabled: boolean) {
-        try {
-            const res = await fetch(`/api/alerts/rules/${ruleId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled }),
-            });
-            if (!res.ok) throw new Error('Failed to update rule status.');
-            setRules((prev) => prev.map((rule) => (rule.id === ruleId ? { ...rule, enabled } : rule)));
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Failed to update rule status.');
-        }
-    }
+                return {
+                    chain,
+                    slugs,
+                    marketRows,
+                    riskyCount,
+                    total: slugs.length,
+                }
+            })
+            .filter((value): value is NonNullable<typeof value> => Boolean(value))
+    }, [activeChain.type, activeChainConnections, allChains, solanaProtocols, watchlistsByChain])
 
-    const watchedWithMarket = useMemo(
-        () => watchlist.map((slug) => ({ slug, market: resolveProtocolFromList(slug, protocols) })),
-        [watchlist, protocols]
-    );
-
-    const riskyCount = useMemo(
-        () => watchedWithMarket.filter(({ market }) => riskState(market).isRisk).length,
-        [watchedWithMarket]
-    );
+    const totalProtocols = chainViews.reduce((acc, item) => acc + item.total, 0)
+    const riskyProtocols = chainViews.reduce((acc, item) => acc + item.riskyCount, 0)
 
     return (
         <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
                 <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
             </div>
 
-            <div className="relative mx-auto max-w-5xl space-y-10 px-4 py-10 md:space-y-12 md:px-6 md:py-14">
-                <header className="flex flex-col justify-between gap-6 overflow-hidden md:flex-row md:items-end">
-                    <div className="space-y-4">
-                        <Link
-                            href="/research"
-                            className="group flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-500 transition-colors hover:text-cyan-200"
-                        >
-                            <ArrowLeft className="h-3 w-3 transition-transform group-hover:-translate-x-1" />
-                            Back to Research
-                        </Link>
-                        <h1 className="text-5xl font-black tracking-tight text-white">
-                            My <span className="text-cyan-200">Watchlist</span>
-                        </h1>
-                        <p className="max-w-lg text-zinc-300">
-                            Tracked Solana protocols and saved research briefs. On-chain verified.
-                        </p>
-                    </div>
+            <div className="relative mx-auto max-w-6xl space-y-10 px-4 py-10 md:space-y-12 md:px-6 md:py-14">
+                <header className="space-y-5">
+                    <Link
+                        href="/research"
+                        className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-500 transition-colors hover:text-cyan-200"
+                    >
+                        <ArrowLeft className="h-3 w-3 transition-transform group-hover:-translate-x-1" />
+                        Back to Research
+                    </Link>
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="space-y-4">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
+                                <Layers3 className="h-3.5 w-3.5" />
+                                Multichain Watchlist
+                            </div>
+                            <h1 className="text-4xl font-black tracking-tight text-white md:text-6xl">
+                                Track protocols across <span className="text-cyan-200">multiple chains</span>
+                            </h1>
+                            <p className="max-w-3xl text-zinc-300">
+                                Keep one watchlist per chain, compare protocol momentum side-by-side, and jump into research or war-room simulations from the same surface.
+                            </p>
+                        </div>
 
-                    <div className="flex items-center gap-4">
-                        <div className="rounded-lg bg-zinc-900/70 px-4 py-2 text-[10px] font-black uppercase tracking-tighter text-zinc-400">
-                            {watchlist.length} / 20 Protocols
+                        <div className="grid grid-cols-3 gap-3 rounded-2xl bg-zinc-900/45 p-4 backdrop-blur-xl">
+                            <StatPill label="Chains" value={String(chainViews.length || 1)} />
+                            <StatPill label="Protocols" value={String(totalProtocols)} />
+                            <StatPill label="Flags" value={String(riskyProtocols)} tone={riskyProtocols > 0 ? 'text-rose-200' : 'text-emerald-200'} />
                         </div>
                     </div>
                 </header>
 
-                {!isConnected && (
+                {!walletAddress && (
                     <div className="rounded-xl bg-zinc-900/55 px-4 py-3 text-xs text-zinc-300">
-                        Guest mode is active. Your watchlist is saved locally in this browser. Connect a wallet to enable synced research history and alert automation.
+                        Guest mode is active. Your watchlists are saved locally in this browser. Connect a wallet to sync research history and alert automation.
                     </div>
                 )}
 
-                {isLoading ? (
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-48 animate-pulse rounded-2xl bg-zinc-900/35" />
-                        ))}
-                    </div>
-                ) : watchlist.length === 0 ? (
-                    <div className="glass-card flex flex-col items-center justify-center space-y-6 rounded-3xl bg-zinc-900/35 p-20 text-center backdrop-blur-xl">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-800/50 text-zinc-600">★</div>
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-bold text-white">Watchlist Empty</h3>
-                            <p className="mx-auto max-w-xs text-zinc-400">Start by adding protocols from the research page.</p>
-                            <Link href="/research" className="mt-4 inline-block font-bold text-cyan-200 hover:underline">
-                                Go to Research &rarr;
-                            </Link>
+                {dbStatus && <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{dbStatus}</div>}
+
+                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {chainViews.map(({ chain, slugs, marketRows, riskyCount }) => (
+                        <article key={chain.name} className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ring-1 ${CHAIN_TONES[chain.type]}`}>{CHAIN_LABELS[chain.type]}</div>
+                                    <h2 className="mt-3 text-2xl font-black text-white">{chain.displayName}</h2>
+                                    <p className="mt-1 text-sm text-zinc-400">{slugs.length} tracked protocol{slugs.length === 1 ? '' : 's'}</p>
+                                </div>
+                                <div className="rounded-xl bg-zinc-950/70 px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                                    {riskyCount} flagged
+                                </div>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                {slugs.length === 0 ? (
+                                    <div className="rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-400">
+                                        Nothing tracked yet on {chain.displayName}. Add a protocol from Research to start comparing chains.
+                                    </div>
+                                ) : (
+                                    marketRows.map(({ slug, market }) => {
+                                        const status = riskState(market)
+                                        return (
+                                            <div key={`${chain.name}:${slug}`} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-sm font-semibold capitalize text-zinc-100">{slug}</p>
+                                                        <p className="mt-1 text-xs text-zinc-500">{market?.category ?? 'Chain-agnostic signal'}</p>
+                                                    </div>
+                                                    <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status.tone}`}>{status.label}</span>
+                                                </div>
+
+                                                <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                                                    <MiniMetric label="TVL" value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'} />
+                                                    <MiniMetric label="24h" value={formatPct(market?.change_1d)} tone={(market?.change_1d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                                                    <MiniMetric label="7d" value={formatPct(market?.change_7d)} tone={(market?.change_7d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                                                </div>
+
+                                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                                    <Link href={`/research?q=${slug}`} className="inline-flex items-center gap-1 rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700">
+                                                        Research <ExternalLink className="h-3 w-3" />
+                                                    </Link>
+                                                    <Link href={`/war-room?protocol=${slug}`} className="inline-flex items-center gap-1 rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-300/30">
+                                                        War room <ShieldAlert className="h-3 w-3" />
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                )}
+                            </div>
+                        </article>
+                    ))}
+                </section>
+
+                <section className="grid gap-6 lg:grid-cols-2">
+                    <div className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Cross-chain flow</p>
+                                <h2 className="text-xl font-black text-white">Comparative lens</h2>
+                            </div>
+                            <div className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                                {marketLoading ? 'Updating market feeds' : 'Live market data'}
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <>
-                        <section className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-xl">
-                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Market Risk Monitor</p>
-                                    <h2 className="text-xl font-black text-white">Watchlist Health Snapshot</h2>
-                                    <p className="text-sm text-zinc-300">
-                                        {marketLoading
-                                            ? 'Refreshing live protocol metrics...'
-                                            : `${riskyCount} protocol${riskyCount === 1 ? '' : 's'} currently require attention based on 24h/7d momentum.`}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-2 rounded-lg bg-zinc-950/70 px-3 py-2 text-xs font-semibold text-zinc-300">
-                                    <Activity className="h-4 w-4 text-cyan-200" />
-                                    {marketLoading ? 'Updating' : 'Live from DeFiLlama'}
-                                </div>
-                            </div>
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            {allChains.slice(0, 4).map((chain) => {
+                                const watchlistCount = watchlistsByChain[chain.type]?.length ?? 0
+                                const momentum = chain.type === ChainType.Solana ? (slugsMomentumScore(chain.type, watchlistsByChain, solanaProtocols)) : 60 + watchlistCount * 4
+                                const label = momentum > 75 ? 'Hot' : momentum > 55 ? 'Balanced' : 'Quiet'
 
-                            {!marketLoading && riskyCount > 0 && (
-                                <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    {riskyCount} watchlist protocol{riskyCount === 1 ? '' : 's'} crossed caution thresholds. Review and war-game scenarios.
-                                </div>
-                            )}
-                        </section>
-
-                        {dbStatus && (
-                            <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-                                {dbStatus}
-                            </div>
-                        )}
-
-                        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                            {walletAddress ? (
-                                <>
-                                    <div className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-xl">
-                                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                                return (
+                                    <div key={chain.name} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                                        <div className="flex items-center justify-between gap-3">
                                             <div>
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Alert Automation</p>
-                                                <h2 className="text-xl font-black text-white">Rules & Triggers</h2>
+                                                <p className="text-sm font-semibold text-white">{chain.displayName}</p>
+                                                <p className="text-xs text-zinc-500">{watchlistCount} tracked protocol{watchlistCount === 1 ? '' : 's'}</p>
                                             </div>
-                                            <button
-                                                onClick={evaluateAlertsNow}
-                                                disabled={evaluatingAlerts || !walletAddress || rules.length === 0}
-                                                className="rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-300/30 disabled:opacity-50"
-                                            >
-                                                {evaluatingAlerts ? 'Evaluating...' : 'Evaluate Now'}
-                                            </button>
+                                            <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">{label}</span>
                                         </div>
-
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <select
-                                                value={selectedProtocol}
-                                                onChange={(e) => setSelectedProtocol(e.target.value)}
-                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                            >
-                                                {watchlist.map((slug) => (
-                                                    <option key={slug} value={slug}>
-                                                        {slug}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <select
-                                                value={selectedMetric}
-                                                onChange={(e) => setSelectedMetric(e.target.value as AlertMetric)}
-                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                            >
-                                                <option value="CHANGE_1D">24h % Change</option>
-                                                <option value="CHANGE_7D">7d % Change</option>
-                                            </select>
-                                            <select
-                                                value={selectedDirection}
-                                                onChange={(e) => setSelectedDirection(e.target.value as AlertDirection)}
-                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                            >
-                                                <option value="BELOW">Below threshold</option>
-                                                <option value="ABOVE">Above threshold</option>
-                                            </select>
-                                            <input
-                                                type="number"
-                                                value={threshold}
-                                                onChange={(e) => setThreshold(Number(e.target.value))}
-                                                className="rounded-lg bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-800"
-                                                placeholder="Threshold"
-                                            />
+                                        <div className="mt-3 h-2 rounded-full bg-zinc-800">
+                                            <div className="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400" style={{ width: `${Math.min(100, momentum)}%` }} />
                                         </div>
-
-                                        <button
-                                            onClick={createAlertRule}
-                                            disabled={creatingRule || !walletAddress || !selectedProtocol}
-                                            className="mt-3 w-full rounded-lg bg-cyan-300 px-3 py-2 text-sm font-black text-zinc-950 transition-all hover:bg-cyan-200 disabled:opacity-50"
-                                        >
-                                            {creatingRule ? 'Creating Rule...' : 'Create Alert Rule'}
-                                        </button>
-
-                                        <div className="mt-4 space-y-2">
-                                            {alertsLoading ? (
-                                                <p className="text-sm text-zinc-400">Loading rules...</p>
-                                            ) : rules.length === 0 ? (
-                                                <p className="text-sm text-zinc-400">No rules yet. Create one to monitor your watchlist automatically.</p>
-                                            ) : (
-                                                rules.map((rule) => (
-                                                    <div key={rule.id} className="flex items-center justify-between rounded-lg bg-zinc-950/60 p-3">
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-zinc-100">
-                                                                {rule.protocolSlug}: {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '<=' : '>='} {rule.threshold.toFixed(2)}%
-                                                            </p>
-                                                            <p className="text-xs text-zinc-500">Created {new Date(rule.createdAt).toLocaleString()}</p>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => setRuleEnabled(rule.id, !rule.enabled)}
-                                                            className={`rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wide ${rule.enabled
-                                                                ? 'bg-emerald-500/20 text-emerald-200'
-                                                                : 'bg-zinc-700 text-zinc-300'
-                                                                }`}
-                                                        >
-                                                            {rule.enabled ? 'Enabled' : 'Disabled'}
-                                                        </button>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-
-                                        <div className="mt-4 space-y-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Recent Alert Events</p>
-                                            {events.length === 0 ? (
-                                                <p className="text-sm text-zinc-400">No alert events yet.</p>
-                                            ) : (
-                                                events.slice(0, 5).map((event) => (
-                                                    <div key={event.id} className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                                                        {event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}% ({event.direction === 'BELOW' ? '<=' : '>='} {event.threshold.toFixed(2)}%)
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
+                                        <p className="mt-2 text-xs text-zinc-400">
+                                            Suggested posture: {momentum > 75 ? 'trim exposure' : momentum > 55 ? 'monitor and compare' : 'accumulate selectively'}
+                                        </p>
                                     </div>
-
-                                    <div className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-xl">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Research Memory</p>
-                                        <h2 className="mb-4 text-xl font-black text-white">Recent Brief History</h2>
-
-                                        {historyLoading ? (
-                                            <p className="text-sm text-zinc-400">Loading history...</p>
-                                        ) : history.length === 0 ? (
-                                            <p className="text-sm text-zinc-400">No saved research runs yet. Generate reports from Research to build your timeline.</p>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {history.map((item) => (
-                                                    <div key={item.id} className="rounded-lg bg-zinc-950/60 p-3">
-                                                        <div className="mb-2 flex items-center justify-between gap-2">
-                                                            <Link href={`/research?q=${item.protocolSlug}`} className="text-sm font-bold uppercase tracking-wide text-cyan-200 hover:underline">
-                                                                {item.protocolSlug}
-                                                            </Link>
-                                                            <span className="text-[10px] text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span>
-                                                        </div>
-                                                        <p className="line-clamp-3 text-xs leading-relaxed text-zinc-300">{item.briefMarkdown}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="rounded-2xl bg-zinc-900/45 p-5 text-sm text-zinc-300 backdrop-blur-xl lg:col-span-2">
-                                    Connect a wallet to enable server-synced alert rules and research history. Your protocol watchlist already works in guest mode.
-                                </div>
-                            )}
-                        </section>
-
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {watchedWithMarket.map(({ slug, market }) => (
-                                <ProtocolCard key={slug} slug={slug} market={market} onRemove={() => remove(slug)} />
-                            ))}
+                                )
+                            })}
                         </div>
-                    </>
+                    </div>
+
+                    <div className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Research memory</p>
+                                <h2 className="text-xl font-black text-white">Recent briefs & alerts</h2>
+                            </div>
+                            <div className="inline-flex items-center gap-2 rounded-full bg-zinc-950/70 px-3 py-1 text-xs font-semibold text-zinc-300">
+                                <Activity className="h-4 w-4 text-cyan-200" />
+                                {alertsLoading || historyLoading ? 'Syncing' : 'Synced'}
+                            </div>
+                        </div>
+
+                        <div className="mt-4 space-y-4">
+                            <div className="rounded-2xl bg-zinc-950/60 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Alert rules</p>
+                                {rules.length === 0 ? (
+                                    <p className="mt-2 text-sm text-zinc-400">No rules yet. Create them from the alerts API and they will show up here automatically.</p>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        {rules.slice(0, 3).map((rule) => (
+                                            <div key={rule.id} className="rounded-xl bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200">
+                                                {rule.protocolSlug}: {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '&le;' : '&ge;'} {rule.threshold.toFixed(2)}%
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="rounded-2xl bg-zinc-950/60 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Recent brief history</p>
+                                {historyLoading ? (
+                                    <p className="mt-2 text-sm text-zinc-400">Loading history...</p>
+                                ) : history.length === 0 ? (
+                                    <p className="mt-2 text-sm text-zinc-400">No saved research runs yet. Generate reports to build your timeline.</p>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        {history.slice(0, 3).map((item) => (
+                                            <div key={item.id} className="rounded-xl bg-zinc-900/70 p-3">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <Link href={`/research?q=${item.protocolSlug}`} className="text-sm font-bold uppercase tracking-wide text-cyan-200 hover:underline">
+                                                        {item.protocolSlug}
+                                                    </Link>
+                                                    <span className="text-[10px] text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span>
+                                                </div>
+                                                <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-300">{item.briefMarkdown}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="rounded-2xl bg-zinc-950/60 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Recent triggers</p>
+                                {events.length === 0 ? (
+                                    <p className="mt-2 text-sm text-zinc-400">No alert events yet.</p>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        {events.slice(0, 3).map((event) => (
+                                            <div key={event.id} className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+                                                {event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}%
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {watchlistsLoading && (
+                    <div className="rounded-xl bg-zinc-900/55 px-4 py-3 text-sm text-zinc-300">
+                        Loading multichain watchlists...
+                    </div>
                 )}
             </div>
-
-            <style jsx global>{`
-        .glass-card {
-          backdrop-filter: blur(20px);
-        }
-      `}</style>
         </div>
-    );
+    )
 }
 
-function ProtocolCard({ slug, market, onRemove }: { slug: string; market?: SolanaProtocol; onRemove: () => void }) {
-    const status = riskState(market);
-
+function StatPill({ label, value, tone }: { label: string; value: string; tone?: string }) {
     return (
-        <div className="group glass-card relative flex min-h-56 flex-col justify-between overflow-hidden rounded-2xl bg-zinc-900/45 p-6 transition-all hover:bg-zinc-900/65">
-            <div className="absolute -right-10 -top-10 h-24 w-24 bg-cyan-300/10 blur-3xl transition-colors group-hover:bg-cyan-300/20" />
-
-            <div className="space-y-1">
-                <div className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Protocol</div>
-                <h3 className="overflow-hidden text-ellipsis text-2xl font-black capitalize text-white">{slug}</h3>
-                <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status.tone}`}>
-                    {status.label}
-                </span>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2 rounded-lg bg-zinc-950/60 p-3 text-xs">
-                <div>
-                    <p className="text-zinc-500">TVL</p>
-                    <p className="font-semibold text-zinc-100">{formatUsd(market?.tvl)}</p>
-                </div>
-                <div>
-                    <p className="text-zinc-500">24h</p>
-                    <p className={`font-semibold ${(market?.change_1d ?? 0) < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
-                        {formatPct(market?.change_1d)}
-                    </p>
-                </div>
-                <div>
-                    <p className="text-zinc-500">7d</p>
-                    <p className={`font-semibold ${(market?.change_7d ?? 0) < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
-                        {formatPct(market?.change_7d)}
-                    </p>
-                </div>
-                <div>
-                    <p className="text-zinc-500">Category</p>
-                    <p className="truncate font-semibold text-zinc-100">{market?.category ?? 'Unknown'}</p>
-                </div>
-            </div>
-
-            <div className="mt-4 flex items-center gap-2">
-                <Link
-                    href={`/research?q=${slug}`}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
-                >
-                    Research <ExternalLink className="h-3 w-3" />
-                </Link>
-                <Link
-                    href={`/war-room?protocol=${slug}`}
-                    className="flex items-center justify-center gap-1 rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-300/30"
-                    title="Run war-room simulation for this protocol"
-                >
-                    War <ShieldAlert className="h-3 w-3" />
-                </Link>
-                <button
-                    onClick={onRemove}
-                    className="rounded-lg bg-zinc-900/80 p-2 text-zinc-600 transition-all hover:bg-zinc-800 hover:text-red-400"
-                    title="Remove from watchlist"
-                >
-                    <Trash2 className="h-4 w-4" />
-                </button>
-            </div>
+        <div className="rounded-xl bg-zinc-950/70 px-4 py-3 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
+            <p className={`mt-1 text-2xl font-black ${tone ?? 'text-white'}`}>{value}</p>
         </div>
-    );
+    )
+}
+
+function MiniMetric({ label, value, tone }: { label: string; value: string; tone?: string }) {
+    return (
+        <div className="rounded-lg bg-zinc-900/70 p-2">
+            <p className="text-zinc-500">{label}</p>
+            <p className={`font-semibold ${tone ?? 'text-zinc-100'}`}>{value}</p>
+        </div>
+    )
+}
+
+function slugsMomentumScore(
+    chainType: ChainType,
+    watchlistsByChain: Partial<Record<ChainType, string[]>>,
+    protocols: SolanaProtocol[]
+): number {
+    const slugs = watchlistsByChain[chainType] ?? []
+    if (chainType !== ChainType.Solana) {
+        return 58 + slugs.length * 5
+    }
+
+    const marketSignals = slugs
+        .map((slug) => resolveProtocolFromList(normalizeProtocolSlug(slug), protocols))
+        .filter((market): market is SolanaProtocol => Boolean(market))
+
+    if (marketSignals.length === 0) return 55 + slugs.length * 4
+
+    const averageChange = marketSignals.reduce((acc, market) => acc + (market.change_1d ?? 0) + (market.change_7d ?? 0) / 2, 0) / marketSignals.length
+    const score = 62 + averageChange * 1.4 + slugs.length * 3
+    return Math.max(20, Math.min(95, score))
 }

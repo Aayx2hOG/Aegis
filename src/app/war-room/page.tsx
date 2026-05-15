@@ -30,6 +30,17 @@ type TokenProfile = {
     fallbackPriceUsd: number
 }
 
+type ComparativeChain = {
+    name: string
+    label: string
+    baseRisk: number
+    marketSensitivity: number
+    liquiditySensitivity: number
+    exploitSensitivity: number
+    bridgeSensitivity: number
+    posture: 'best' | 'balanced' | 'cautious'
+}
+
 const SOL_PRICE_ID = 'So11111111111111111111111111111111111111112'
 
 const TOKEN_PROFILES: Record<string, TokenProfile> = {
@@ -87,6 +98,59 @@ const TOKEN_PROFILES: Record<string, TokenProfile> = {
         liquidityScore: 76,
         fallbackPriceUsd: 160,
     },
+}
+
+const COMPARATIVE_CHAINS: ComparativeChain[] = [
+    {
+        name: 'solana',
+        label: 'Solana',
+        baseRisk: 42,
+        marketSensitivity: 0.42,
+        liquiditySensitivity: 0.34,
+        exploitSensitivity: 0.26,
+        bridgeSensitivity: 0.12,
+        posture: 'balanced',
+    },
+    {
+        name: 'ethereum',
+        label: 'Ethereum',
+        baseRisk: 34,
+        marketSensitivity: 0.34,
+        liquiditySensitivity: 0.18,
+        exploitSensitivity: 0.18,
+        bridgeSensitivity: 0.08,
+        posture: 'best',
+    },
+    {
+        name: 'arbitrum',
+        label: 'Arbitrum',
+        baseRisk: 38,
+        marketSensitivity: 0.36,
+        liquiditySensitivity: 0.24,
+        exploitSensitivity: 0.22,
+        bridgeSensitivity: 0.22,
+        posture: 'balanced',
+    },
+    {
+        name: 'base',
+        label: 'Base',
+        baseRisk: 31,
+        marketSensitivity: 0.3,
+        liquiditySensitivity: 0.2,
+        exploitSensitivity: 0.2,
+        bridgeSensitivity: 0.14,
+        posture: 'best',
+    },
+]
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value))
+}
+
+function getPostureLabel(score: number): string {
+    if (score >= 70) return 'Cautious'
+    if (score >= 48) return 'Balanced'
+    return 'Best'
 }
 
 const SCENARIOS: ScenarioPreset[] = [
@@ -432,6 +496,37 @@ function WarRoomContent() {
         [result]
     )
 
+    const comparativeChains = useMemo(() => {
+        return COMPARATIVE_CHAINS.map((chain) => {
+            const chainFocusBoost = focusedProtocol ? (chain.name === 'solana' ? 8 : chain.name === 'ethereum' ? 2 : 4) : 0
+            const spreadPenalty = selectedScenario.type === 'smart-contract-incident' ? chain.exploitSensitivity * 18 : 0
+            const bridgePenalty = chain.bridgeSensitivity * (selectedScenario.liquidityDropPct * 0.35 + selectedScenario.protocolExploitSeverity * 0.2)
+            const score = clamp(
+                chain.baseRisk +
+                selectedScenario.marketShockPct * chain.marketSensitivity +
+                selectedScenario.liquidityDropPct * chain.liquiditySensitivity +
+                selectedScenario.protocolExploitSeverity * chain.exploitSensitivity +
+                bridgePenalty +
+                chainFocusBoost +
+                spreadPenalty,
+                0,
+                100
+            )
+
+            return {
+                ...chain,
+                score,
+                postureLabel: getPostureLabel(score),
+                recommendation:
+                    score >= 70
+                        ? 'Keep position size light and hedge duration.'
+                        : score >= 48
+                            ? 'Monitor closely and prefer stable collateral.'
+                            : 'This chain is a viable deployment venue.'
+            }
+        }).sort((a, b) => a.score - b.score)
+    }, [focusedProtocol, selectedScenario])
+
     async function runSimulation() {
         setLoading(true)
         setError(null)
@@ -624,6 +719,43 @@ function WarRoomContent() {
                         <p className="mt-2 text-xs text-zinc-300">
                             Connect a wallet, then click Import Wallet Balances to auto-fill SOL + largest token positions. If nothing is detected, a starter template is loaded.
                         </p>
+                    </div>
+                </section>
+
+                <section className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Comparative War-Room</p>
+                            <h2 className="text-lg font-bold">Chain-by-chain deployment view</h2>
+                        </div>
+                        <div className="rounded-full bg-zinc-950/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                            {focusedProtocol ? `Focused on ${focusedProtocol}` : 'Portfolio view'}
+                        </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {comparativeChains.map((chain) => (
+                            <div key={chain.name} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <p className="text-sm font-semibold text-white">{chain.label}</p>
+                                        <p className="text-xs text-zinc-500">Best deployment posture for this scenario</p>
+                                    </div>
+                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${chain.postureLabel === 'Best' ? 'bg-emerald-500/15 text-emerald-200' : chain.postureLabel === 'Balanced' ? 'bg-amber-500/15 text-amber-200' : 'bg-rose-500/15 text-rose-200'}`}>
+                                        {chain.postureLabel}
+                                    </span>
+                                </div>
+
+                                <div className="mt-3 h-2 rounded-full bg-zinc-800">
+                                    <div className={`h-2 rounded-full ${chain.postureLabel === 'Best' ? 'bg-emerald-300' : chain.postureLabel === 'Balanced' ? 'bg-amber-300' : 'bg-rose-300'}`} style={{ width: `${chain.score}%` }} />
+                                </div>
+
+                                <p className="mt-3 text-xs text-zinc-400">
+                                    Risk score: <span className="font-semibold text-zinc-100">{chain.score.toFixed(0)}</span>
+                                </p>
+                                <p className="mt-2 text-xs text-zinc-400">{chain.recommendation}</p>
+                            </div>
+                        ))}
                     </div>
                 </section>
 
