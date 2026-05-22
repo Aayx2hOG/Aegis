@@ -10,6 +10,7 @@ import { useMultiChainWatchlist } from '@/hooks/use-multichain-watchlist'
 import { useWatchlist } from '@/hooks/use-watchlist'
 import { useSolanaProtocols } from '@/hooks/use-defillama'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
+import MiniMetric from '@/components/ui/mini-metric'
 import { ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/shared/types/protocol'
 import { toast } from 'sonner'
@@ -541,14 +542,7 @@ function StatPill({ label, value, tone }: { label: string; value: string; tone?:
     )
 }
 
-function MiniMetric({ label, value, tone }: { label: string; value: string; tone?: string }) {
-    return (
-        <div className="rounded-lg bg-zinc-900/70 p-2">
-            <p className="text-zinc-500">{label}</p>
-            <p className={`font-semibold ${tone ?? 'text-zinc-100'}`}>{value}</p>
-        </div>
-    )
-}
+// `MiniMetric` moved to a shared component at `src/components/ui/mini-metric.tsx`
 
 function slugsMomentumScore(
     chainType: ChainType,

@@ -8,6 +8,7 @@ import { useMultiChain, } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlist } from '@/hooks/use-multichain-watchlist'
 import { useSolanaProtocols } from '@/hooks/use-defillama'
 import { ChainType } from '@/lib/chain/types'
+import MiniMetric from '@/components/ui/mini-metric'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import type { ResearchBrief } from '@/shared/types/research'
 
@@ -34,6 +35,20 @@ function extractBriefSnapshot(markdown: string): string {
     }
 
     return 'Signal snapshot is still being assembled. Open Watchlist for full context.'
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value))
+}
+
+function getContagionLabel(score: number): { label: string; tone: string } {
+    if (score >= 72) return { label: 'Severe', tone: 'bg-rose-500/15 text-rose-200 ring-rose-400/20' }
+    if (score >= 44) return { label: 'Elevated', tone: 'bg-amber-500/15 text-amber-200 ring-amber-400/20' }
+    return { label: 'Contained', tone: 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/20' }
+}
+
+function formatCompactNumber(value: number): string {
+    return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
 }
 
 const CHAIN_TONES: Record<string, string> = {
@@ -73,6 +88,74 @@ export function DashboardFeature() {
         [previewSlugs, protocols, watchlistsByChain]
     )
     const hiddenCount = Math.max(0, flattenedWatchlist.length - previewSlugs.length)
+
+    const contagionSignals = useMemo(() => {
+        const chainEntries = Object.entries(watchlistsByChain)
+
+        return flattenedWatchlist
+            .map((slug) => {
+                const market = resolveProtocolFromList(slug, protocols)
+                const chains = chainEntries
+                    .filter(([, slugs]) => slugs.includes(slug))
+                    .map(([chainType]) => chainType)
+                const chainCount = chains.length
+                const tvl = market?.tvl ?? 0
+                const negative1d = Math.max(0, -(market?.change_1d ?? 0))
+                const negative7d = Math.max(0, -(market?.change_7d ?? 0))
+                const drift = negative1d * 1.6 + negative7d * 0.8
+                const tvlWeight = clamp(Math.log10(Math.max(1, tvl)) * 4.5, 0, 28)
+                const spreadWeight = chainCount > 1 ? 14 + chainCount * 6 : 0
+                const score = Math.round(clamp(10 + chainCount * 16 + drift + tvlWeight + spreadWeight, 0, 100))
+
+                return {
+                    slug,
+                    market,
+                    chains,
+                    score,
+                    label: getContagionLabel(score),
+                }
+            })
+            .sort((a, b) => b.score - a.score)
+    }, [flattenedWatchlist, protocols, watchlistsByChain])
+
+    const contagionSummary = useMemo(() => {
+        const sharedCount = contagionSignals.filter((signal) => signal.chains.length > 1).length
+        const criticalCount = contagionSignals.filter((signal) => signal.score >= 72).length
+        const topSignal = contagionSignals[0]
+        const watchlistCountsBySlug = new Map<string, number>()
+
+        Object.values(watchlistsByChain).forEach((slugs) => {
+            slugs.forEach((slug) => {
+                watchlistCountsBySlug.set(slug, (watchlistCountsBySlug.get(slug) ?? 0) + 1)
+            })
+        })
+
+        const chainExposure = allChains
+            .slice(0, 4)
+            .map((chain) => {
+                const slugs = watchlistsByChain[chain.type] ?? []
+                const shared = slugs.filter((slug) => (watchlistCountsBySlug.get(slug) ?? 0) > 1).length
+                const averageScore = slugs.length === 0
+                    ? 0
+                    : Math.round(slugs.reduce((acc, slug) => acc + (contagionSignals.find((signal) => signal.slug === slug)?.score ?? 0), 0) / slugs.length)
+
+                return {
+                    chain,
+                    slugs,
+                    shared,
+                    averageScore,
+                    share: slugs.length === 0 ? 0 : Math.round((shared / slugs.length) * 100),
+                }
+            })
+            .sort((a, b) => b.averageScore - a.averageScore)
+
+        return {
+            sharedCount,
+            criticalCount,
+            topSignal,
+            chainExposure,
+        }
+    }, [allChains, contagionSignals, watchlistsByChain])
 
     useEffect(() => {
         if (watchlistLoading || previewSlugs.length === 0) return
@@ -151,6 +234,160 @@ export function DashboardFeature() {
                     <StatCard label="Active Chains" value={String(activeChainConnections.length || 1)} sub={activeChain.displayName} />
                     <StatCard label="Mode" value={activeChainConnections.length > 1 ? 'Comparative' : 'Focused'} sub="Chain-aware research" />
                 </div>
+
+                <section className="rounded-3xl bg-zinc-900/45 p-5 shadow-2xl backdrop-blur-xl ring-1 ring-white/5 md:p-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-rose-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-rose-200">
+                                <ShieldAlert className="h-3.5 w-3.5" />
+                                Contagion Radar
+                            </div>
+                            <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+                                See which protocols can spread stress across your watchlist
+                            </h2>
+                            <p className="max-w-3xl text-sm text-zinc-300">
+                                The radar ranks shared protocols, negative momentum, and multi-chain overlap so you can spot where a single failure could ripple into the rest of your setup.
+                            </p>
+                        </div>
+                        <div className={`inline-flex w-fit items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${contagionSummary.topSignal ? contagionSummary.topSignal.label.tone : 'bg-zinc-950/60 text-zinc-400 ring-white/5'}`}>
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Highest pressure</p>
+                                <p className="text-base font-semibold">{contagionSummary.topSignal ? contagionSummary.topSignal.slug : 'No tracked exposure'}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Score</p>
+                                <p className="text-2xl font-black leading-none">{contagionSummary.topSignal ? contagionSummary.topSignal.score : 0}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Shared nodes</p>
+                            <p className="mt-2 text-3xl font-black text-white">{contagionSummary.sharedCount}</p>
+                            <p className="mt-1 text-xs text-zinc-400">Protocols appear on more than one chain in your watchlists.</p>
+                        </div>
+                        <div className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Critical pressure</p>
+                            <p className="mt-2 text-3xl font-black text-white">{contagionSummary.criticalCount}</p>
+                            <p className="mt-1 text-xs text-zinc-400">Entries with a contagion score above the severe threshold.</p>
+                        </div>
+                        <div className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Radar posture</p>
+                            <p className="mt-2 text-3xl font-black text-white">{getContagionLabel(contagionSignals[0]?.score ?? 0).label}</p>
+                            <p className="mt-1 text-xs text-zinc-400">Based on chain overlap, market drift, and TVL scale.</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 lg:grid-cols-[1.3fr_0.9fr]">
+                        <div className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Highest blast radius</p>
+                                    <h3 className="text-lg font-black text-white">Watch these protocols first</h3>
+                                </div>
+                                <div className="text-xs font-semibold text-zinc-400">Top {Math.min(3, contagionSignals.length)} signals</div>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                {contagionSignals.slice(0, 3).map((signal) => (
+                                    <div key={signal.slug} className="rounded-2xl bg-zinc-900/70 p-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-white capitalize">{signal.slug}</p>
+                                                <p className="mt-1 text-xs text-zinc-500">
+                                                    {signal.market?.name ?? 'Live market data'} · {signal.chains.length} chain{signal.chains.length === 1 ? '' : 's'}
+                                                </p>
+                                            </div>
+                                            <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ${signal.label.tone}`}>
+                                                {signal.label.label} {signal.score}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-3 h-2 rounded-full bg-zinc-800">
+                                            <div className="h-2 rounded-full bg-gradient-to-r from-rose-300 via-amber-300 to-cyan-300" style={{ width: `${signal.score}%` }} />
+                                        </div>
+
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            {signal.chains.map((chainType) => (
+                                                <span key={`${signal.slug}:${chainType}`} className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
+                                                    {allChains.find((chain) => chain.type === chainType)?.displayName ?? chainType}
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
+                                            <MiniMetric label="TVL" value={signal.market?.tvl ? `$${formatCompactNumber(signal.market.tvl)}` : 'N/A'} />
+                                            <MiniMetric label="24h" value={formatPct(signal.market?.change_1d)} tone={(signal.market?.change_1d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                                            <MiniMetric label="7d" value={formatPct(signal.market?.change_7d)} tone={(signal.market?.change_7d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                                        </div>
+
+                                        <div className="mt-4 flex flex-wrap gap-2">
+                                            <Link href={`/research?q=${signal.slug}`} className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-100 transition-colors hover:bg-zinc-700">
+                                                Investigate
+                                            </Link>
+                                            <Link href={`/war-room?protocol=${signal.slug}`} className="rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-100 transition-colors hover:bg-cyan-300/30">
+                                                Simulate
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {contagionSignals.length === 0 && (
+                                    <div className="rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-400">
+                                        Add a few protocols to your watchlists and the radar will surface cross-chain stress points here.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Chain exposure</p>
+                                    <h3 className="text-lg font-black text-white">Where contagion concentrates</h3>
+                                </div>
+                                <div className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                                    Live feed
+                                </div>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                {contagionSummary.chainExposure.map(({ chain, slugs, shared, averageScore, share }) => (
+                                    <div key={chain.name} className="rounded-2xl bg-zinc-900/70 p-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-white">{chain.displayName}</p>
+                                                <p className="mt-1 text-xs text-zinc-500">
+                                                    {slugs.length} tracked protocol{slugs.length === 1 ? '' : 's'} · {shared} shared across chains
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Avg score</p>
+                                                <p className="text-xl font-black text-white">{averageScore}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 h-2 rounded-full bg-zinc-800">
+                                            <div className="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400" style={{ width: `${clamp(share, 0, 100)}%` }} />
+                                        </div>
+
+                                        <p className="mt-2 text-xs text-zinc-400">
+                                            {share > 0 ? `${share}% of this chain's watchlist overlaps with other chains.` : 'No direct overlap with other chain watchlists yet.'}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-4 rounded-2xl bg-cyan-400/10 p-4 ring-1 ring-cyan-300/20">
+                                <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-100">Containment rule</p>
+                                <p className="mt-2 text-sm text-zinc-200">
+                                    If a protocol appears on multiple chains and its score turns severe, treat it as a system-wide event and run War Room before adding more exposure.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
                 {flattenedWatchlist.length === 0 && !watchlistLoading ? (
                     <div className="glass-card rounded-3xl bg-zinc-900/45 p-16 text-center shadow-2xl">

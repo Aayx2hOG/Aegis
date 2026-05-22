@@ -38,6 +38,20 @@ function usd(value: unknown): string {
   return `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
+function formatFallbackMetric(value: unknown, fallbackText: string): string {
+  const num = Number(value);
+  if (Number.isFinite(num)) return String(num);
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  return fallbackText;
+}
+
+function displayText(value: unknown, fallbackText: string): string {
+  if (value == null) return fallbackText;
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : fallbackText;
+  if (typeof value === 'string') return value.trim() ? value.trim() : fallbackText;
+  return fallbackText;
+}
+
 function text(value: unknown): string {
   if (value == null) return 'Unavailable';
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'Unavailable';
@@ -66,13 +80,15 @@ function buildChainLabel(chainType?: ChainType): string {
 }
 
 async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['toolCalls'], chainType?: ChainType): Promise<ResearchBrief> {
-  const [snapshot, tvl] = await Promise.allSettled([
+  const [snapshot, tvl, metadata] = await Promise.allSettled([
     executeTool('get_protocol_snapshot', { slug: protocol }),
     executeTool('get_protocol_tvl', { slug: protocol }),
+    executeTool('get_protocol_metadata', { slug: protocol }),
   ]);
 
   const snapshotOutput = snapshot.status === 'fulfilled' ? snapshot.value : { error: String(snapshot.reason) };
   const tvlOutput = tvl.status === 'fulfilled' ? tvl.value : { error: String(tvl.reason) };
+  const metadataOutput = metadata.status === 'fulfilled' ? metadata.value : { error: String(metadata.reason) };
 
   toolCalls.push(
     {
@@ -88,11 +104,19 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
       output: tvlOutput,
       durationMs: 0,
       error: tvl.status === 'rejected' ? String(tvl.reason) : undefined,
-    }
+    },
+    {
+      tool: 'get_protocol_metadata',
+      input: { slug: protocol },
+      output: metadataOutput,
+      durationMs: 0,
+      error: metadata.status === 'rejected' ? String(metadata.reason) : undefined,
+    },
   );
 
   const s = snapshot.status === 'fulfilled' ? (snapshot.value as Record<string, unknown>) : {};
   const t = tvl.status === 'fulfilled' ? (tvl.value as Record<string, unknown>) : {};
+  const m = metadata.status === 'fulfilled' ? (metadata.value as Record<string, unknown>) : {};
   const tokenPrice = (s.tokenPrice ?? {}) as Record<string, unknown>;
   const marketFallback = (s.marketFallback ?? {}) as Record<string, unknown>;
   const recentTransactions = Array.isArray(s.recentTransactions)
@@ -100,10 +124,23 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
     : [];
   const txFallback = (s.txFallback ?? {}) as Record<string, unknown>;
 
+  const protocolName = text(s.name ?? m.name) || protocol;
+  const protocolDescription = displayText(s.description ?? m.description, 'No description found yet.');
+  const protocolWebsite = displayText(s.url ?? m.url, 'Not listed');
+  const protocolTwitter = displayText(s.twitter ?? m.twitter, 'Not listed');
+  const protocolLogo = displayText(s.logo ?? m.logo, 'Not listed');
+  const protocolSymbol = displayText(s.symbol ?? m.symbol, protocol.toUpperCase());
+  const protocolCategory = displayText(t.category ?? m.category, 'Uncategorized');
+  const protocolChains = Array.isArray(t.chains) && t.chains.length > 0 ? (t.chains as string[]).join(', ') : 'Not listed';
+
   const resolvedPrice = tokenPrice.price ?? marketFallback.price;
   const resolvedVolume = tokenPrice.volume24h ?? marketFallback.volume24h;
   const resolvedMarketCap = tokenPrice.marketCap ?? marketFallback.marketCap;
   const resolvedPriceChange = tokenPrice.priceChange24h ?? marketFallback.priceChange24h;
+
+  const priceNote = s.mint || s.geckoId || protocolSymbol !== 'Unavailable'
+    ? 'Not available from the live market feed for this protocol'
+    : 'Not listed for this protocol';
 
   const txSummary =
     recentTransactions.length > 0
@@ -111,19 +148,29 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
         .slice(0, 3)
         .map((tx) => `- ${summarizeValue(tx.type)} | ${summarizeValue(tx.signature)} | fee: ${summarizeValue(tx.fee)}`)
         .join('\n')
-      : `- No parsed Helius tx available; fallback activity proxy (TVL trend 1d): ${text(txFallback.delta1dPct)}%`;
+      : `- No parsed Helius tx available; fallback activity proxy (TVL trend 1d): ${displayText(txFallback.delta1dPct, 'Not listed')}%`;
 
   const fallback = [
     '### Overview',
-    `${text(s.name) || protocol} is a ${buildChainLabel(chainType)} DeFi protocol. ${text(s.description)}`,
+    `${protocolName} is a ${buildChainLabel(chainType)} DeFi protocol. ${protocolDescription}`,
+    '',
+    '### Protocol Context',
+    '| Field | Value |',
+    '| --- | --- |',
+    `| Symbol | ${protocolSymbol} |`,
+    `| Category | ${protocolCategory} |`,
+    `| Chains | ${protocolChains} |`,
+    `| Website | ${protocolWebsite} |`,
+    `| Twitter | ${protocolTwitter} |`,
+    `| Logo | ${protocolLogo} |`,
     '',
     '### Key Metrics',
     '| Metric | Value |',
     '| --- | --- |',
     `| TVL | ${usd(t.tvl)} |`,
-    `| 24h TVL Change | ${text(t.change1d)} |`,
+    `| 24h TVL Change | ${formatFallbackMetric(t.change1d, 'Not available from the current DeFiLlama history')}${typeof t.change1d === 'number' ? '%' : ''} |`,
     `| Token Price | ${usd(resolvedPrice)} |`,
-    `| 24h Price Change | ${text(resolvedPriceChange)} |`,
+    `| 24h Price Change | ${formatFallbackMetric(resolvedPriceChange, priceNote)}${typeof resolvedPriceChange === 'number' ? '%' : ''} |`,
     `| 24h Volume | ${usd(resolvedVolume)} |`,
     `| Market Cap | ${usd(resolvedMarketCap)} |`,
     '',
@@ -131,8 +178,8 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
     txSummary,
     '',
     '### Risk & Opportunity',
-    '- Risk: Missing or stale metrics can reduce confidence in short-term signals.',
-    '- Opportunity: Strong TVL and trading activity can indicate durable protocol traction.',
+    `- Risk: ${protocolName} may have incomplete market coverage, so some live token metrics are not listed by the upstream feeds.`,
+    '- Opportunity: Strong TVL, visible protocol metadata, and recent activity still provide a reliable baseline for research.',
     '',
     '### Summary Verdict',
     'Use this as a baseline brief; verify critical entries with independent sources before execution.',
