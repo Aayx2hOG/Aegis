@@ -16,7 +16,7 @@ export async function enqueueSummary(eventId: string, protocolSlug: string) {
             if (!prisma) throw new Error('DATABASE_URL is not configured.')
             const brief = await runResearchAgent(protocolSlug)
             const summary = typeof brief.brief === 'string' ? brief.brief : null
-            await prisma.alertEvent.update({ where: { id: eventId }, data: { summary, summaryGeneratedAt: new Date() } })
+            await prisma.$executeRaw`UPDATE "AlertEvent" SET "summary" = ${summary}, "summaryGeneratedAt" = ${new Date()} WHERE id = ${eventId}`
             return { id: `inline-${eventId}` }
         } catch (err) {
             console.error('[summary-inline] failed to generate summary', err)
