@@ -6,10 +6,12 @@ import { Program, AnchorProvider, Idl } from '@coral-xyz/anchor';
 import { PublicKey, SendTransactionError, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BasicIDL, getBasicProgramId } from '@project/anchor';
 import { ClusterNetwork, useCluster } from '@/components/cluster/cluster-data-access';
+import { useMultiChain } from '@/components/chain/chain-provider';
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
 import { useSolanaProtocols } from '@/hooks/use-defillama';
 import { fetchJson } from '@/lib/api/fetch-json';
 import type { SolanaProtocol } from '@/shared/types/protocol';
+import { ChainType } from '@/lib/chain/types';
 
 import { useTransactionToast } from '@/components/use-transaction-toast';
 import { toast } from 'sonner';
@@ -17,16 +19,14 @@ import { toast } from 'sonner';
 // discriminator + authority + empty vec length + bump
 const WATCHLIST_INITIAL_SPACE_BYTES = 8 + 32 + 4 + 1;
 const TX_FEE_BUFFER_LAMPORTS = 15_000;
-const GUEST_WATCHLIST_CACHE_KEY = 'watchlist-cache:guest';
 const MAX_WATCHLIST_ITEMS = 20;
 
-function getWatchlistCacheKey(walletAddress: string, clusterName: string) {
-  return `watchlist-cache:${clusterName}:${walletAddress}`;
+function getWatchlistCacheKey(walletAddress: string | undefined, chainType: ChainType, environment: string) {
+  return `watchlist-cache:${chainType}:${environment}:${walletAddress ?? 'guest'}`;
 }
 
-function getActiveWatchlistCacheKey(walletAddress: string | undefined, clusterName: string) {
-  if (!walletAddress) return GUEST_WATCHLIST_CACHE_KEY;
-  return getWatchlistCacheKey(walletAddress, clusterName);
+function getActiveWatchlistCacheKey(walletAddress: string | undefined, chainType: ChainType, environment: string) {
+  return getWatchlistCacheKey(walletAddress, chainType, environment);
 }
 
 function sanitizeWatchlist(slugs: string[]): string[] {
@@ -55,8 +55,33 @@ function saveWatchlistByKey(cacheKey: string, slugs: string[]) {
   }
 }
 
-function saveCachedWatchlist(walletAddress: string, clusterName: string, slugs: string[]) {
-  const key = getWatchlistCacheKey(walletAddress, clusterName);
+function migrateLegacyWatchlist(chainType: ChainType, environment: string, walletAddress?: string): string[] {
+  if (typeof window === 'undefined') return [];
+
+  const currentKey = getWatchlistCacheKey(walletAddress, chainType, environment);
+  const current = loadWatchlistByKey(currentKey);
+  if (current.length > 0) return current;
+
+  const legacyKeys = [
+    walletAddress ? `watchlist-cache:${environment}:${walletAddress}` : null,
+    walletAddress ? `watchlist-cache:${chainType}:${walletAddress}` : null,
+    walletAddress ? `watchlist-cache:${environment}-${chainType}:${walletAddress}` : null,
+    walletAddress ? `watchlist-cache:${chainType}-${environment}:${walletAddress}` : null,
+  ].filter((key): key is string => Boolean(key));
+
+  for (const legacyKey of legacyKeys) {
+    const legacy = loadWatchlistByKey(legacyKey);
+    if (legacy.length === 0) continue;
+
+    saveWatchlistByKey(currentKey, legacy);
+    return legacy;
+  }
+
+  return [];
+}
+
+function saveCachedWatchlist(walletAddress: string, chainType: ChainType, environment: string, slugs: string[]) {
+  const key = getWatchlistCacheKey(walletAddress, chainType, environment);
   saveWatchlistByKey(key, slugs);
 }
 
@@ -170,21 +195,22 @@ function getWatchlistPda(walletPubkey: PublicKey, programId: PublicKey) {
 export function useWatchlist() {
   const wallet = useWallet();
   const { connection } = useConnection();
+  const { activeChain } = useMultiChain();
   const { cluster } = useCluster();
-  const programId = getProgramIdForCluster(cluster.network, cluster.name);
+  const programId = activeChain.type === ChainType.Solana ? getProgramIdForCluster(cluster.network, cluster.name) : null;
   const program = useProgram(programId);
   const qc = useQueryClient();
   const transactionToast = useTransactionToast();
   const walletAddress = wallet.publicKey?.toBase58();
-  const activeCacheKey = getActiveWatchlistCacheKey(walletAddress, cluster.name);
+  const activeCacheKey = getActiveWatchlistCacheKey(walletAddress, activeChain.type, activeChain.environment);
   const pda = wallet.publicKey && programId ? getWatchlistPda(wallet.publicKey, programId) : null;
 
   const { data: watchlist, isLoading } = useQuery<string[]>({
-    queryKey: ['watchlist', cluster.name, walletAddress ?? 'guest'],
+    queryKey: ['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'],
     queryFn: async () => {
-      const cached = loadWatchlistByKey(activeCacheKey);
+      const cached = migrateLegacyWatchlist(activeChain.type, activeChain.environment, walletAddress);
 
-      if (!walletAddress || !program || !pda) {
+      if (activeChain.type !== ChainType.Solana || !walletAddress || !program || !pda) {
         return cached;
       }
 
@@ -194,7 +220,7 @@ export function useWatchlist() {
         const onchain = sanitizeWatchlist((account.slugs as string[]) ?? []);
 
         if (onchain.length > 0 && cached.length === 0) {
-          saveCachedWatchlist(walletAddress, cluster.name, onchain);
+          saveCachedWatchlist(walletAddress, activeChain.type, activeChain.environment, onchain);
           return onchain;
         }
 
@@ -307,7 +333,7 @@ export function useWatchlist() {
     onSuccess: (signature) => {
       transactionToast(signature);
       invalidate();
-      if (walletAddress) saveCachedWatchlist(walletAddress, cluster.name, []);
+      if (walletAddress) saveCachedWatchlist(walletAddress, activeChain.type, activeChain.environment, []);
     },
     onError: async (err) => {
       console.error('Initialize failed:', err);
@@ -349,7 +375,7 @@ export function useWatchlist() {
       return sanitizeWatchlist(next);
     },
     onSuccess: (nextWatchlist) => {
-      qc.setQueryData(['watchlist', cluster.name, walletAddress ?? 'guest'], nextWatchlist);
+      qc.setQueryData(['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'], nextWatchlist);
     },
     onError: (err) => {
       console.error('Add failed:', err);
@@ -369,7 +395,7 @@ export function useWatchlist() {
       return next;
     },
     onSuccess: (nextWatchlist) => {
-      qc.setQueryData(['watchlist', cluster.name, walletAddress ?? 'guest'], nextWatchlist);
+      qc.setQueryData(['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'], nextWatchlist);
     },
     onError: (err) => {
       console.error('Remove failed:', err);

@@ -7,19 +7,17 @@ import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 import { toast } from 'sonner';
 
 const MAX_WATCHLIST_ITEMS = 20;
-const GUEST_WATCHLIST_CACHE_KEY = 'watchlist-cache:guest';
 
 /**
  * Generate cache key for watchlist across chains
- * Format: watchlist-cache:{chainType}:{environment}:{walletAddress}
+ * Format: watchlist-cache:{chainType}:{environment}:{walletAddress|guest}
  */
 function getWatchlistCacheKey(
     chainType: ChainType,
     environment: string,
     walletAddress?: string
 ): string {
-    if (!walletAddress) return GUEST_WATCHLIST_CACHE_KEY;
-    return `watchlist-cache:${chainType}:${environment}:${walletAddress}`;
+    return `watchlist-cache:${chainType}:${environment}:${walletAddress ?? 'guest'}`;
 }
 
 /**
@@ -70,6 +68,31 @@ function saveWatchlistByKey(cacheKey: string, slugs: string[]) {
     }
 }
 
+function migrateLegacyWatchlist(chainType: ChainType, environment: string, walletAddress?: string): string[] {
+    if (typeof window === 'undefined') return [];
+
+    const currentKey = getWatchlistCacheKey(chainType, environment, walletAddress);
+    const current = loadWatchlistByKey(currentKey);
+    if (current.length > 0) return current;
+
+    const legacyKeys = [
+        walletAddress ? `watchlist-cache:${chainType}:${walletAddress}` : null,
+        walletAddress ? `watchlist-cache:${environment}:${walletAddress}` : null,
+        walletAddress ? `watchlist-cache:${chainType}-${environment}:${walletAddress}` : null,
+        walletAddress ? `watchlist-cache:${environment}-${chainType}:${walletAddress}` : null,
+    ].filter((key): key is string => Boolean(key));
+
+    for (const legacyKey of legacyKeys) {
+        const legacy = loadWatchlistByKey(legacyKey);
+        if (legacy.length === 0) continue;
+
+        saveWatchlistByKey(currentKey, legacy);
+        return legacy;
+    }
+
+    return [];
+}
+
 /**
  * Load watchlist for a specific chain and wallet
  */
@@ -99,12 +122,40 @@ export function useMultiChainWatchlist(walletAddress?: string) {
         queryFn: () => {
             const result: Partial<Record<ChainType, string[]>> = {};
 
-            activeChainConnections.forEach((chainType) => {
+            // Include watchlists for all chain types we know about, plus any explicitly active connections.
+            const knownTypes = Array.from(
+                new Set([
+                    ...activeChainConnections,
+                    ...allChains.map((c) => c.type),
+                ])
+            );
+
+            knownTypes.forEach((chainType) => {
+                // Prefer a chain entry matching the requested chain type; fall back to the first available.
                 const chain = allChains.find((c) => c.type === chainType);
                 if (chain) {
                     const cacheKey = getWatchlistCacheKey(chainType, chain.environment, walletAddress);
-                    result[chainType] = loadWatchlistByKey(cacheKey);
+                    result[chainType] = migrateLegacyWatchlist(chainType, chain.environment, walletAddress);
                 }
+            });
+
+            return result;
+        },
+        staleTime: Infinity,
+        gcTime: Infinity,
+    });
+}
+
+export function useMultiChainWatchlistByChain(walletAddress?: string) {
+    const { allChains } = useMultiChain();
+
+    return useQuery<Record<string, string[]>>({
+        queryKey: ['multichain-watchlist-by-chain', walletAddress, allChains.map((chain) => chain.name)],
+        queryFn: () => {
+            const result: Record<string, string[]> = {};
+
+            allChains.forEach((chain) => {
+                result[chain.name] = migrateLegacyWatchlist(chain.type, chain.environment, walletAddress);
             });
 
             return result;

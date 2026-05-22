@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, ReactNode, useContext } from 'react';
+import { createContext, ReactNode, useContext, useMemo } from 'react';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import { Chain, ChainType, ChainEnvironment } from '@/lib/chain/types';
@@ -83,39 +83,50 @@ export function MultiChainProvider({ children }: { children: ReactNode }) {
     const setChains = useSetAtom(chainsAtom);
     const setActiveConnections = useSetAtom(activeChainConnectionsAtom);
 
-    const value: ChainProviderContext = {
-        activeChain,
-        allChains: chains.sort((a, b) => {
+    const sortedChains = useMemo(() => {
+        return [...chains].sort((a, b) => {
             if (a.type !== b.type) return a.type.localeCompare(b.type);
             return a.environment.localeCompare(b.environment);
-        }),
+        });
+    }, [chains]);
+
+    const value = useMemo<ChainProviderContext>(() => ({
+        activeChain,
+        allChains: sortedChains,
         activeChainConnections: activeConnections,
 
         setActiveChain: (chain) => setActiveChain(chain),
 
         toggleChainConnection: (chainType) => {
             setActiveConnections((prev) =>
-                prev.includes(chainType)
-                    ? prev.filter((c) => c !== chainType)
-                    : [...prev, chainType]
+                prev.includes(chainType) ? prev.filter((c) => c !== chainType) : [...prev, chainType]
             );
         },
 
         addChain: (chain) => {
-            const exists = chains.some((c) => c.name === chain.name);
-            if (!exists) {
-                setChains([...chains, chain]);
-            }
+            setChains((prev) => {
+                const exists = prev.some((c) => c.name === chain.name);
+                if (exists) return prev;
+                return [...prev, chain];
+            });
         },
 
         removeChain: (chainName) => {
-            setChains(chains.filter((c) => c.name !== chainName));
+            setChains((prev) => prev.filter((c) => c.name !== chainName));
         },
 
         getChainsByType: (type) => chains.filter((c) => c.type === type),
 
         getExplorerUrl: (path) => `${activeChain.explorerUrl}/${path}`,
-    };
+    }), [
+        activeChain,
+        sortedChains,
+        activeConnections,
+        setActiveChain,
+        setChains,
+        setActiveConnections,
+        chains,
+    ]);
 
     return <Context.Provider value={value}>{children}</Context.Provider>;
 }

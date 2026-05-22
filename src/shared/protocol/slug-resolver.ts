@@ -17,7 +17,10 @@ export function normalizeProtocolSlug(input: string): string {
 export function getProtocolSlugCandidates(input: string): string[] {
   const normalized = normalizeProtocolSlug(input)
   const aliases = PROTOCOL_SLUG_ALIASES[normalized] ?? []
-  return [normalized, ...aliases]
+  const reverseAliases = Object.entries(PROTOCOL_SLUG_ALIASES)
+    .filter(([, values]) => values.includes(normalized))
+    .map(([key]) => key)
+  return [normalized, ...aliases, ...reverseAliases]
 }
 
 function pickBestByTvl(candidates: SolanaProtocol[]): SolanaProtocol | undefined {

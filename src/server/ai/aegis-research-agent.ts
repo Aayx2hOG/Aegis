@@ -130,8 +130,6 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
   const protocolTwitter = displayText(s.twitter ?? m.twitter, 'Not listed');
   const protocolLogo = displayText(s.logo ?? m.logo, 'Not listed');
   const protocolSymbol = displayText(s.symbol ?? m.symbol, protocol.toUpperCase());
-  const protocolCategory = displayText(t.category ?? m.category, 'Uncategorized');
-  const protocolChains = Array.isArray(t.chains) && t.chains.length > 0 ? (t.chains as string[]).join(', ') : 'Not listed';
 
   const resolvedPrice = tokenPrice.price ?? marketFallback.price;
   const resolvedVolume = tokenPrice.volume24h ?? marketFallback.volume24h;
@@ -153,16 +151,6 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
   const fallback = [
     '### Overview',
     `${protocolName} is a ${buildChainLabel(chainType)} DeFi protocol. ${protocolDescription}`,
-    '',
-    '### Protocol Context',
-    '| Field | Value |',
-    '| --- | --- |',
-    `| Symbol | ${protocolSymbol} |`,
-    `| Category | ${protocolCategory} |`,
-    `| Chains | ${protocolChains} |`,
-    `| Website | ${protocolWebsite} |`,
-    `| Twitter | ${protocolTwitter} |`,
-    `| Logo | ${protocolLogo} |`,
     '',
     '### Key Metrics',
     '| Metric | Value |',

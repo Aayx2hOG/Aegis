@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Activity, AlertTriangle, ExternalLink, Layers3, Radar, ShieldAlert, Sparkles } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { useQueries } from '@tanstack/react-query'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
-import { useMultiChainWatchlist } from '@/hooks/use-multichain-watchlist'
-import { useWatchlist } from '@/hooks/use-watchlist'
-import { useSolanaProtocols } from '@/hooks/use-defillama'
+import { useMultiChainWatchlistByChain } from '@/hooks/use-multichain-watchlist'
+import { fetchJson } from '@/lib/api/fetch-json'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import MiniMetric from '@/components/ui/mini-metric'
 import { ChainType } from '@/lib/chain/types'
@@ -47,10 +47,69 @@ interface AlertEventItem {
     summaryGeneratedAt?: string
 }
 
+type CoinGeckoResponse = {
+    market_data?: {
+        current_price?: {
+            usd?: number | null
+        }
+        price_change_percentage_24h?: number | null
+    }
+}
+
+type DefiLlamaProtocolDetail = {
+    slug?: string
+    tokensInUsd?: Array<{ date: number; tokens?: Record<string, number> }>
+    tokens?: Array<{ date: number; tokens?: Record<string, number> }>
+    mcap?: number | null
+    symbol?: string | null
+    address?: string | null
+}
+
+type WatchlistMarketRow = {
+    slug: string
+    market?: SolanaProtocol & {
+        gecko_id?: string | null
+        geckoId?: string | null
+    }
+    geckoId: string | null
+}
+
 function formatPct(value: number | null | undefined): string {
     if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A'
     const sign = value > 0 ? '+' : ''
     return `${sign}${value.toFixed(2)}%`
+}
+
+function formatUsd(value: number | null | undefined): string {
+    if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A'
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 2,
+    }).format(value)
+}
+
+function getLatestTokenPriceFromProtocolDetail(detail?: DefiLlamaProtocolDetail): number | null {
+    if (!detail) return null
+
+    const latestUsdEntry = detail.tokensInUsd?.[detail.tokensInUsd.length - 1]
+    const latestTokenEntry = detail.tokens?.[detail.tokens.length - 1]
+    if (!latestUsdEntry || !latestTokenEntry) return null
+
+    const usdTokens = latestUsdEntry.tokens ?? {}
+    const rawTokens = latestTokenEntry.tokens ?? {}
+    const symbols = Object.keys(usdTokens)
+
+    for (const symbol of symbols) {
+        const usdValue = usdTokens[symbol]
+        const tokenAmount = rawTokens[symbol]
+        if (typeof usdValue === 'number' && typeof tokenAmount === 'number' && tokenAmount > 0) {
+            const derived = usdValue / tokenAmount
+            if (Number.isFinite(derived) && derived > 0) return derived
+        }
+    }
+
+    return null
 }
 
 function riskState(protocol?: SolanaProtocol): { label: string; tone: string; isRisk: boolean } {
@@ -97,11 +156,127 @@ const CHAIN_TONES: Record<ChainType, string> = {
 
 export default function WatchlistPage() {
     const { activeChain, activeChainConnections, allChains } = useMultiChain()
-    const { data: watchlistsByChainData, isLoading: watchlistsLoading } = useMultiChainWatchlist()
-    const { data: solanaProtocols = [], isLoading: marketLoading } = useSolanaProtocols()
+    const { data: watchlistsByChainData, isLoading: watchlistsLoading } = useMultiChainWatchlistByChain()
     const wallet = useWallet()
     const walletAddress = wallet.publicKey?.toBase58()
-    const watchlistsByChain: Partial<Record<ChainType, string[]>> = watchlistsByChainData ?? {}
+    const watchlistsByChain: Record<string, string[]> = watchlistsByChainData ?? {}
+
+    const protocolChainTypes = useMemo(
+        () => Array.from(new Set(allChains.map((chain) => chain.type))),
+        [allChains]
+    )
+
+    const protocolQueries = useQueries({
+        queries: protocolChainTypes.map((chainType) => ({
+            queryKey: ['chain-protocols', chainType],
+            queryFn: async () => {
+                const controller = new AbortController()
+                const timeout = setTimeout(() => controller.abort(), 12_000)
+
+                try {
+                    return await fetchJson<SolanaProtocol[]>(`/api/defillama?chain=${encodeURIComponent(chainType)}`, {
+                        signal: controller.signal,
+                    })
+                } finally {
+                    clearTimeout(timeout)
+                }
+            },
+            staleTime: 60_000,
+            refetchInterval: 60_000,
+            retry: false,
+        })),
+    })
+
+    const protocolsByChainType = useMemo(() => {
+        return protocolChainTypes.reduce<Partial<Record<ChainType, SolanaProtocol[]>>>((acc, chainType, index) => {
+            acc[chainType] = (protocolQueries[index]?.data as SolanaProtocol[] | undefined) ?? []
+            return acc
+        }, {})
+    }, [protocolChainTypes, protocolQueries])
+
+    const watchlistMarketRows = useMemo(() => {
+        return allChains.flatMap((chain) => {
+            const protocols = protocolsByChainType[chain.type] ?? []
+            return (watchlistsByChain[chain.name] ?? []).map<WatchlistMarketRow>((slug) => {
+                const market = resolveProtocolFromList(slug, protocols)
+                const geckoId = (market as WatchlistMarketRow['market'] | undefined)?.gecko_id
+                    ?? (market as WatchlistMarketRow['market'] | undefined)?.geckoId
+                    ?? null
+
+                return { slug, market, geckoId }
+            })
+        })
+    }, [allChains, protocolsByChainType, watchlistsByChain])
+
+    const geckoIds = useMemo(
+        () => Array.from(new Set(watchlistMarketRows.map((row) => row.geckoId).filter((value): value is string => Boolean(value)))),
+        [watchlistMarketRows]
+    )
+
+    const priceQueries = useQueries({
+        queries: geckoIds.map((geckoId) => ({
+            queryKey: ['coingecko-price', geckoId],
+            queryFn: async () => {
+                const res = await fetchJson<CoinGeckoResponse>(`/api/coingecko?id=${encodeURIComponent(geckoId)}`)
+                return {
+                    priceUsd: res.market_data?.current_price?.usd ?? null,
+                    priceChange24h: res.market_data?.price_change_percentage_24h ?? null,
+                }
+            },
+            staleTime: 60_000,
+            refetchInterval: 60_000,
+            retry: false,
+        })),
+    })
+
+    const detailTargets = useMemo(
+        () => watchlistMarketRows.filter((row) => !row.geckoId).map((row) => row.slug),
+        [watchlistMarketRows]
+    )
+
+    const detailQueries = useQueries({
+        queries: detailTargets
+            .map((row) => ({
+                queryKey: ['defillama-protocol-detail', row],
+                queryFn: async () => fetchJson<DefiLlamaProtocolDetail>(`/api/defillama/protocol?slug=${encodeURIComponent(row)}`),
+                staleTime: 60_000,
+                refetchInterval: 60_000,
+                retry: false,
+            })),
+    })
+
+    const priceByGeckoId = useMemo(() => {
+        return priceQueries.reduce<Record<string, { priceUsd: number | null; priceChange24h: number | null }>>((acc, query, index) => {
+            const geckoId = geckoIds[index]
+            if (geckoId && query.data) {
+                acc[geckoId] = query.data
+            }
+            return acc
+        }, {})
+    }, [geckoIds, priceQueries])
+
+    const priceBySlug = useMemo(() => {
+        const result: Record<string, { priceUsd: number | null; priceChange24h: number | null }> = {}
+
+        watchlistMarketRows.forEach((row, index) => {
+            if (row.geckoId) {
+                const price = priceByGeckoId[row.geckoId]
+                if (price) result[row.slug] = price
+                return
+            }
+
+            const detail = detailQueries[detailTargets.indexOf(row.slug)]?.data as DefiLlamaProtocolDetail | undefined
+            const priceUsd = getLatestTokenPriceFromProtocolDetail(detail)
+            if (priceUsd != null) {
+                result[row.slug] = { priceUsd, priceChange24h: null }
+            }
+        })
+
+        return result
+    }, [detailQueries, detailTargets, priceByGeckoId, watchlistMarketRows])
+
+    const priceLoading = priceQueries.some((query) => query.isLoading) || detailQueries.some((query) => query.isLoading)
+    const marketLoading = protocolQueries.some((query) => query.isLoading) || priceLoading
 
     const [history, setHistory] = useState<ResearchHistoryItem[]>([])
     const [rules, setRules] = useState<AlertRuleItem[]>([])
@@ -178,24 +353,29 @@ export default function WatchlistPage() {
         }
     }, [walletAddress])
 
-    const solanaWatch = useWatchlist()
-
     const chainViews = useMemo(() => {
-        const visibleChainTypes = activeChainConnections.length > 0 ? activeChainConnections : [activeChain.type]
+        const chainsWithWatchlists = allChains.filter((chain) => (watchlistsByChain[chain.name]?.length ?? 0) > 0)
 
-        return visibleChainTypes
-            .map((chainType) => {
-                const chain = allChains.find((item) => item.type === chainType)
-                if (!chain) return null
+        const visibleChains = chainsWithWatchlists.length > 0
+            ? chainsWithWatchlists
+            : (activeChainConnections.length > 0
+                ? allChains.filter((chain) => activeChainConnections.includes(chain.type))
+                : [activeChain])
 
-                const slugs = watchlistsByChain[chainType] ?? []
-                const marketRows = chainType === ChainType.Solana
-                    ? slugs.map((slug) => {
-                        const enriched = solanaWatch.watchlistItems.find((i) => i.slug === slug)
-                        const market = enriched ? (enriched as unknown as SolanaProtocol) : resolveProtocolFromList(slug, solanaProtocols)
-                        return { slug, market }
+        return visibleChains
+            .map((chain) => {
+                const slugs = watchlistsByChain[chain.name] ?? []
+                const marketRows = watchlistMarketRows
+                    .filter((row) => slugs.includes(row.slug))
+                    .map((row) => {
+                        const price = priceBySlug[row.slug] ?? (row.geckoId ? priceByGeckoId[row.geckoId] : undefined)
+                        return {
+                            slug: row.slug,
+                            market: row.market,
+                            priceUsd: price?.priceUsd ?? null,
+                            priceChange24h: price?.priceChange24h ?? null,
+                        }
                     })
-                    : slugs.map((slug) => ({ slug, market: undefined }))
 
                 const riskyCount = marketRows.filter(({ market }) => riskState(market).isRisk).length
 
@@ -208,7 +388,7 @@ export default function WatchlistPage() {
                 }
             })
             .filter((value): value is NonNullable<typeof value> => Boolean(value))
-    }, [activeChain.type, activeChainConnections, allChains, solanaProtocols, watchlistsByChain])
+    }, [activeChain, activeChainConnections, allChains, priceByGeckoId, watchlistMarketRows, watchlistsByChain])
 
     const totalProtocols = chainViews.reduce((acc, item) => acc + item.total, 0)
     const riskyProtocols = chainViews.reduce((acc, item) => acc + item.riskyCount, 0)
@@ -279,7 +459,7 @@ export default function WatchlistPage() {
                                         Nothing tracked yet on {chain.displayName}. Add a protocol from Research to start comparing chains.
                                     </div>
                                 ) : (
-                                    marketRows.map(({ slug, market }) => {
+                                    marketRows.map(({ slug, market, priceUsd, priceChange24h }) => {
                                         const status = riskState(market)
                                         return (
                                             <div key={`${chain.name}:${slug}`} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
@@ -292,7 +472,7 @@ export default function WatchlistPage() {
                                                 </div>
 
                                                 <div className="mt-3 grid grid-cols-4 gap-2 text-[11px]">
-                                                    <MiniMetric label="Price" value={(market as any)?.priceUsd ? `$${Number((market as any).priceUsd).toFixed(2)}` : 'N/A'} tone={(market as any)?.priceChange24h < 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                                                    <MiniMetric label="Price" value={formatUsd(priceUsd)} tone={(priceChange24h ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
                                                     <MiniMetric label="TVL" value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'} />
                                                     <MiniMetric label="24h" value={formatPct(market?.change_1d)} tone={(market?.change_1d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
                                                     <MiniMetric label="7d" value={formatPct(market?.change_7d)} tone={(market?.change_7d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
@@ -328,8 +508,8 @@ export default function WatchlistPage() {
                         </div>
                         <div className="mt-4 grid gap-3 md:grid-cols-2">
                             {allChains.slice(0, 4).map((chain) => {
-                                const watchlistCount = watchlistsByChain[chain.type]?.length ?? 0
-                                const momentum = chain.type === ChainType.Solana ? (slugsMomentumScore(chain.type, watchlistsByChain, solanaProtocols)) : 60 + watchlistCount * 4
+                                const chainSlugs = watchlistsByChain[chain.name] ?? []
+                                const momentum = slugsMomentumScore(chain.type, chainSlugs, protocolsByChainType[chain.type] ?? [])
                                 const label = momentum > 75 ? 'Hot' : momentum > 55 ? 'Balanced' : 'Quiet'
 
                                 return (
@@ -337,7 +517,7 @@ export default function WatchlistPage() {
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
                                                 <p className="text-sm font-semibold text-white">{chain.displayName}</p>
-                                                <p className="text-xs text-zinc-500">{watchlistCount} tracked protocol{watchlistCount === 1 ? '' : 's'}</p>
+                                                <p className="text-xs text-zinc-500">{chainSlugs.length} tracked protocol{chainSlugs.length === 1 ? '' : 's'}</p>
                                             </div>
                                             <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">{label}</span>
                                         </div>
@@ -546,10 +726,9 @@ function StatPill({ label, value, tone }: { label: string; value: string; tone?:
 
 function slugsMomentumScore(
     chainType: ChainType,
-    watchlistsByChain: Partial<Record<ChainType, string[]>>,
+    slugs: string[],
     protocols: SolanaProtocol[]
 ): number {
-    const slugs = watchlistsByChain[chainType] ?? []
     if (chainType !== ChainType.Solana) {
         return 58 + slugs.length * 5
     }
