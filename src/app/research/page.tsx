@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useAtom } from 'jotai';
 import { agentStateAtom } from '@/store/research-store';
 import type { ResearchBrief, ToolCallRecord } from '@/shared/types/research';
 
 import { useWatchlist } from '@/hooks/use-watchlist';
+import { useSolanaProtocols } from '@/hooks/use-defillama';
 
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
@@ -14,20 +15,92 @@ import { Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
+import type { SolanaProtocol } from '@/shared/types/protocol';
 
-const AVAILABLE_PROTOCOLS = [
-  { slug: 'raydium', note: 'AMM + liquidity routing' },
-  { slug: 'orca', note: 'Concentrated liquidity DEX' },
-  { slug: 'marinade', note: 'Liquid staking ecosystem' },
-  { slug: 'jito', note: 'MEV and validator infrastructure' },
-  { slug: 'kamino', note: 'Lending and vault strategies' },
-  { slug: 'drift', note: 'Perpetuals and advanced trading' },
-  { slug: 'marginfi', note: 'Lending market and risk engine' },
-] as const;
+const RELEVANT_PROTOCOL_CATEGORIES = new Set([
+  'AMM',
+  'Bridge',
+  'CDP',
+  'Derivatives',
+  'Dexs',
+  'Farm',
+  'Insurance',
+  'Lending',
+  'Liquidity Layer',
+  'Liquid Restaking',
+  'Liquid Staking',
+  'Orderbook',
+  'Options',
+  'Perpetuals',
+  'Prediction Market',
+  'Restaking',
+  'Stablecoin',
+  'Staking',
+  'Staking Pool',
+  'Synthetic Assets',
+  'Vault',
+  'Yield',
+  'Yield Aggregator',
+]);
+
+const EXCLUDED_PROTOCOL_CATEGORIES = new Set([
+  'CEX',
+  'CeFi',
+  'Centralized Exchange',
+  'Indexes',
+  'Portfolio Tracker',
+  'Risk Curators',
+  'Wallet',
+]);
+
+const INITIAL_VISIBLE_PROTOCOLS = 60;
 
 function formatProtocolName(name: string): string {
   if (!name) return '';
-  return name.charAt(0).toUpperCase() + name.slice(1);
+  return name
+    .split(/[-\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function buildSupportedProtocolCatalog(protocols: SolanaProtocol[]) {
+  const deduped = new Map<string, SolanaProtocol>();
+
+  protocols.forEach((protocol) => {
+    const slug = normalizeProtocolSlug(protocol.slug);
+    if (!slug || deduped.has(slug)) return;
+    deduped.set(slug, protocol);
+  });
+
+  return Array.from(deduped.values())
+    .filter((protocol) => typeof protocol.tvl === 'number' && protocol.tvl > 0)
+    .filter((protocol) => {
+      const category = protocol.category?.trim() ?? 'Uncategorized';
+      if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false;
+      if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true;
+      return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized';
+    })
+    .sort((a, b) => (b.tvl ?? 0) - (a.tvl ?? 0))
+    .map((protocol) => ({
+      slug: normalizeProtocolSlug(protocol.slug),
+      label: protocol.name || formatProtocolName(protocol.slug),
+      category: protocol.category ?? 'Uncategorized',
+      tvl:
+        typeof protocol.tvl === 'number'
+          ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(protocol.tvl)
+          : 'N/A',
+    }));
+}
+
+function matchesProtocolSearch(protocol: { slug: string; label: string; category: string }, query: string) {
+  if (!query) return true;
+  const normalizedQuery = query.toLowerCase();
+  return (
+    protocol.slug.toLowerCase().includes(normalizedQuery) ||
+    protocol.label.toLowerCase().includes(normalizedQuery) ||
+    protocol.category.toLowerCase().includes(normalizedQuery)
+  );
 }
 
 export default function ResearchPage() {
@@ -45,12 +118,29 @@ export default function ResearchPage() {
 function ResearchContent() {
   const wallet = useWallet();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get('q') || '');
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
   const [, setAgentState] = useAtom(agentStateAtom);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [protocolSearch, setProtocolSearch] = useState('');
+  const [visibleProtocols, setVisibleProtocols] = useState(INITIAL_VISIBLE_PROTOCOLS);
   const { isWatched, toggle, isConnected } = useWatchlist();
+  const { data: solanaProtocols = [], isLoading: protocolsLoading } = useSolanaProtocols();
+
+  const supportedProtocols = useMemo(() => buildSupportedProtocolCatalog(solanaProtocols), [solanaProtocols]);
+  const deferredProtocolSearch = useDeferredValue(protocolSearch.trim());
+  const filteredProtocols = useMemo(
+    () => supportedProtocols.filter((protocol) => matchesProtocolSearch(protocol, deferredProtocolSearch)),
+    [deferredProtocolSearch, supportedProtocols]
+  );
+  const visibleFilteredProtocols = useMemo(
+    () => filteredProtocols.slice(0, visibleProtocols),
+    [filteredProtocols, visibleProtocols]
+  );
+
+  useEffect(() => {
+    setVisibleProtocols(INITIAL_VISIBLE_PROTOCOLS);
+  }, [deferredProtocolSearch]);
 
   // Auto-run if query param exists
   useEffect(() => {
@@ -194,127 +284,6 @@ function ResearchContent() {
           </p>
         </header>
 
-        {/* Search Section */}
-        <section className="glass-card rounded-2xl bg-zinc-900/45 p-1 shadow-2xl backdrop-blur-xl">
-          <div className="p-4 space-y-4">
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                className="h-14 w-full rounded-xl bg-zinc-950/60 px-5 text-lg font-medium outline-none ring-1 ring-zinc-800/60 transition-all placeholder:text-zinc-600 focus:ring-2 focus:ring-cyan-300/70"
-                placeholder="Enter protocol slug (e.g. raydium, orca, jito...)"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && runResearch(query)}
-                disabled={loading}
-              />
-              <button
-                className="absolute right-2 h-10 rounded-lg bg-cyan-300 px-6 font-bold text-zinc-950 shadow-lg shadow-cyan-400/20 transition-all hover:bg-cyan-200 disabled:opacity-50"
-                onClick={() => runResearch(query)}
-                disabled={loading || !query.trim()}
-              >
-                {loading ? <span className="loading loading-spinner loading-xs" /> : 'Launch'}
-              </button>
-            </div>
-
-
-            <div className="flex flex-wrap items-center gap-3 px-1">
-              <span className="text-xs font-bold text-zinc-500 uppercase tracking-tighter">Available protocols:</span>
-              {AVAILABLE_PROTOCOLS.map((protocol) => (
-                <button
-                  key={protocol.slug}
-                  className="px-3 py-1 rounded-md text-xs font-semibold bg-zinc-800/60 hover:bg-zinc-700/70 text-zinc-300 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-                  onClick={() => { setQuery(protocol.slug); runResearch(protocol.slug); }}
-                  disabled={loading}
-                >
-                  {formatProtocolName(protocol.slug)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Empty State */}
-        {!loading && !brief && !error && (
-          <section className="animate-in fade-in slide-in-from-bottom-3 duration-500">
-            <div className="rounded-3xl border border-zinc-800/80 bg-zinc-900/35 p-6 shadow-xl backdrop-blur-xl md:p-8">
-              <div className="grid gap-8 md:grid-cols-[1.2fr_1fr]">
-                <div className="space-y-4">
-                  <div className="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-cyan-100">
-                    Ready to Research
-                  </div>
-                  <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
-                    Start with any supported Solana protocol.
-                  </h2>
-                  <p className="max-w-xl text-sm leading-6 text-zinc-300 md:text-base">
-                    Enter a protocol slug, or tap one of the accessible options to generate a full brief with market context, on-chain signals, and actionable risks to review.
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {AVAILABLE_PROTOCOLS.slice(0, 4).map((protocol) => (
-                      <button
-                        key={`empty-${protocol.slug}`}
-                        onClick={() => {
-                          setQuery(protocol.slug);
-                          runResearch(protocol.slug);
-                        }}
-                        disabled={loading}
-                        className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-zinc-900"
-                      >
-                        <div className="text-sm font-bold text-zinc-100">{formatProtocolName(protocol.slug)}</div>
-                        <div className="mt-1 text-xs text-zinc-400">{protocol.note}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/45 p-4 md:p-5">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">How it works</h3>
-                  <div className="mt-4 space-y-3 text-sm text-zinc-300">
-                    <p className="rounded-lg bg-zinc-900/70 px-3 py-2">
-                      1. Choose a supported protocol.
-                    </p>
-                    <p className="rounded-lg bg-zinc-900/70 px-3 py-2">
-                      2. Aegis fetches current market + on-chain context.
-                    </p>
-                    <p className="rounded-lg bg-zinc-900/70 px-3 py-2">
-                      3. You get a structured brief and auditable tool trace.
-                    </p>
-                  </div>
-                  <div className="mt-5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400">
-                    Tip: protocol slugs are lowercase in the input, but names are displayed with uppercase initials for readability.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Active Thinking State */}
-        {loading && (
-          <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-2xl bg-zinc-900/35 backdrop-blur-md duration-500">
-            <div className="h-1 bg-zinc-800 w-full">
-              <div className="h-full bg-primary animate-progress-fast shadow-[0_0_10px_rgb(var(--p))]" />
-            </div>
-            <div className="p-12 flex flex-col items-center justify-center space-y-6">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-4 border-zinc-800" />
-                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-primary animate-spin" />
-              </div>
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
-                <p className="text-zinc-500 text-sm">Aegis is processing high-dimensional data flows...</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 text-red-300 text-sm flex items-start gap-3">
-            <span className="mt-0.5">⚠️</span>
-            <p className="flex-1 font-medium">{error}</p>
-          </div>
-        )}
-
         {/* Results */}
         {brief && !loading && (
           <div className="animate-in space-y-8 fade-in duration-700">
@@ -409,6 +378,135 @@ function ResearchContent() {
             </div>
           </div>
         )}
+
+        {/* Active Thinking State */}
+        {loading && (
+          <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-2xl bg-zinc-900/35 backdrop-blur-md duration-500">
+            <div className="h-1 bg-zinc-800 w-full">
+              <div className="h-full bg-primary animate-progress-fast shadow-[0_0_10px_rgb(var(--p))]" />
+            </div>
+            <div className="p-12 flex flex-col items-center justify-center space-y-6">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full border-4 border-zinc-800" />
+                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-primary animate-spin" />
+              </div>
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
+                <p className="text-zinc-500 text-sm">Aegis is processing high-dimensional data flows...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="p-4 rounded-xl bg-red-500/10 text-red-300 text-sm flex items-start gap-3">
+            <span className="mt-0.5">⚠️</span>
+            <p className="flex-1 font-medium">{error}</p>
+          </div>
+        )}
+
+        <section className="rounded-3xl border border-zinc-800/70 bg-zinc-900/40 p-5 shadow-xl backdrop-blur-xl md:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-2">
+              <div className="inline-flex items-center rounded-full bg-cyan-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-100">
+                Live protocol catalog
+              </div>
+              <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+                {supportedProtocols.length} supported protocols with active TVL
+              </h2>
+              <p className="max-w-2xl text-sm text-zinc-300">
+                These are the live Solana-tagged protocols pulled from DeFiLlama, filtered to remove zero-TVL entries so the catalog stays useful and faster to scan.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300 ring-1 ring-white/5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Feed status</p>
+              <p className="mt-1 font-semibold text-cyan-100">
+                {protocolsLoading ? 'Refreshing live catalog...' : 'Live and ready'}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-zinc-800/70 bg-zinc-950/40 p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Catalog search</p>
+                <p className="text-xs text-zinc-400">Search by name, slug, or category.</p>
+              </div>
+              <div className="text-xs font-semibold text-cyan-100">
+                {protocolsLoading ? 'Loading live feed...' : `${supportedProtocols.length} protocols available`}
+              </div>
+            </div>
+            <div className="mt-3">
+              <input
+                type="search"
+                value={protocolSearch}
+                onChange={(e) => setProtocolSearch(e.target.value)}
+                placeholder="Search protocols..."
+                className="h-11 w-full rounded-xl border border-zinc-800/70 bg-zinc-950/80 px-4 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 max-h-[28rem] overflow-auto rounded-2xl border border-zinc-800/70 bg-zinc-950/50 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-400">
+              <span>
+                Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length}
+                {' '}
+                matched protocols
+              </span>
+              {deferredProtocolSearch && (
+                <button
+                  type="button"
+                  onClick={() => setProtocolSearch('')}
+                  className="font-semibold text-cyan-100 hover:text-cyan-50"
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleFilteredProtocols.map((protocol) => (
+                <button
+                  key={protocol.slug}
+                  type="button"
+                  onClick={() => {
+                    runResearch(protocol.slug);
+                  }}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/70 px-3 py-2 text-left transition hover:border-cyan-300/40 hover:bg-zinc-900"
+                  style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
+                  disabled={loading}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-zinc-100">{protocol.label}</p>
+                    <p className="truncate text-[11px] text-zinc-500">{protocol.category}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-100">TVL</p>
+                    <p className="text-xs text-zinc-300">{protocol.tvl}</p>
+                  </div>
+                </button>
+              ))}
+              {filteredProtocols.length === 0 && (
+                <div className="rounded-xl border border-dashed border-zinc-800/80 bg-zinc-900/50 px-4 py-6 text-sm text-zinc-400 sm:col-span-2 xl:col-span-3">
+                  No protocols matched your search.
+                </div>
+              )}
+            </div>
+            {filteredProtocols.length > visibleProtocols && (
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleProtocols((current) => Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length))}
+                  className="rounded-xl bg-zinc-800 px-4 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700"
+                >
+                  Load more
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
       </div>
 
       <style jsx global>{`

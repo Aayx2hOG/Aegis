@@ -6,7 +6,10 @@ import { Program, AnchorProvider, Idl } from '@coral-xyz/anchor';
 import { PublicKey, SendTransactionError, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BasicIDL, getBasicProgramId } from '@project/anchor';
 import { ClusterNetwork, useCluster } from '@/components/cluster/cluster-data-access';
-import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
+import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
+import { useSolanaProtocols } from '@/hooks/use-defillama';
+import { fetchJson } from '@/lib/api/fetch-json';
+import type { SolanaProtocol } from '@/shared/types/protocol';
 
 import { useTransactionToast } from '@/components/use-transaction-toast';
 import { toast } from 'sonner';
@@ -55,6 +58,19 @@ function saveWatchlistByKey(cacheKey: string, slugs: string[]) {
 function saveCachedWatchlist(walletAddress: string, clusterName: string, slugs: string[]) {
   const key = getWatchlistCacheKey(walletAddress, clusterName);
   saveWatchlistByKey(key, slugs);
+}
+
+type CoinGeckoResponse = {
+  market_data?: {
+    current_price?: {
+      usd?: number | null;
+    };
+    price_change_percentage_24h?: number | null;
+  };
+}
+
+type ProtocolWithGeckoId = SolanaProtocol & {
+  gecko_id?: string | null;
 }
 
 function useProgram(programId: PublicKey | null) {
@@ -193,6 +209,67 @@ export function useWatchlist() {
     retry: false,
   });
 
+  // Enrich watchlist slugs with protocol metadata from DeFiLlama (for display)
+  const { data: solanaProtocols = [] } = useSolanaProtocols();
+
+  const { data: watchlistItems } = useQuery({
+    queryKey: ['watchlist:enriched', cluster.name, walletAddress ?? 'guest', watchlist ?? []],
+    queryFn: async () => {
+      const slugs = watchlist ?? [];
+      const mapped = slugs.map((slug) => {
+        const resolved = resolveProtocolFromList(slug, solanaProtocols);
+        const geckoId = (resolved as ProtocolWithGeckoId | undefined)?.gecko_id ?? null;
+        return {
+          slug,
+          name: resolved?.name ?? slug,
+          tvl: resolved?.tvl ?? null,
+          change_1d: resolved?.change_1d ?? null,
+          change_7d: resolved?.change_7d ?? null,
+          geckoId,
+          source: resolved ? 'defillama' : 'unknown',
+        } as {
+          slug: string;
+          name: string;
+          tvl: number | null;
+          change_1d: number | null;
+          change_7d: number | null;
+          geckoId: string | null;
+          source: string;
+          priceUsd?: number | null;
+          priceChange24h?: number | null;
+        };
+      });
+
+      // Fetch CoinGecko data when gecko ids are available
+      const geckoIds = Array.from(new Set(mapped.map((m) => m.geckoId).filter(Boolean))) as string[];
+      if (geckoIds.length === 0) return mapped;
+
+      try {
+        const results = await Promise.all(
+          geckoIds.map((id) => fetchJson<CoinGeckoResponse>(`/api/coingecko?id=${encodeURIComponent(id)}`).catch(() => null))
+        );
+
+        const byId = new Map<string, CoinGeckoResponse>();
+        results.forEach((res, idx) => {
+          if (res) byId.set(geckoIds[idx], res);
+        });
+
+        return mapped.map((m) => {
+          if (!m.geckoId) return m;
+          const info = byId.get(m.geckoId);
+          if (!info) return m;
+          const price = info.market_data?.current_price?.usd ?? null;
+          const pct24 = info.market_data?.price_change_percentage_24h ?? null;
+          return { ...m, priceUsd: price, priceChange24h: pct24 };
+        });
+      } catch {
+        return mapped;
+      }
+    },
+    enabled: Array.isArray(solanaProtocols) && (watchlist !== undefined),
+    staleTime: 30_000,
+  });
+
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: ['watchlist', cluster.name, walletAddress ?? 'guest'] });
 
@@ -308,6 +385,7 @@ export function useWatchlist() {
 
   return {
     watchlist: watchlist ?? [],
+    watchlistItems: watchlistItems ?? [],
     isLoading,
     isConnected: !!wallet.publicKey,
     isWatched: (slug: string) => (watchlist ?? []).includes(normalizeProtocolSlug(slug)),

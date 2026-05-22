@@ -1,12 +1,15 @@
 'use client'
 
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { WalletButton } from '@/components/solana/solana-provider'
+import { useSolanaProtocols } from '@/hooks/use-defillama'
+import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import type { PortfolioPosition, RiskBreakdown, ScenarioConfig, SimulationResult } from '@/shared/types/war-room'
+import type { SolanaProtocol } from '@/shared/types/protocol'
 
 type ScenarioPreset = ScenarioConfig & {
     beginnerLabel: string
@@ -143,6 +146,106 @@ const COMPARATIVE_CHAINS: ComparativeChain[] = [
     },
 ]
 
+function selectLiveProtocolBasket(protocols: SolanaProtocol[], focusedProtocol?: string, limit = 4): SolanaProtocol[] {
+    const normalizedFocus = normalizeProtocolSlug(focusedProtocol ?? '')
+    const sorted = [...protocols].sort((a, b) => (b.tvl ?? 0) - (a.tvl ?? 0))
+    const focus = normalizedFocus ? resolveProtocolFromList(normalizedFocus, sorted) : undefined
+    const remaining = sorted.filter((protocol) => protocol.slug !== focus?.slug)
+
+    return [focus, ...remaining].filter((protocol): protocol is SolanaProtocol => Boolean(protocol)).slice(0, limit)
+}
+
+function getProtocolSymbol(protocol: SolanaProtocol): string {
+    const symbol = protocol.name
+        .split(/[-\s/]+/)
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join('')
+
+    return (symbol || protocol.slug.slice(0, 6)).toUpperCase()
+}
+
+function derivePositionUsdValue(protocol: SolanaProtocol, index: number): number {
+    const tvl = protocol.tvl ?? 0
+    const scale = index === 0 ? 0.018 : index === 1 ? 0.012 : 0.008
+    return Math.max(25_000, Math.min(220_000, Math.round(tvl * scale)))
+}
+
+function deriveVolatility(protocol: SolanaProtocol, index: number): number {
+    const change = Math.abs(protocol.change_1d ?? 0) * 1.5 + Math.abs(protocol.change_7d ?? 0) * 0.5
+    return Math.round(clamp(22 + change + index * 5, 6, 94))
+}
+
+function deriveLiquidityScore(protocol: SolanaProtocol, index: number): number {
+    const tvl = Math.max(1, protocol.tvl ?? 1)
+    const score = 38 + Math.log10(tvl) * 7 - index * 3
+    return Math.round(clamp(score, 18, 98))
+}
+
+function deriveCollateralFactor(protocol: SolanaProtocol, index: number): number {
+    const tvl = protocol.tvl ?? 0
+    const score = 0.28 + Math.min(tvl / 500_000_000, 0.25) - index * 0.03
+    return Number(clamp(score, 0.12, 0.82).toFixed(2))
+}
+
+function buildPositionFromProtocol(protocol: SolanaProtocol, index: number): PortfolioPosition {
+    return {
+        id: protocol.slug,
+        label: index === 0 ? `${protocol.name} Anchor` : protocol.name,
+        symbol: getProtocolSymbol(protocol),
+        protocol: protocol.slug,
+        kind: 'token',
+        usdValue: derivePositionUsdValue(protocol, index),
+        collateralFactor: index === 0 ? deriveCollateralFactor(protocol, index) : 0,
+        volatility: deriveVolatility(protocol, index),
+        liquidityScore: deriveLiquidityScore(protocol, index),
+    }
+}
+
+function scalePositions(positions: PortfolioPosition[], multipliers: number[], suffix: string): PortfolioPosition[] {
+    return positions.map((position, index) => ({
+        ...position,
+        id: `${position.id}-${suffix}`,
+        usdValue: Math.max(1_000, Math.round(position.usdValue * (multipliers[index] ?? 1))),
+    }))
+}
+
+function buildPositionsForProtocol(protocols: SolanaProtocol[], focusedProtocol?: string): PortfolioPosition[] {
+    const basket = selectLiveProtocolBasket(protocols, focusedProtocol, 4)
+    return basket.map((protocol, index) => buildPositionFromProtocol(protocol, index))
+}
+
+function buildPortfolioTemplates(protocols: SolanaProtocol[], focusedProtocol?: string): PortfolioTemplate[] {
+    const basket = selectLiveProtocolBasket(protocols, focusedProtocol, 3)
+    if (basket.length === 0) return []
+
+    const basePositions = basket.map((protocol, index) => buildPositionFromProtocol(protocol, index))
+    const primaryName = basket[0]?.name ?? 'Solana market leaders'
+    const secondaryName = basket[1]?.name ?? primaryName
+    const tertiaryName = basket[2]?.name ?? primaryName
+
+    return [
+        {
+            id: 'live-core',
+            title: 'Live Core',
+            summary: `Anchored to current TVL leaders such as ${primaryName}.`,
+            positions: scalePositions(basePositions, [1, 0.82, 0.65], 'core'),
+        },
+        {
+            id: 'live-yield',
+            title: 'Live Yield',
+            summary: `Tilts toward ${primaryName} and ${secondaryName} while keeping the basket diversified.`,
+            positions: scalePositions(basePositions, [1.15, 0.95, 0.7], 'yield'),
+        },
+        {
+            id: 'live-defensive',
+            title: 'Live Defensive',
+            summary: `Prioritizes larger live-market protocols such as ${primaryName}, ${secondaryName}, and ${tertiaryName}.`,
+            positions: scalePositions(basePositions, [0.9, 0.75, 0.55], 'defensive'),
+        },
+    ]
+}
+
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value))
 }
@@ -188,204 +291,6 @@ const SCENARIOS: ScenarioPreset[] = [
         protocolExploitSeverity: 34,
     },
 ]
-
-const DEMO_POSITIONS: PortfolioPosition[] = [
-    {
-        id: '1',
-        label: 'SOL Collateral Vault',
-        symbol: 'SOL',
-        protocol: 'kamino',
-        kind: 'lending',
-        usdValue: 380000,
-        collateralFactor: 0.72,
-        volatility: 77,
-        liquidityScore: 82,
-    },
-    {
-        id: '2',
-        label: 'JitoSOL Yield Position',
-        symbol: 'JITOSOL',
-        protocol: 'jito',
-        kind: 'staking',
-        usdValue: 240000,
-        volatility: 63,
-        liquidityScore: 70,
-    },
-    {
-        id: '3',
-        label: 'ORCA/SOL LP',
-        symbol: 'ORCA-SOL LP',
-        protocol: 'orca',
-        kind: 'lp',
-        usdValue: 165000,
-        volatility: 86,
-        liquidityScore: 58,
-    },
-    {
-        id: '4',
-        label: 'USDC Strategy Reserve',
-        symbol: 'USDC',
-        protocol: 'marginfi',
-        kind: 'token',
-        usdValue: 215000,
-        volatility: 6,
-        liquidityScore: 95,
-    },
-]
-
-const PORTFOLIO_TEMPLATES: PortfolioTemplate[] = [
-    {
-        id: 'balanced-starter',
-        title: 'Balanced Starter',
-        summary: 'Lower-volatility setup for someone learning DeFi basics.',
-        positions: [
-            {
-                id: 'tmpl-1',
-                label: 'SOL Core Position',
-                symbol: 'SOL',
-                protocol: 'wallet',
-                kind: 'token',
-                usdValue: 7000,
-                collateralFactor: 0,
-                volatility: 64,
-                liquidityScore: 92,
-            },
-            {
-                id: 'tmpl-2',
-                label: 'USDC Safety Bucket',
-                symbol: 'USDC',
-                protocol: 'wallet',
-                kind: 'token',
-                usdValue: 4500,
-                collateralFactor: 0,
-                volatility: 5,
-                liquidityScore: 97,
-            },
-            {
-                id: 'tmpl-3',
-                label: 'LST Yield Position',
-                symbol: 'JITOSOL',
-                protocol: 'jito',
-                kind: 'staking',
-                usdValue: 3500,
-                collateralFactor: 0.45,
-                volatility: 52,
-                liquidityScore: 74,
-            },
-        ],
-    },
-    {
-        id: 'yield-seeker',
-        title: 'Yield Seeker',
-        summary: 'Income-focused mix with moderate protocol and liquidity risk.',
-        positions: [
-            {
-                id: 'tmpl-4',
-                label: 'JitoSOL Yield Position',
-                symbol: 'JITOSOL',
-                protocol: 'jito',
-                kind: 'staking',
-                usdValue: 9000,
-                collateralFactor: 0.55,
-                volatility: 63,
-                liquidityScore: 70,
-            },
-            {
-                id: 'tmpl-5',
-                label: 'USDC Lending Position',
-                symbol: 'USDC',
-                protocol: 'kamino',
-                kind: 'lending',
-                usdValue: 8000,
-                collateralFactor: 0.62,
-                volatility: 8,
-                liquidityScore: 90,
-            },
-            {
-                id: 'tmpl-6',
-                label: 'ORCA/SOL LP',
-                symbol: 'ORCA-SOL LP',
-                protocol: 'orca',
-                kind: 'lp',
-                usdValue: 5000,
-                collateralFactor: 0.4,
-                volatility: 86,
-                liquidityScore: 58,
-            },
-        ],
-    },
-    {
-        id: 'high-beta',
-        title: 'High Beta',
-        summary: 'Return-chasing portfolio with larger drawdown potential.',
-        positions: [
-            {
-                id: 'tmpl-7',
-                label: 'SOL Leverage Collateral',
-                symbol: 'SOL',
-                protocol: 'kamino',
-                kind: 'lending',
-                usdValue: 13000,
-                collateralFactor: 0.78,
-                volatility: 79,
-                liquidityScore: 84,
-            },
-            {
-                id: 'tmpl-8',
-                label: 'Meme Basket',
-                symbol: 'MEME',
-                protocol: 'wallet',
-                kind: 'token',
-                usdValue: 6000,
-                collateralFactor: 0,
-                volatility: 94,
-                liquidityScore: 46,
-            },
-            {
-                id: 'tmpl-9',
-                label: 'ORCA/SOL LP',
-                symbol: 'ORCA-SOL LP',
-                protocol: 'orca',
-                kind: 'lp',
-                usdValue: 7000,
-                collateralFactor: 0.42,
-                volatility: 88,
-                liquidityScore: 54,
-            },
-        ],
-    },
-]
-
-function buildPositionsForProtocol(protocol?: string): PortfolioPosition[] {
-    const normalized = (protocol ?? '').trim().toLowerCase()
-    if (!normalized) return DEMO_POSITIONS
-
-    const existingIdx = DEMO_POSITIONS.findIndex((position) => position.protocol.toLowerCase() === normalized)
-    if (existingIdx >= 0) {
-        const selected = {
-            ...DEMO_POSITIONS[existingIdx],
-            usdValue: Math.round(DEMO_POSITIONS[existingIdx].usdValue * 1.1),
-        }
-        const rest = DEMO_POSITIONS.filter((_, idx) => idx !== existingIdx)
-        return [selected, ...rest]
-    }
-
-    const syntheticPosition: PortfolioPosition = {
-        id: 'focused-protocol',
-        label: `${normalized.toUpperCase()} Tactical Position`,
-        symbol: normalized.toUpperCase(),
-        protocol: normalized,
-        kind: 'token',
-        usdValue: 190000,
-        volatility: 72,
-        liquidityScore: 66,
-    }
-
-    const base = [...DEMO_POSITIONS]
-    base.sort((a, b) => a.usdValue - b.usdValue)
-    base[0] = syntheticPosition
-    return base
-}
 
 function formatCurrency(value: number): string {
     return new Intl.NumberFormat('en-US', {
@@ -476,10 +381,9 @@ function WarRoomContent() {
     const wallet = useWallet()
     const { connection } = useConnection()
     const focusedProtocol = searchParams.get('protocol')?.trim().toLowerCase()
+    const { data: solanaProtocols = [], isLoading: protocolsLoading } = useSolanaProtocols()
 
-    const [positions, setPositions] = useState<PortfolioPosition[]>(() =>
-        buildPositionsForProtocol(focusedProtocol)
-    )
+    const [positions, setPositions] = useState<PortfolioPosition[]>([])
     const [selectedScenarioIdx, setSelectedScenarioIdx] = useState(0)
     const [result, setResult] = useState<SimulationResult | null>(null)
     const [loading, setLoading] = useState(false)
@@ -488,6 +392,16 @@ function WarRoomContent() {
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
     const [importingWallet, setImportingWallet] = useState(false)
     const [importStatus, setImportStatus] = useState<string | null>(null)
+    const [portfolioSource, setPortfolioSource] = useState<'live' | 'wallet' | 'template' | 'custom'>('live')
+
+    const livePositions = useMemo(
+        () => buildPositionsForProtocol(solanaProtocols, focusedProtocol),
+        [focusedProtocol, solanaProtocols]
+    )
+    const portfolioTemplates = useMemo(
+        () => buildPortfolioTemplates(solanaProtocols, focusedProtocol),
+        [focusedProtocol, solanaProtocols]
+    )
 
     const totalValue = useMemo(() => positions.reduce((acc, p) => acc + p.usdValue, 0), [positions])
     const selectedScenario = SCENARIOS[selectedScenarioIdx]
@@ -495,6 +409,13 @@ function WarRoomContent() {
         () => (result ? getTopRiskDrivers(result.riskBreakdown) : []),
         [result]
     )
+
+    useEffect(() => {
+        if (portfolioSource !== 'live' || livePositions.length === 0) return
+        setPositions(livePositions)
+        setSelectedTemplateId(null)
+        setResult(null)
+    }, [livePositions, portfolioSource])
 
     const comparativeChains = useMemo(() => {
         return COMPARATIVE_CHAINS.map((chain) => {
@@ -552,6 +473,7 @@ function WarRoomContent() {
     }
 
     function updatePositionValue(id: string, usdValue: number) {
+        setPortfolioSource('custom')
         setPositions((current) =>
             current.map((position) =>
                 position.id === id ? { ...position, usdValue: Number.isNaN(usdValue) ? 0 : Math.max(0, usdValue) } : position
@@ -560,12 +482,13 @@ function WarRoomContent() {
     }
 
     function applyTemplate(templateId: string) {
-        const template = PORTFOLIO_TEMPLATES.find((item) => item.id === templateId)
+        const template = portfolioTemplates.find((item) => item.id === templateId)
         if (!template) return
         setPositions(template.positions)
         setSelectedTemplateId(template.id)
         setResult(null)
         setError(null)
+        setPortfolioSource('template')
         setImportStatus(`Loaded template: ${template.title}`)
     }
 
@@ -646,8 +569,18 @@ function WarRoomContent() {
             importedPositions.sort((a, b) => b.usdValue - a.usdValue)
 
             if (!importedPositions.length) {
-                applyTemplate('balanced-starter')
-                setImportStatus('No sizable balances detected, so we loaded the Balanced Starter template as fallback.')
+                const fallbackTemplate = portfolioTemplates[0]
+                if (fallbackTemplate) {
+                    setPositions(fallbackTemplate.positions)
+                    setSelectedTemplateId(fallbackTemplate.id)
+                    setPortfolioSource('template')
+                    setImportStatus(`No sizable balances detected, so we loaded the ${fallbackTemplate.title} live basket as fallback.`)
+                } else {
+                    setPositions(livePositions)
+                    setSelectedTemplateId(null)
+                    setPortfolioSource('live')
+                    setImportStatus('No sizable balances detected, so we loaded the live market basket as fallback.')
+                }
                 return
             }
 
@@ -655,10 +588,21 @@ function WarRoomContent() {
             setPositions(topPositions)
             setSelectedTemplateId(null)
             setResult(null)
+            setPortfolioSource('wallet')
             setImportStatus(`Imported ${topPositions.length} positions from wallet balances.`)
         } catch {
-            applyTemplate('balanced-starter')
-            setError('Wallet import failed, so we loaded a starter template. You can still run scenarios immediately.')
+            const fallbackTemplate = portfolioTemplates[0]
+            if (fallbackTemplate) {
+                setPositions(fallbackTemplate.positions)
+                setSelectedTemplateId(fallbackTemplate.id)
+                setPortfolioSource('template')
+                setError(`Wallet import failed, so we loaded the ${fallbackTemplate.title} live basket instead.`)
+            } else {
+                setPositions(livePositions)
+                setSelectedTemplateId(null)
+                setPortfolioSource('live')
+                setError('Wallet import failed, so we loaded the live market basket instead.')
+            }
         } finally {
             setImportingWallet(false)
         }
@@ -717,7 +661,7 @@ function WarRoomContent() {
                     <div className="mt-3 rounded-xl bg-cyan-300/10 p-3 ring-1 ring-cyan-200/20">
                         <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100">Wallet import</p>
                         <p className="mt-2 text-xs text-zinc-300">
-                            Connect a wallet, then click Import Wallet Balances to auto-fill SOL + largest token positions. If nothing is detected, a starter template is loaded.
+                            Connect a wallet, then click Import Wallet Balances to auto-fill SOL + largest token positions. If nothing is detected, the live market basket is loaded.
                         </p>
                     </div>
                 </section>
@@ -787,22 +731,26 @@ function WarRoomContent() {
 
                         <div className="space-y-2">
                             <p className="text-xs uppercase tracking-wide text-zinc-400">Quick-start templates</p>
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                {PORTFOLIO_TEMPLATES.map((template) => (
-                                    <button
-                                        key={template.id}
-                                        type="button"
-                                        onClick={() => applyTemplate(template.id)}
-                                        className={`rounded-lg border px-3 py-2 text-left transition ${selectedTemplateId === template.id
-                                            ? 'border-cyan-200/60 bg-cyan-400/15 text-cyan-100'
-                                            : 'border-zinc-700/70 bg-zinc-900/70 text-zinc-300 hover:border-zinc-500'
-                                            }`}
-                                    >
-                                        <p className="text-sm font-semibold">{template.title}</p>
-                                        <p className="mt-1 text-xs text-zinc-400">{template.summary}</p>
-                                    </button>
-                                ))}
-                            </div>
+                            {protocolsLoading && portfolioTemplates.length === 0 ? (
+                                <p className="text-xs text-zinc-400">Loading live market baskets...</p>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                                    {portfolioTemplates.map((template) => (
+                                        <button
+                                            key={template.id}
+                                            type="button"
+                                            onClick={() => applyTemplate(template.id)}
+                                            className={`rounded-lg border px-3 py-2 text-left transition ${selectedTemplateId === template.id
+                                                ? 'border-cyan-200/60 bg-cyan-400/15 text-cyan-100'
+                                                : 'border-zinc-700/70 bg-zinc-900/70 text-zinc-300 hover:border-zinc-500'
+                                                }`}
+                                        >
+                                            <p className="text-sm font-semibold">{template.title}</p>
+                                            <p className="mt-1 text-xs text-zinc-400">{template.summary}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-3">

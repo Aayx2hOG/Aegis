@@ -7,6 +7,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlist } from '@/hooks/use-multichain-watchlist'
+import { useWatchlist } from '@/hooks/use-watchlist'
 import { useSolanaProtocols } from '@/hooks/use-defillama'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import { ChainType } from '@/lib/chain/types'
@@ -170,6 +171,8 @@ export default function WatchlistPage() {
         }
     }, [walletAddress])
 
+    const solanaWatch = useWatchlist()
+
     const chainViews = useMemo(() => {
         const visibleChainTypes = activeChainConnections.length > 0 ? activeChainConnections : [activeChain.type]
 
@@ -180,7 +183,11 @@ export default function WatchlistPage() {
 
                 const slugs = watchlistsByChain[chainType] ?? []
                 const marketRows = chainType === ChainType.Solana
-                    ? slugs.map((slug) => ({ slug, market: resolveProtocolFromList(slug, solanaProtocols) }))
+                    ? slugs.map((slug) => {
+                        const enriched = solanaWatch.watchlistItems.find((i) => i.slug === slug)
+                        const market = enriched ? (enriched as unknown as SolanaProtocol) : resolveProtocolFromList(slug, solanaProtocols)
+                        return { slug, market }
+                    })
                     : slugs.map((slug) => ({ slug, market: undefined }))
 
                 const riskyCount = marketRows.filter(({ market }) => riskState(market).isRisk).length
@@ -277,7 +284,8 @@ export default function WatchlistPage() {
                                                     <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status.tone}`}>{status.label}</span>
                                                 </div>
 
-                                                <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                                                <div className="mt-3 grid grid-cols-4 gap-2 text-[11px]">
+                                                    <MiniMetric label="Price" value={(market as any)?.priceUsd ? `$${Number((market as any).priceUsd).toFixed(2)}` : 'N/A'} tone={(market as any)?.priceChange24h < 0 ? 'text-rose-200' : 'text-emerald-200'} />
                                                     <MiniMetric label="TVL" value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'} />
                                                     <MiniMetric label="24h" value={formatPct(market?.change_1d)} tone={(market?.change_1d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
                                                     <MiniMetric label="7d" value={formatPct(market?.change_7d)} tone={(market?.change_7d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
