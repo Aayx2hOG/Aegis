@@ -1,6 +1,8 @@
 import { AlertDirection, AlertMetric } from '@prisma/client';
 import { prisma } from '@/server/db/prisma';
 import { getSolanaProtocols } from '@/server/api/defillama';
+import { runResearchAgent } from '@/server/ai/aegis-research-agent';
+import { enqueueSummary } from '@/server/queue/summary-queue';
 import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
 
 const EVENT_DEDUP_MS = 1000 * 60 * 60 * 6;
@@ -58,7 +60,7 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
       continue;
     }
 
-    await prisma.alertEvent.create({
+    const createdEvent = await prisma.alertEvent.create({
       data: {
         ruleId: rule.id,
         walletAddress: rule.walletAddress,
@@ -69,6 +71,13 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
         currentValue,
       },
     });
+
+    // Enqueue summary generation job (worker will update the event).
+    try {
+      await enqueueSummary(createdEvent.id, rule.protocolSlug as string)
+    } catch (err) {
+      console.error('[evaluateAlertsForWallet] failed to enqueue AI summary job', err)
+    }
 
     await prisma.alertRule.update({
       where: { id: rule.id },

@@ -123,22 +123,7 @@ export function DashboardFeature() {
                     </p>
                 </section>
 
-                <section className={`rounded-3xl border p-5 text-left shadow-2xl backdrop-blur-xl ${activeChain.type === ChainType.Solana ? 'border-cyan-300/20 bg-cyan-400/10' : activeChain.type === ChainType.Ethereum ? 'border-blue-300/20 bg-blue-400/10' : 'border-zinc-300/20 bg-zinc-900/60'}`}>
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-400">Current view</p>
-                            <h2 className="mt-1 text-2xl font-black text-white">{activeChain.displayName}</h2>
-                            <p className="mt-1 max-w-2xl text-sm text-zinc-300">
-                                The dashboard is now tuned for {activeChain.displayName}. Switching chains changes this hero card, the active-chain banner, and the chain-specific previews below.
-                            </p>
-                        </div>
-                        <div className="rounded-2xl bg-zinc-950/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-200 ring-1 ring-white/10">
-                            {activeChain.type === ChainType.Solana
-                                ? `${activeChain.environment === 'devnet' ? 'Solana devnet testing' : 'Solana mainnet production'}`
-                                : `${activeChain.displayName} chain context`}
-                        </div>
-                    </div>
-                </section>
+                {/* Removed hero "Current view" card per request */}
 
                 <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <QuickLinkCard

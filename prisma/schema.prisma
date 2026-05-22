@@ -62,6 +62,8 @@ model AlertEvent {
     threshold     Float
     direction     AlertDirection
     currentValue  Float
+    summary       String?
+    summaryGeneratedAt DateTime?
     triggeredAt   DateTime       @default(now())
 
     rule AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)

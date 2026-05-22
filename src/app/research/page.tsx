@@ -75,23 +75,26 @@ function buildSupportedProtocolCatalog(protocols: SolanaProtocol[]) {
   });
 
   return Array.from(deduped.values())
-    .filter((protocol) => typeof protocol.tvl === 'number' && protocol.tvl > 0)
-    .filter((protocol) => {
-      const category = protocol.category?.trim() ?? 'Uncategorized';
-      if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false;
-      if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true;
-      return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized';
+    .map((protocol) => {
+      // DeFiLlama may use different keys for TVL (tvl, tvlUsd, etc.). Normalize.
+      const anyP = protocol as any
+      const tvlNum: number | null = typeof anyP.tvl === 'number' ? anyP.tvl : typeof anyP.tvlUsd === 'number' ? anyP.tvlUsd : null
+      return { protocol, tvlNum }
     })
-    .sort((a, b) => (b.tvl ?? 0) - (a.tvl ?? 0))
-    .map((protocol) => ({
+    .filter(({ protocol, tvlNum }) => tvlNum != null && tvlNum > 0)
+    .filter(({ protocol }) => {
+      const category = (protocol as any).category?.trim() ?? 'Uncategorized'
+      if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false
+      if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true
+      return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized'
+    })
+    .sort((a, b) => (b.tvlNum ?? 0) - (a.tvlNum ?? 0))
+    .map(({ protocol, tvlNum }) => ({
       slug: normalizeProtocolSlug(protocol.slug),
       label: protocol.name || formatProtocolName(protocol.slug),
-      category: protocol.category ?? 'Uncategorized',
-      tvl:
-        typeof protocol.tvl === 'number'
-          ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(protocol.tvl)
-          : 'N/A',
-    }));
+      category: (protocol as any).category ?? 'Uncategorized',
+      tvl: typeof tvlNum === 'number' ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(tvlNum) : 'N/A',
+    }))
 }
 
 function matchesProtocolSearch(protocol: { slug: string; label: string; category: string }, query: string) {
@@ -156,11 +159,6 @@ function ResearchContent() {
   // Auto-set status message based on timing
   const [statusMsg, setStatusMsg] = useState('Initializing analyst...');
 
-  function buildExportFileName(protocol: string, ext: string): string {
-    const date = new Date().toISOString().slice(0, 10);
-    return `aegis-${protocol.toLowerCase()}-brief-${date}.${ext}`;
-  }
-
   async function copyBriefMarkdown() {
     if (!brief?.brief) return;
     try {
@@ -169,35 +167,6 @@ function ResearchContent() {
     } catch {
       toast.error('Clipboard copy failed. You can still download the report.');
     }
-  }
-
-  function downloadTextFile(fileName: string, content: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function exportBriefMarkdown() {
-    if (!brief) return;
-    downloadTextFile(buildExportFileName(brief.protocol, 'md'), brief.brief, 'text/markdown;charset=utf-8');
-  }
-
-  function exportToolAuditJson() {
-    if (!brief) return;
-    const payload = {
-      protocol: brief.protocol,
-      generatedAt: new Date().toISOString(),
-      toolCalls: brief.toolCalls,
-    };
-    downloadTextFile(
-      buildExportFileName(brief.protocol, 'audit.json'),
-      JSON.stringify(payload, null, 2),
-      'application/json;charset=utf-8'
-    );
   }
 
   useEffect(() => {
@@ -355,18 +324,6 @@ function ResearchContent() {
                     className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
                   >
                     Copy Markdown
-                  </button>
-                  <button
-                    onClick={exportBriefMarkdown}
-                    className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
-                  >
-                    Download .md
-                  </button>
-                  <button
-                    onClick={exportToolAuditJson}
-                    className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
-                  >
-                    Download Audit JSON
                   </button>
                 </div>
               </div>

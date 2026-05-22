@@ -42,6 +42,8 @@ interface AlertEventItem {
     direction: AlertDirection
     currentValue: number
     triggeredAt: string
+    summary?: string
+    summaryGeneratedAt?: string
 }
 
 function formatPct(value: number | null | undefined): string {
@@ -106,6 +108,10 @@ export default function WatchlistPage() {
     const [dbStatus, setDbStatus] = useState<string | null>(null)
     const [historyLoading, setHistoryLoading] = useState(false)
     const [alertsLoading, setAlertsLoading] = useState(false)
+    const [regeneratingEventId, setRegeneratingEventId] = useState<string | null>(null)
+    const [pollingEventId, setPollingEventId] = useState<string | null>(null)
+    const [fullSummaryEventId, setFullSummaryEventId] = useState<string | null>(null)
+    const [fullSummaryOpen, setFullSummaryOpen] = useState(false)
 
     useEffect(() => {
         if (!walletAddress) {
@@ -405,7 +411,86 @@ export default function WatchlistPage() {
                                     <div className="mt-3 space-y-2">
                                         {events.slice(0, 3).map((event) => (
                                             <div key={event.id} className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-                                                {event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}%
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="font-semibold">{event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}%</div>
+                                                    <div>
+                                                        <button
+                                                            className="text-xs opacity-90 hover:underline"
+                                                            disabled={regeneratingEventId === event.id}
+                                                            onClick={async () => {
+                                                                try {
+                                                                    setRegeneratingEventId(event.id)
+                                                                    const res = await fetch(`/api/alerts/events/${event.id}/regenerate`, { method: 'POST' })
+                                                                    const body = await res.json()
+                                                                    if (res.status === 202) {
+                                                                        toast.success('Regeneration queued — will update shortly')
+                                                                        // start polling this event until summary appears
+                                                                        setPollingEventId(event.id);
+                                                                        (async function poll() {
+                                                                            const start = Date.now()
+                                                                            while (Date.now() - start < 60000) {
+                                                                                await new Promise((r) => setTimeout(r, 3000))
+                                                                                try {
+                                                                                    const r = await fetch(`/api/alerts/events/${event.id}`)
+                                                                                    if (!r.ok) continue
+                                                                                    const b = await r.json()
+                                                                                    const remoteEvent = b.event as AlertEventItem
+                                                                                    if (remoteEvent?.summary) {
+                                                                                        setEvents((prev) => prev.map((e) => (e.id === remoteEvent.id ? { ...e, summary: remoteEvent.summary, summaryGeneratedAt: remoteEvent.summaryGeneratedAt } : e)))
+                                                                                        toast.success('Summary available')
+                                                                                        setPollingEventId(null)
+                                                                                        break
+                                                                                    }
+                                                                                } catch {
+                                                                                    // ignore and continue polling
+                                                                                }
+                                                                            }
+                                                                            setPollingEventId(null)
+                                                                        })()
+                                                                    } else if (!res.ok) {
+                                                                        toast.error(body?.error ?? 'Failed to regenerate summary')
+                                                                        return
+                                                                    } else {
+                                                                        const updated = body.event
+                                                                        setEvents((prev) => prev.map((e) => (e.id === updated.id ? { ...e, summary: updated.summary, summaryGeneratedAt: updated.summaryGeneratedAt } : e)))
+                                                                        toast.success('Summary regenerated')
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.error('[regen] error', err)
+                                                                    toast.error('Failed to regenerate summary')
+                                                                } finally {
+                                                                    setRegeneratingEventId(null)
+                                                                }
+                                                            }}
+                                                        >
+                                                            {regeneratingEventId === event.id ? 'Regenerating…' : 'Regenerate summary'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {event.summary ? (
+                                                    <>
+                                                        <p className="mt-1 line-clamp-2 text-xs text-rose-100/80">{event.summary}</p>
+                                                        <p className="mt-1 text-[10px] text-rose-200">Generated: {event.summaryGeneratedAt ? new Date(event.summaryGeneratedAt).toLocaleString() : 'unknown'}</p>
+                                                    </>
+                                                ) : (
+                                                    <p className="mt-1 text-[10px] text-rose-200">No summary yet.</p>
+                                                )}
+                                                <div className="mt-2 flex gap-2">
+                                                    <button
+                                                        className="text-xs opacity-90 hover:underline"
+                                                        onClick={() => {
+                                                            if (event.summary) {
+                                                                setFullSummaryEventId(event.id)
+                                                                setFullSummaryOpen(true)
+                                                            } else {
+                                                                toast('No summary to view yet')
+                                                            }
+                                                        }}
+                                                    >
+                                                        View full summary
+                                                    </button>
+                                                    {pollingEventId === event.id && <span className="text-xs text-zinc-400">Polling for update…</span>}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -421,6 +506,28 @@ export default function WatchlistPage() {
                     </div>
                 )}
             </div>
+            {fullSummaryOpen && fullSummaryEventId ? (
+                (() => {
+                    const evt = events.find((e) => e.id === fullSummaryEventId)
+                    if (!evt) return null
+                    return (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                            <div className="max-h-[80vh] w-[min(900px,95%)] overflow-auto rounded-xl bg-zinc-900 p-6">
+                                <div className="flex items-start justify-between">
+                                    <h3 className="text-lg font-bold text-white">{evt.protocolSlug} — Summary</h3>
+                                    <div>
+                                        <button className="text-sm text-zinc-400" onClick={() => setFullSummaryOpen(false)}>Close</button>
+                                    </div>
+                                </div>
+                                <div className="mt-4 whitespace-pre-wrap text-sm text-zinc-200">
+                                    {evt.summary ?? 'No summary available.'}
+                                </div>
+                                <div className="mt-4 text-xs text-zinc-500">Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</div>
+                            </div>
+                        </div>
+                    )
+                })()
+            ) : null}
         </div>
     )
 }
