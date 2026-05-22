@@ -18,7 +18,7 @@ const CHAIN_LABELS: Record<ChainType, string> = {
 }
 
 export function ChainUiSelect() {
-    const { activeChain, allChains, setActiveChain, activeChainConnections } = useMultiChain()
+    const { activeChain, allChains, setActiveChain } = useMultiChain()
 
     return (
         <DropdownMenu>
@@ -26,7 +26,6 @@ export function ChainUiSelect() {
                 <Button className="bg-zinc-900/70 text-zinc-200 hover:bg-zinc-800">
                     <Layers3 className="h-4 w-4" />
                     <span>{activeChain.displayName}</span>
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">{activeChainConnections.length} live</span>
                     <ChevronDown className="h-4 w-4 opacity-70" />
                 </Button>
             </DropdownMenuTrigger>

@@ -6,7 +6,7 @@ import { agentStateAtom } from '@/store/research-store';
 import type { ResearchBrief, ToolCallRecord } from '@/shared/types/research';
 
 import { useWatchlist } from '@/hooks/use-watchlist';
-import { useSolanaProtocols } from '@/hooks/use-defillama';
+import { useChainProtocols } from '@/hooks/use-defillama';
 
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useMultiChain } from '@/components/chain/chain-provider';
 import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 import type { SolanaProtocol } from '@/shared/types/protocol';
 
@@ -118,6 +119,7 @@ export default function ResearchPage() {
 function ResearchContent() {
   const wallet = useWallet();
   const searchParams = useSearchParams();
+  const { activeChain } = useMultiChain();
   const [brief, setBrief] = useState<ResearchBrief | null>(null);
   const [, setAgentState] = useAtom(agentStateAtom);
   const [loading, setLoading] = useState(false);
@@ -125,9 +127,9 @@ function ResearchContent() {
   const [protocolSearch, setProtocolSearch] = useState('');
   const [visibleProtocols, setVisibleProtocols] = useState(INITIAL_VISIBLE_PROTOCOLS);
   const { isWatched, toggle, isConnected } = useWatchlist();
-  const { data: solanaProtocols = [], isLoading: protocolsLoading } = useSolanaProtocols();
+  const { data: chainProtocols = [], isLoading: protocolsLoading } = useChainProtocols(activeChain.type);
 
-  const supportedProtocols = useMemo(() => buildSupportedProtocolCatalog(solanaProtocols), [solanaProtocols]);
+  const supportedProtocols = useMemo(() => buildSupportedProtocolCatalog(chainProtocols), [chainProtocols]);
   const deferredProtocolSearch = useDeferredValue(protocolSearch.trim());
   const filteredProtocols = useMemo(
     () => supportedProtocols.filter((protocol) => matchesProtocolSearch(protocol, deferredProtocolSearch)),
@@ -140,7 +142,7 @@ function ResearchContent() {
 
   useEffect(() => {
     setVisibleProtocols(INITIAL_VISIBLE_PROTOCOLS);
-  }, [deferredProtocolSearch]);
+  }, [activeChain.type, deferredProtocolSearch]);
 
   // Auto-run if query param exists
   useEffect(() => {
@@ -201,7 +203,7 @@ function ResearchContent() {
   useEffect(() => {
     if (!loading) return;
     const messages = [
-      'Scanning Solana blockchain...',
+      `Scanning ${activeChain.displayName}...`,
       'Gathering protocol TVL data...',
       'Analyzing token market dynamics...',
       'Inspecting recent on-chain transactions...',
@@ -230,6 +232,7 @@ function ResearchContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           protocol: normalizedProtocol,
+          chainType: activeChain.type,
           walletAddress: wallet.publicKey?.toBase58(),
         }),
       });
@@ -277,10 +280,10 @@ function ResearchContent() {
             Aegis Intelligence
           </div>
           <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
-            Solana <span className="text-cyan-200">Research</span>
+            {activeChain.displayName} <span className="text-cyan-200">Research</span>
           </h1>
           <p className="mx-auto max-w-2xl text-zinc-300">
-            Autonomous AI analyst generating deep-dive reports via live on-chain and market data integration.
+            Autonomous AI analyst generating deep-dive reports for the selected chain using live protocol and market data.
           </p>
         </header>
 
@@ -416,7 +419,7 @@ function ResearchContent() {
                 {supportedProtocols.length} supported protocols with active TVL
               </h2>
               <p className="max-w-2xl text-sm text-zinc-300">
-                These are the live Solana-tagged protocols pulled from DeFiLlama, filtered to remove zero-TVL entries so the catalog stays useful and faster to scan.
+                These are the live protocols pulled from DeFiLlama for the currently selected chain, filtered to remove zero-TVL entries so the catalog stays useful and faster to scan.
               </p>
             </div>
             <div className="rounded-2xl bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300 ring-1 ring-white/5">

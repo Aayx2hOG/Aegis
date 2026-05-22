@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { runResearchAgent } from '@/server/ai/aegis-research-agent';
 import { prisma } from '@/server/db/prisma';
 import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
+import { ChainType } from '@/lib/chain/types';
 
 function compactError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
@@ -19,13 +20,13 @@ function compactError(err: unknown): string {
 // Body: { protocol: string }
 export async function POST(req: NextRequest) {
   try {
-    const { protocol, walletAddress } = (await req.json()) as Partial<{ protocol: string; walletAddress: string }>;
+    const { protocol, walletAddress, chainType } = (await req.json()) as Partial<{ protocol: string; walletAddress: string; chainType: ChainType }>;
     if (!protocol || typeof protocol !== 'string') {
       return Response.json({ error: 'protocol name required' }, { status: 400 });
     }
 
     const normalizedProtocol = normalizeProtocolSlug(protocol);
-    const brief = await runResearchAgent(normalizedProtocol);
+    const brief = await runResearchAgent(normalizedProtocol, chainType);
 
     if (prisma) {
       try {

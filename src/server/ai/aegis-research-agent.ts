@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk';
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/resources/chat/completions';
+import { ChainType } from '@/lib/chain/types';
 import { TOOLS, executeTool } from './aegis-tools';
 import { SYSTEM_PROMPT } from './aegis-prompts';
 import type { ResearchBrief } from '@/shared/types/research';
@@ -44,7 +45,27 @@ function text(value: unknown): string {
   return 'Unavailable';
 }
 
-async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['toolCalls']): Promise<ResearchBrief> {
+function buildChainLabel(chainType?: ChainType): string {
+  switch (chainType) {
+    case ChainType.Ethereum:
+      return 'Ethereum';
+    case ChainType.Polygon:
+      return 'Polygon';
+    case ChainType.Arbitrum:
+      return 'Arbitrum';
+    case ChainType.Optimism:
+      return 'Optimism';
+    case ChainType.Base:
+      return 'Base';
+    case ChainType.Cosmos:
+      return 'Cosmos';
+    case ChainType.Solana:
+    default:
+      return 'Solana';
+  }
+}
+
+async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['toolCalls'], chainType?: ChainType): Promise<ResearchBrief> {
   const [snapshot, tvl] = await Promise.allSettled([
     executeTool('get_protocol_snapshot', { slug: protocol }),
     executeTool('get_protocol_tvl', { slug: protocol }),
@@ -94,7 +115,7 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
 
   const fallback = [
     '### Overview',
-    `${text(s.name) || protocol} is a Solana DeFi protocol. ${text(s.description)}`,
+    `${text(s.name) || protocol} is a ${buildChainLabel(chainType)} DeFi protocol. ${text(s.description)}`,
     '',
     '### Key Metrics',
     '| Metric | Value |',
@@ -124,15 +145,16 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
   };
 }
 
-export async function runResearchAgent(protocol: string): Promise<ResearchBrief> {
+export async function runResearchAgent(protocol: string, chainType?: ChainType): Promise<ResearchBrief> {
   const groq = getGroqClient();
   const toolCalls: ResearchBrief['toolCalls'] = [];
+  const chainLabel = buildChainLabel(chainType);
 
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     {
       role: 'user',
-      content: `Generate a research brief for the Solana DeFi protocol: "${protocol}". Use your tools to gather live data first.`,
+      content: `Generate a research brief for the ${chainLabel} DeFi protocol: "${protocol}". Use your tools to gather live data first.`,
     },
   ];
 
@@ -189,8 +211,8 @@ export async function runResearchAgent(protocol: string): Promise<ResearchBrief>
     }
   } catch (err) {
     console.error('[runResearchAgent] tool loop failed, using fallback brief', err);
-    return buildFallbackBrief(protocol, toolCalls);
+    return buildFallbackBrief(protocol, toolCalls, chainType);
   }
 
-  return buildFallbackBrief(protocol, toolCalls);
+  return buildFallbackBrief(protocol, toolCalls, chainType);
 }
