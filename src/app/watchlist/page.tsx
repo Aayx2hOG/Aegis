@@ -263,9 +263,9 @@ const CHAIN_TONES: Record<ChainType, string> = {
 
 export default function WatchlistPage() {
     const { activeChain, activeChainConnections, allChains } = useMultiChain()
-    const { data: watchlistsByChainData, isLoading: watchlistsLoading } = useMultiChainWatchlistByChain()
     const wallet = useWallet()
     const walletAddress = wallet.publicKey?.toBase58()
+    const { data: watchlistsByChainData, isLoading: watchlistsLoading } = useMultiChainWatchlistByChain(walletAddress)
     const watchlistsByChain: Record<string, string[]> = watchlistsByChainData ?? {}
 
     const protocolChainTypes = useMemo(
