@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Activity, AlertTriangle, ExternalLink, Layers3, Radar, ShieldAlert, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Activity, AlertTriangle, ExternalLink, Layers3, Plus, Play, Radar, ShieldAlert, Sparkles } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useQueries } from '@tanstack/react-query'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain } from '@/hooks/use-multichain-watchlist'
@@ -36,6 +37,7 @@ interface AlertRuleItem {
 }
 
 interface AlertEventItem {
+    ruleId?: string
     id: string
     protocolSlug: string
     metric: AlertMetric
@@ -45,6 +47,30 @@ interface AlertEventItem {
     triggeredAt: string
     summary?: string
     summaryGeneratedAt?: string
+}
+
+interface AlertTestResultItem {
+    id: string
+    ruleId: string
+    protocolSlug: string
+    metric: AlertMetric
+    threshold: number
+    direction: AlertDirection
+    currentValue: number
+    triggered: boolean
+    createdAt: string
+    summary: string
+}
+
+interface AlertEvaluationResultItem {
+    ruleId: string
+    protocolSlug: string
+    metric: AlertMetric
+    threshold: number
+    direction: AlertDirection
+    status: 'triggered' | 'skipped'
+    currentValue: number | null
+    reason: string
 }
 
 type CoinGeckoResponse = {
@@ -72,6 +98,87 @@ type WatchlistMarketRow = {
         geckoId?: string | null
     }
     geckoId: string | null
+}
+
+type LocalAlertStore = {
+    rules: AlertRuleItem[]
+    events: AlertEventItem[]
+    updatedAt: string
+}
+
+const LOCAL_ALERT_STORAGE_PREFIX = 'aegis-alerts:'
+
+function getLocalAlertStorageKey(walletAddress: string) {
+    return `${LOCAL_ALERT_STORAGE_PREFIX}${walletAddress}`
+}
+
+function createLocalAlertId(prefix: string) {
+    return `${prefix}-${crypto.randomUUID()}`
+}
+
+function readLocalAlertStore(walletAddress: string): LocalAlertStore {
+    if (typeof window === 'undefined') {
+        return { rules: [], events: [], updatedAt: new Date().toISOString() }
+    }
+
+    try {
+        const raw = window.localStorage.getItem(getLocalAlertStorageKey(walletAddress))
+        if (!raw) return { rules: [], events: [], updatedAt: new Date().toISOString() }
+
+        const parsed = JSON.parse(raw) as Partial<LocalAlertStore>
+        return {
+            rules: Array.isArray(parsed.rules) ? (parsed.rules as AlertRuleItem[]) : [],
+            events: Array.isArray(parsed.events) ? (parsed.events as AlertEventItem[]) : [],
+            updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
+        }
+    } catch {
+        return { rules: [], events: [], updatedAt: new Date().toISOString() }
+    }
+}
+
+function writeLocalAlertStore(walletAddress: string, store: LocalAlertStore) {
+    if (typeof window === 'undefined') return
+
+    try {
+        window.localStorage.setItem(getLocalAlertStorageKey(walletAddress), JSON.stringify(store))
+    } catch {
+        console.error('Failed to save local alerts')
+    }
+}
+
+function buildLocalAlertSummary(rule: AlertRuleItem, currentValue: number) {
+    const metricLabel = ALERT_METRIC_LABEL[rule.metric]
+    const relationLabel = currentValue === rule.threshold ? 'equal to' : currentValue < rule.threshold ? 'below' : 'above'
+    return `${rule.protocolSlug} ${metricLabel} is ${currentValue.toFixed(2)}%, which is ${relationLabel} ${rule.threshold.toFixed(2)}%.`
+}
+
+function getLocalCurrentValueForRule(rule: AlertRuleItem, market?: SolanaProtocol) {
+    if (!market) return null
+    return rule.metric === 'CHANGE_7D' ? market.change_7d ?? null : market.change_1d ?? null
+}
+
+function isLocalAlertTriggered(rule: AlertRuleItem, currentValue: number) {
+    return rule.direction === 'BELOW' ? currentValue <= rule.threshold : currentValue >= rule.threshold
+}
+
+function getAlertEventKey(event: AlertEventItem) {
+    return event.ruleId ?? `${event.protocolSlug}:${event.metric}:${event.direction}:${event.threshold.toFixed(4)}`
+}
+
+function normalizeAlertEvents(events: AlertEventItem[]) {
+    const deduped = new Map<string, AlertEventItem>()
+
+    events
+        .slice()
+        .sort((left, right) => new Date(right.triggeredAt).getTime() - new Date(left.triggeredAt).getTime())
+        .forEach((event) => {
+            const key = getAlertEventKey(event)
+            if (!deduped.has(key)) {
+                deduped.set(key, event)
+            }
+        })
+
+    return Array.from(deduped.values())
 }
 
 function formatPct(value: number | null | undefined): string {
@@ -281,30 +388,481 @@ export default function WatchlistPage() {
     const [history, setHistory] = useState<ResearchHistoryItem[]>([])
     const [rules, setRules] = useState<AlertRuleItem[]>([])
     const [events, setEvents] = useState<AlertEventItem[]>([])
+    const [testResults, setTestResults] = useState<AlertTestResultItem[]>([])
+    const [evaluationResults, setEvaluationResults] = useState<AlertEvaluationResultItem[]>([])
     const [dbStatus, setDbStatus] = useState<string | null>(null)
     const [historyLoading, setHistoryLoading] = useState(false)
     const [alertsLoading, setAlertsLoading] = useState(false)
+    const [alertProtocolSlug, setAlertProtocolSlug] = useState('')
+    const [alertMetric, setAlertMetric] = useState<AlertMetric>('CHANGE_1D')
+    const [alertDirection, setAlertDirection] = useState<AlertDirection>('BELOW')
+    const [alertThreshold, setAlertThreshold] = useState('10')
+    const [creatingAlert, setCreatingAlert] = useState(false)
+    const [evaluatingAlerts, setEvaluatingAlerts] = useState(false)
+    const [updatingRuleId, setUpdatingRuleId] = useState<string | null>(null)
+    const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null)
     const [regeneratingEventId, setRegeneratingEventId] = useState<string | null>(null)
     const [pollingEventId, setPollingEventId] = useState<string | null>(null)
     const [fullSummaryEventId, setFullSummaryEventId] = useState<string | null>(null)
     const [fullSummaryOpen, setFullSummaryOpen] = useState(false)
+    const [testRuleOpen, setTestRuleOpen] = useState(false)
+    const [selectedTestRule, setSelectedTestRule] = useState<AlertRuleItem | null>(null)
+    const [testRuleValue, setTestRuleValue] = useState('')
+    const [guestAlertWalletAddress, setGuestAlertWalletAddress] = useState<string | null>(null)
+    const [alertStorageMode, setAlertStorageMode] = useState<'database' | 'local' | 'loading'>('loading')
+    const [showAllAlertRules, setShowAllAlertRules] = useState(false)
+
+    const availableAlertProtocolSlugs = useMemo(
+        () => Array.from(new Set(watchlistMarketRows.map((row) => row.slug))).slice(0, 12),
+        [watchlistMarketRows]
+    )
+
+    const selectedAlertMarketRow = useMemo(
+        () => watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(alertProtocolSlug)),
+        [alertProtocolSlug, watchlistMarketRows]
+    )
+
+    const selectedAlertCurrentValue = useMemo(() => {
+        if (!selectedAlertMarketRow?.market) return null
+        return alertMetric === 'CHANGE_7D'
+            ? selectedAlertMarketRow.market.change_7d ?? null
+            : selectedAlertMarketRow.market.change_1d ?? null
+    }, [alertMetric, selectedAlertMarketRow])
+    const visibleAlertRules = useMemo(
+        () => (showAllAlertRules ? rules : rules.slice(0, 3)),
+        [rules, showAllAlertRules]
+    )
+    const visibleTestResults = useMemo(() => testResults.slice(0, 3), [testResults])
+    const alertWalletAddress = walletAddress ?? guestAlertWalletAddress
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+
+        const storageKey = 'aegis-alert-guest-id'
+        const existing = window.localStorage.getItem(storageKey)
+        if (existing) {
+            setGuestAlertWalletAddress(existing)
+            return
+        }
+
+        const generated = `guest-${crypto.randomUUID()}`
+        window.localStorage.setItem(storageKey, generated)
+        setGuestAlertWalletAddress(generated)
+    }, [])
+
+    useEffect(() => {
+        if (!alertProtocolSlug && availableAlertProtocolSlugs.length > 0) {
+            setAlertProtocolSlug(availableAlertProtocolSlugs[0])
+        }
+    }, [alertProtocolSlug, availableAlertProtocolSlugs])
+
+    async function fetchAlertState(targetWalletAddress: string) {
+        const res = await fetch(`/api/alerts/rules?walletAddress=${encodeURIComponent(targetWalletAddress)}`)
+        if (!res.ok) {
+            const body = (await res.json().catch(() => null)) as { error?: string } | null
+            throw new Error(body?.error ?? 'Alerts unavailable.')
+        }
+
+        return (await res.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] }
+    }
+
+    async function reloadAlerts() {
+        if (!alertWalletAddress) {
+            setRules([])
+            setEvents([])
+            return
+        }
+
+        setAlertsLoading(true)
+        try {
+            const body = await fetchAlertState(alertWalletAddress)
+            setAlertStorageMode('database')
+            setRules(body.rules ?? [])
+            setEvents(normalizeAlertEvents(body.recentEvents ?? []))
+            setDbStatus(null)
+        } catch (err) {
+            const localStore = readLocalAlertStore(alertWalletAddress)
+            setAlertStorageMode('local')
+            setRules(localStore.rules)
+            setEvents(normalizeAlertEvents(localStore.events))
+            setDbStatus(err instanceof Error ? err.message : 'Using local alert storage.')
+        } finally {
+            setAlertsLoading(false)
+        }
+    }
+
+    function persistLocalRule(rule: AlertRuleItem) {
+        if (!alertWalletAddress) return
+
+        const store = readLocalAlertStore(alertWalletAddress)
+        const nextRules = [rule, ...store.rules.filter((existing) => existing.id !== rule.id)]
+        writeLocalAlertStore(alertWalletAddress, {
+            ...store,
+            rules: nextRules,
+            updatedAt: new Date().toISOString(),
+        })
+        setRules(nextRules)
+    }
+
+    function persistLocalEvent(event: AlertEventItem) {
+        if (!alertWalletAddress) return
+
+        const store = readLocalAlertStore(alertWalletAddress)
+        const nextEvents = normalizeAlertEvents([
+            event,
+            ...store.events.filter((existing) => getAlertEventKey(existing) !== getAlertEventKey(event)),
+        ])
+        writeLocalAlertStore(alertWalletAddress, {
+            ...store,
+            events: nextEvents,
+            updatedAt: new Date().toISOString(),
+        })
+        setEvents(nextEvents)
+    }
+
+    async function createAlertRule(options?: { threshold?: number; useLocal?: boolean }): Promise<{ mode: 'database' | 'local'; rule: AlertRuleItem } | null> {
+        if (!alertWalletAddress) {
+            toast.error('Preparing alert identity...')
+            return null
+        }
+
+        const protocolSlug = normalizeProtocolSlug(alertProtocolSlug)
+        const threshold = Number(options?.threshold ?? alertThreshold)
+
+        if (!protocolSlug) {
+            toast.error('Choose a protocol slug.')
+            return null
+        }
+
+        if (!Number.isFinite(threshold)) {
+            toast.error('Enter a valid threshold.')
+            return null
+        }
+
+        setCreatingAlert(true)
+        try {
+            if (options?.useLocal || alertStorageMode === 'local') {
+                const localRule: AlertRuleItem = {
+                    id: createLocalAlertId('rule'),
+                    protocolSlug,
+                    metric: alertMetric,
+                    threshold,
+                    direction: alertDirection,
+                    enabled: true,
+                    createdAt: new Date().toISOString(),
+                }
+
+                persistLocalRule(localRule)
+                setAlertStorageMode('local')
+                toast.success(`Alert created for ${localRule.protocolSlug}.`)
+                return { mode: 'local', rule: localRule }
+            }
+
+            const res = await fetch('/api/alerts/rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    walletAddress: alertWalletAddress,
+                    protocolSlug,
+                    metric: alertMetric,
+                    threshold,
+                    direction: alertDirection,
+                }),
+            })
+
+            const body = (await res.json().catch(() => null)) as { error?: string; rule?: AlertRuleItem } | null
+            if (!res.ok) {
+                throw new Error(body?.error ?? 'Failed to create alert rule.')
+            }
+
+            toast.success(`Alert created for ${body?.rule?.protocolSlug ?? protocolSlug}.`)
+            await reloadAlerts()
+            return {
+                mode: 'database',
+                rule: body?.rule ?? {
+                    id: createLocalAlertId('rule'),
+                    protocolSlug,
+                    metric: alertMetric,
+                    threshold,
+                    direction: alertDirection,
+                    enabled: true,
+                    createdAt: new Date().toISOString(),
+                },
+            }
+        } catch (err) {
+            if (alertWalletAddress) {
+                const localRule: AlertRuleItem = {
+                    id: createLocalAlertId('rule'),
+                    protocolSlug,
+                    metric: alertMetric,
+                    threshold,
+                    direction: alertDirection,
+                    enabled: true,
+                    createdAt: new Date().toISOString(),
+                }
+
+                persistLocalRule(localRule)
+                setAlertStorageMode('local')
+                setDbStatus('Prisma is unavailable, so alerts are being saved locally in this browser.')
+                toast.success(`Alert created for ${localRule.protocolSlug}.`)
+                return { mode: 'local', rule: localRule }
+            }
+
+            const message = err instanceof Error ? err.message : 'Failed to create alert rule.'
+            toast.error(message)
+            return null
+        } finally {
+            setCreatingAlert(false)
+        }
+    }
+
+    function openTestRuleDialog(rule: AlertRuleItem) {
+        const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(rule.protocolSlug))?.market
+        const liveValue = getLocalCurrentValueForRule(rule, market)
+        setSelectedTestRule(rule)
+        setTestRuleValue((liveValue ?? rule.threshold).toFixed(2))
+        setTestRuleOpen(true)
+    }
+
+    async function createAndTestAlert() {
+        const created = await createAlertRule({ useLocal: alertStorageMode === 'local' })
+        if (created) {
+            openTestRuleDialog(created.rule)
+        }
+    }
+
+    async function runSpecificAlertTest(rule: AlertRuleItem, valueText: string) {
+        if (!alertWalletAddress) {
+            toast.error('Preparing alert identity...')
+            return
+        }
+
+        const currentValue = Number.parseFloat(valueText)
+        if (!Number.isFinite(currentValue)) {
+            toast.error('Enter a valid test value.')
+            return
+        }
+
+        const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(rule.protocolSlug))?.market
+        const liveValue = getLocalCurrentValueForRule(rule, market)
+        const triggered = isLocalAlertTriggered(rule, currentValue)
+        const summary = buildLocalAlertSummary(rule, currentValue)
+        const testResult: AlertTestResultItem = {
+            id: createLocalAlertId('test'),
+            ruleId: rule.id,
+            protocolSlug: rule.protocolSlug,
+            metric: rule.metric,
+            threshold: rule.threshold,
+            direction: rule.direction,
+            currentValue,
+            triggered,
+            createdAt: new Date().toISOString(),
+            summary: `Tested against ${currentValue.toFixed(2)}%. ${liveValue == null ? 'No live market value was available.' : `Live value was ${liveValue.toFixed(2)}%.`} ${summary}`,
+        }
+
+        setTestResults((prev) => [testResult, ...prev.filter((existing) => existing.ruleId !== rule.id)])
+
+        toast.success(triggered ? `Preview: ${rule.protocolSlug} would trigger at ${currentValue.toFixed(2)}%.` : `Preview: ${rule.protocolSlug} would not trigger at ${currentValue.toFixed(2)}%.`)
+    }
+
+    async function runAlertEvaluation(forceLocal = false) {
+        if (!alertWalletAddress) {
+            toast.error('Preparing alert identity...')
+            return
+        }
+
+        setEvaluatingAlerts(true)
+        try {
+            if (forceLocal || alertStorageMode === 'local') {
+                const store = readLocalAlertStore(alertWalletAddress)
+                const triggeredEvents: AlertEventItem[] = []
+                let skippedEvents = 0
+                const results: AlertEvaluationResultItem[] = []
+
+                store.rules
+                    .filter((rule) => rule.enabled)
+                    .forEach((rule) => {
+                        const market = selectedAlertMarketRow?.slug && normalizeProtocolSlug(selectedAlertMarketRow.slug) === normalizeProtocolSlug(rule.protocolSlug)
+                            ? selectedAlertMarketRow.market
+                            : watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(rule.protocolSlug))?.market
+
+                        const currentValue = getLocalCurrentValueForRule(rule, market)
+                        if (currentValue == null) {
+                            skippedEvents++
+                            results.push({
+                                ruleId: rule.id,
+                                protocolSlug: rule.protocolSlug,
+                                metric: rule.metric,
+                                threshold: rule.threshold,
+                                direction: rule.direction,
+                                status: 'skipped',
+                                currentValue: null,
+                                reason: 'No live market value was available.',
+                            })
+                            return
+                        }
+
+                        if (!isLocalAlertTriggered(rule, currentValue)) {
+                            skippedEvents++
+                            results.push({
+                                ruleId: rule.id,
+                                protocolSlug: rule.protocolSlug,
+                                metric: rule.metric,
+                                threshold: rule.threshold,
+                                direction: rule.direction,
+                                status: 'skipped',
+                                currentValue,
+                                reason: buildLocalAlertSummary(rule, currentValue),
+                            })
+                            return
+                        }
+
+                        const event: AlertEventItem = {
+                            id: createLocalAlertId('event'),
+                            ruleId: rule.id,
+                            protocolSlug: rule.protocolSlug,
+                            metric: rule.metric,
+                            threshold: rule.threshold,
+                            direction: rule.direction,
+                            currentValue,
+                            triggeredAt: new Date().toISOString(),
+                            summary: buildLocalAlertSummary(rule, currentValue),
+                            summaryGeneratedAt: new Date().toISOString(),
+                        }
+                        triggeredEvents.push(event)
+                        results.push({
+                            ruleId: rule.id,
+                            protocolSlug: rule.protocolSlug,
+                            metric: rule.metric,
+                            threshold: rule.threshold,
+                            direction: rule.direction,
+                            status: 'triggered',
+                            currentValue,
+                            reason: buildLocalAlertSummary(rule, currentValue),
+                        })
+                    })
+
+                if (triggeredEvents.length > 0) {
+                    const nextEvents = normalizeAlertEvents([...triggeredEvents, ...store.events])
+                    writeLocalAlertStore(alertWalletAddress, {
+                        ...store,
+                        events: nextEvents,
+                        updatedAt: new Date().toISOString(),
+                    })
+                    setEvents(nextEvents)
+                }
+
+                setEvaluationResults(results)
+                toast.success(`Alert check complete: ${triggeredEvents.length} triggered, ${skippedEvents} skipped.`)
+                return
+            }
+
+            const res = await fetch('/api/alerts/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ walletAddress: alertWalletAddress }),
+            })
+
+            const body = (await res.json().catch(() => null)) as { error?: string; triggered?: number; skipped?: number; results?: AlertEvaluationResultItem[] } | null
+            if (!res.ok) {
+                throw new Error(body?.error ?? 'Failed to evaluate alerts.')
+            }
+
+            setEvaluationResults(body?.results ?? [])
+            toast.success(`Alert check complete: ${body?.triggered ?? 0} triggered, ${body?.skipped ?? 0} skipped.`)
+            await reloadAlerts()
+        } catch (err) {
+            setAlertStorageMode('local')
+            const message = err instanceof Error ? err.message : 'Failed to evaluate alerts.'
+            setDbStatus('Prisma is unavailable, so alerts are running in local test mode.')
+            if (!forceLocal) {
+                await runAlertEvaluation(true)
+                return
+            }
+            toast.error(message)
+        } finally {
+            setEvaluatingAlerts(false)
+        }
+    }
+
+    async function toggleAlertRule(rule: AlertRuleItem) {
+        setUpdatingRuleId(rule.id)
+        try {
+            if (alertStorageMode === 'local' && alertWalletAddress) {
+                const store = readLocalAlertStore(alertWalletAddress)
+                const nextRules = store.rules.map((existing) => existing.id === rule.id ? { ...existing, enabled: !existing.enabled } : existing)
+                writeLocalAlertStore(alertWalletAddress, { ...store, rules: nextRules, updatedAt: new Date().toISOString() })
+                setRules(nextRules)
+                toast.success(rule.enabled ? 'Alert disabled.' : 'Alert enabled.')
+                return
+            }
+
+            const res = await fetch(`/api/alerts/rules/${rule.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !rule.enabled }),
+            })
+
+            const body = (await res.json().catch(() => null)) as { error?: string } | null
+            if (!res.ok) {
+                throw new Error(body?.error ?? 'Failed to update rule.')
+            }
+
+            toast.success(rule.enabled ? 'Alert disabled.' : 'Alert enabled.')
+            await reloadAlerts()
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to update rule.'
+            toast.error(message)
+        } finally {
+            setUpdatingRuleId(null)
+        }
+    }
+
+    async function deleteAlertRule(rule: AlertRuleItem) {
+        if (!window.confirm(`Delete the alert for ${rule.protocolSlug}?`)) return
+
+        setDeletingRuleId(rule.id)
+        try {
+            if (alertStorageMode === 'local' && alertWalletAddress) {
+                const store = readLocalAlertStore(alertWalletAddress)
+                const nextRules = store.rules.filter((existing) => existing.id !== rule.id)
+                writeLocalAlertStore(alertWalletAddress, { ...store, rules: nextRules, updatedAt: new Date().toISOString() })
+                setRules(nextRules)
+                toast.success('Alert deleted.')
+                return
+            }
+
+            const res = await fetch(`/api/alerts/rules/${rule.id}`, { method: 'DELETE' })
+
+            if (!res.ok && res.status !== 204) {
+                const body = (await res.json().catch(() => null)) as { error?: string } | null
+                throw new Error(body?.error ?? 'Failed to delete rule.')
+            }
+
+            toast.success('Alert deleted.')
+            await reloadAlerts()
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to delete rule.'
+            toast.error(message)
+        } finally {
+            setDeletingRuleId(null)
+        }
+    }
 
     useEffect(() => {
         if (!walletAddress) {
             setHistory([])
-            setRules([])
-            setEvents([])
             setDbStatus(null)
-            return
+            setHistoryLoading(false)
         }
-
-        const encodedWalletAddress = encodeURIComponent(walletAddress)
 
         let cancelled = false
 
         async function loadHistory() {
+            if (!walletAddress) return
             setHistoryLoading(true)
             try {
+                const encodedWalletAddress = encodeURIComponent(walletAddress)
                 const res = await fetch(`/api/research/history?walletAddress=${encodedWalletAddress}&limit=6`)
                 if (!res.ok) {
                     const body = (await res.json().catch(() => null)) as { error?: string } | null
@@ -324,9 +882,10 @@ export default function WatchlistPage() {
         }
 
         async function loadAlerts() {
+            if (!alertWalletAddress) return
             setAlertsLoading(true)
             try {
-                const res = await fetch(`/api/alerts/rules?walletAddress=${encodedWalletAddress}`)
+                const res = await fetch(`/api/alerts/rules?walletAddress=${encodeURIComponent(alertWalletAddress)}`)
                 if (!res.ok) {
                     const body = (await res.json().catch(() => null)) as { error?: string } | null
                     if (!cancelled) setDbStatus(body?.error ?? 'Alerts unavailable.')
@@ -351,7 +910,7 @@ export default function WatchlistPage() {
         return () => {
             cancelled = true
         }
-    }, [walletAddress])
+    }, [walletAddress, alertWalletAddress])
 
     const chainViews = useMemo(() => {
         const chainsWithWatchlists = allChains.filter((chain) => (watchlistsByChain[chain.name]?.length ?? 0) > 0)
@@ -393,6 +952,13 @@ export default function WatchlistPage() {
     const totalProtocols = chainViews.reduce((acc, item) => acc + item.total, 0)
     const riskyProtocols = chainViews.reduce((acc, item) => acc + item.riskyCount, 0)
 
+    const comparisonChains = useMemo(
+        () => chainViews.filter((item) => item.slugs.length > 0).slice(0, 4),
+        [chainViews]
+    )
+
+    const compactWatchlistLayout = chainViews.length <= 1
+
     return (
         <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
             <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -423,7 +989,7 @@ export default function WatchlistPage() {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3 rounded-2xl bg-zinc-900/45 p-4 backdrop-blur-xl">
+                        <div className="grid w-full grid-cols-3 gap-2 rounded-2xl bg-zinc-900/45 p-3 backdrop-blur-xl sm:gap-3 sm:p-4">
                             <StatPill label="Chains" value={String(chainViews.length || 1)} />
                             <StatPill label="Protocols" value={String(totalProtocols)} />
                             <StatPill label="Flags" value={String(riskyProtocols)} tone={riskyProtocols > 0 ? 'text-rose-200' : 'text-emerald-200'} />
@@ -439,7 +1005,7 @@ export default function WatchlistPage() {
 
                 {dbStatus && <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{dbStatus}</div>}
 
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <section className={`grid gap-4 ${compactWatchlistLayout ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
                     {chainViews.map(({ chain, slugs, marketRows, riskyCount }) => (
                         <article key={chain.name} className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
                             <div className="flex items-start justify-between gap-3">
@@ -464,14 +1030,14 @@ export default function WatchlistPage() {
                                         return (
                                             <div key={`${chain.name}:${slug}`} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
                                                 <div className="flex items-start justify-between gap-3">
-                                                    <div>
-                                                        <p className="text-sm font-semibold capitalize text-zinc-100">{slug}</p>
+                                                    <div className="min-w-0">
+                                                        <p className="break-words text-sm font-semibold capitalize leading-tight text-zinc-100">{slug}</p>
                                                         <p className="mt-1 text-xs text-zinc-500">{market?.category ?? 'Chain-agnostic signal'}</p>
                                                     </div>
                                                     <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status.tone}`}>{status.label}</span>
                                                 </div>
 
-                                                <div className="mt-3 grid grid-cols-4 gap-2 text-[11px]">
+                                                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
                                                     <MiniMetric label="Price" value={formatUsd(priceUsd)} tone={(priceChange24h ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
                                                     <MiniMetric label="TVL" value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'} />
                                                     <MiniMetric label="24h" value={formatPct(market?.change_1d)} tone={(market?.change_1d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
@@ -495,7 +1061,7 @@ export default function WatchlistPage() {
                     ))}
                 </section>
 
-                <section className="grid gap-6 lg:grid-cols-2">
+                <section className={`grid gap-6 ${compactWatchlistLayout ? 'lg:grid-cols-1' : 'lg:grid-cols-2'}`}>
                     <div className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
                         <div className="flex items-center justify-between gap-3">
                             <div>
@@ -507,29 +1073,34 @@ export default function WatchlistPage() {
                             </div>
                         </div>
                         <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            {allChains.slice(0, 4).map((chain) => {
-                                const chainSlugs = watchlistsByChain[chain.name] ?? []
-                                const momentum = slugsMomentumScore(chain.type, chainSlugs, protocolsByChainType[chain.type] ?? [])
-                                const label = momentum > 75 ? 'Hot' : momentum > 55 ? 'Balanced' : 'Quiet'
+                            {comparisonChains.length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-950/40 px-4 py-5 text-sm text-zinc-400 md:col-span-2">
+                                    Add at least one protocol to a watchlist to see the comparison cards here.
+                                </div>
+                            ) : (
+                                comparisonChains.map(({ chain, slugs: chainSlugs }) => {
+                                    const momentum = slugsMomentumScore(chain.type, chainSlugs, protocolsByChainType[chain.type] ?? [])
+                                    const label = momentum > 75 ? 'Hot' : momentum > 55 ? 'Balanced' : 'Quiet'
 
-                                return (
-                                    <div key={chain.name} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div>
-                                                <p className="text-sm font-semibold text-white">{chain.displayName}</p>
-                                                <p className="text-xs text-zinc-500">{chainSlugs.length} tracked protocol{chainSlugs.length === 1 ? '' : 's'}</p>
+                                    return (
+                                        <div key={chain.name} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-white">{chain.displayName}</p>
+                                                    <p className="text-xs text-zinc-500">{chainSlugs.length} tracked protocol{chainSlugs.length === 1 ? '' : 's'}</p>
+                                                </div>
+                                                <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">{label}</span>
                                             </div>
-                                            <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">{label}</span>
+                                            <div className="mt-3 h-2 rounded-full bg-zinc-800">
+                                                <div className="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400" style={{ width: `${Math.min(100, momentum)}%` }} />
+                                            </div>
+                                            <p className="mt-2 text-xs text-zinc-400">
+                                                Suggested posture: {momentum > 75 ? 'trim exposure' : momentum > 55 ? 'monitor and compare' : 'accumulate selectively'}
+                                            </p>
                                         </div>
-                                        <div className="mt-3 h-2 rounded-full bg-zinc-800">
-                                            <div className="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400" style={{ width: `${Math.min(100, momentum)}%` }} />
-                                        </div>
-                                        <p className="mt-2 text-xs text-zinc-400">
-                                            Suggested posture: {momentum > 75 ? 'trim exposure' : momentum > 55 ? 'monitor and compare' : 'accumulate selectively'}
-                                        </p>
-                                    </div>
-                                )
-                            })}
+                                    )
+                                })
+                            )}
                         </div>
                     </div>
 
@@ -541,22 +1112,222 @@ export default function WatchlistPage() {
                             </div>
                             <div className="inline-flex items-center gap-2 rounded-full bg-zinc-950/70 px-3 py-1 text-xs font-semibold text-zinc-300">
                                 <Activity className="h-4 w-4 text-cyan-200" />
-                                {alertsLoading || historyLoading ? 'Syncing' : 'Synced'}
+                                {alertsLoading || historyLoading ? 'Syncing' : alertStorageMode === 'local' ? 'Local test mode' : 'Synced'}
                             </div>
                         </div>
 
                         <div className="mt-4 space-y-4">
+                            <div className="rounded-2xl border border-cyan-300/10 bg-zinc-950/60 p-4">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-widest text-cyan-200">Create first alert</p>
+                                        <p className="mt-1 text-sm text-zinc-400">Set one rule on a watched protocol, then run a live evaluation to verify it fires.</p>
+                                    </div>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => runAlertEvaluation()}
+                                            disabled={!alertWalletAddress || evaluatingAlerts}
+                                            title="Checks every saved alert against the latest market data"
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[150px]"
+                                        >
+                                            <Play className="h-3.5 w-3.5" />
+                                            {evaluatingAlerts ? 'Running check…' : 'Run saved alerts'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={createAndTestAlert}
+                                            disabled={!alertWalletAddress || creatingAlert || evaluatingAlerts || selectedAlertCurrentValue == null}
+                                            title="Creates an alert at the current live value, then checks it immediately"
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-300 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[180px]"
+                                        >
+                                            <Plus className="h-3.5 w-3.5" />
+                                            Create & test
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-3 grid gap-2 text-[11px] text-zinc-500 sm:grid-cols-2">
+                                    <p>Run saved alerts: checks every enabled rule against the latest market data.</p>
+                                    <p>Create & test: saves the new rule and tests only that specific rule right away.</p>
+                                </div>
+
+                                <form
+                                    className="mt-4 grid gap-3 md:grid-cols-2"
+                                    onSubmit={async (event) => {
+                                        event.preventDefault()
+                                        await createAlertRule()
+                                    }}
+                                >
+                                    <div className="md:col-span-2">
+                                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Protocol slug</label>
+                                        <input
+                                            list="alert-protocol-options"
+                                            value={alertProtocolSlug}
+                                            onChange={(event) => setAlertProtocolSlug(event.target.value)}
+                                            placeholder="raydium"
+                                            className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+                                            disabled={!alertWalletAddress || creatingAlert}
+                                        />
+                                        <datalist id="alert-protocol-options">
+                                            {availableAlertProtocolSlugs.map((slug) => (
+                                                <option key={slug} value={slug} />
+                                            ))}
+                                        </datalist>
+                                        <p className="mt-1 text-[11px] text-zinc-500">Pick from your current watchlist or type another protocol slug.</p>
+                                        <p className="mt-2 text-[11px] text-zinc-400">
+                                            Live {ALERT_METRIC_LABEL[alertMetric]}: {selectedAlertCurrentValue == null ? 'not available' : `${selectedAlertCurrentValue.toFixed(2)}%`}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Metric</label>
+                                        <select
+                                            value={alertMetric}
+                                            onChange={(event) => setAlertMetric(event.target.value as AlertMetric)}
+                                            className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+                                            disabled={!alertWalletAddress || creatingAlert}
+                                        >
+                                            <option value="CHANGE_1D">24h change</option>
+                                            <option value="CHANGE_7D">7d change</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Direction</label>
+                                        <select
+                                            value={alertDirection}
+                                            onChange={(event) => setAlertDirection(event.target.value as AlertDirection)}
+                                            className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+                                            disabled={!alertWalletAddress || creatingAlert}
+                                        >
+                                            <option value="BELOW">Below threshold</option>
+                                            <option value="ABOVE">Above threshold</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Threshold %</label>
+                                        <input
+                                            type="number"
+                                            step="0.1"
+                                            value={alertThreshold}
+                                            onChange={(event) => setAlertThreshold(event.target.value)}
+                                            placeholder="10"
+                                            className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+                                            disabled={!alertWalletAddress || creatingAlert}
+                                        />
+                                        <p className="mt-1 text-[11px] text-zinc-500">Use the live value above if you want this rule to fire on the next check.</p>
+                                    </div>
+
+                                    <div className="flex items-end">
+                                        <button
+                                            type="submit"
+                                            disabled={!alertWalletAddress || creatingAlert}
+                                            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            {creatingAlert ? 'Creating…' : 'Save alert'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
                             <div className="rounded-2xl bg-zinc-950/60 p-4">
-                                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Alert rules</p>
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Alert rules</p>
+                                    {rules.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{rules.length} saved</span>}
+                                </div>
                                 {rules.length === 0 ? (
-                                    <p className="mt-2 text-sm text-zinc-400">No rules yet. Create them from the alerts API and they will show up here automatically.</p>
+                                    <p className="mt-2 text-sm text-zinc-400">No rules yet. Create one above to start monitoring a protocol.</p>
                                 ) : (
                                     <div className="mt-3 space-y-2">
-                                        {rules.slice(0, 3).map((rule) => (
+                                        {visibleAlertRules.map((rule) => (
                                             <div key={rule.id} className="rounded-xl bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200">
-                                                {rule.protocolSlug}: {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '&le;' : '&ge;'} {rule.threshold.toFixed(2)}%
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <p className="font-semibold text-zinc-100">{rule.protocolSlug}</p>
+                                                        <p className="text-[11px] text-zinc-400">
+                                                            {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '≤' : '≥'} {rule.threshold.toFixed(2)}%
+                                                        </p>
+                                                    </div>
+                                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${rule.enabled ? 'bg-emerald-500/15 text-emerald-200' : 'bg-zinc-800 text-zinc-400'}`}>
+                                                        {rule.enabled ? 'Enabled' : 'Disabled'}
+                                                    </span>
+                                                </div>
+                                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openTestRuleDialog(rule)}
+                                                        disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
+                                                        className="rounded-lg bg-cyan-300/15 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        Test this rule
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleAlertRule(rule)}
+                                                        disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
+                                                        className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {updatingRuleId === rule.id ? 'Updating…' : rule.enabled ? 'Disable' : 'Enable'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => deleteAlertRule(rule)}
+                                                        disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
+                                                        className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {deletingRuleId === rule.id ? 'Deleting…' : 'Delete'}
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
+                                    </div>
+                                )}
+                                {rules.length > 3 && (
+                                    <div className="mt-3 flex justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAllAlertRules((current) => !current)}
+                                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
+                                        >
+                                            {showAllAlertRules ? 'Show fewer' : `Show all ${rules.length}`}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="rounded-2xl bg-zinc-950/60 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Last check</p>
+                                    {evaluationResults.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{evaluationResults.length} rules</span>}
+                                </div>
+                                {evaluationResults.length === 0 ? (
+                                    <p className="mt-2 text-sm text-zinc-400">Run saved alerts to see which rules passed or failed.</p>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        {evaluationResults.map((result) => {
+                                            const condition = `${ALERT_METRIC_LABEL[result.metric]} ${result.direction === 'BELOW' ? '≤' : '≥'} ${result.threshold.toFixed(2)}%`
+                                            const statusLabel = result.status === 'triggered' ? 'PASSED' : 'FAILED'
+                                            const tone = result.status === 'triggered'
+                                                ? 'bg-emerald-500/10 text-emerald-100'
+                                                : 'bg-rose-500/10 text-rose-100'
+
+                                            return (
+                                                <div key={result.ruleId} className={`rounded-xl px-3 py-2 text-sm ${tone}`}>
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="font-semibold">
+                                                            {result.protocolSlug} {statusLabel} - {condition}
+                                                        </div>
+                                                        <span className="text-[10px] uppercase tracking-wide text-zinc-400">{result.status === 'triggered' ? 'Triggered' : 'Skipped'}</span>
+                                                    </div>
+                                                    <p className="mt-1 text-xs text-zinc-300">
+                                                        {result.currentValue == null ? result.reason : `${result.reason} Current value: ${result.currentValue.toFixed(2)}%.`}
+                                                    </p>
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -590,7 +1361,7 @@ export default function WatchlistPage() {
                                     <p className="mt-2 text-sm text-zinc-400">No alert events yet.</p>
                                 ) : (
                                     <div className="mt-3 space-y-2">
-                                        {events.slice(0, 3).map((event) => (
+                                        {normalizeAlertEvents(events).slice(0, 3).map((event) => (
                                             <div key={event.id} className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
                                                 <div className="flex items-start justify-between gap-2">
                                                     <div className="font-semibold">{event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}%</div>
@@ -623,6 +1394,40 @@ export default function WatchlistPage() {
                                                                                         break
                                                                                     }
                                                                                 } catch {
+
+                                                                                    <div className="rounded-2xl bg-zinc-950/60 p-4">
+                                                                                        <div className="flex items-center justify-between gap-3">
+                                                                                            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Last check</p>
+                                                                                            {evaluationResults.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{evaluationResults.length} rules</span>}
+                                                                                        </div>
+                                                                                        {evaluationResults.length === 0 ? (
+                                                                                            <p className="mt-2 text-sm text-zinc-400">Run saved alerts to see a pass/fail line for each enabled rule.</p>
+                                                                                        ) : (
+                                                                                            <div className="mt-3 space-y-2">
+                                                                                                {evaluationResults.map((result) => {
+                                                                                                    const condition = `${ALERT_METRIC_LABEL[result.metric]} ${result.direction === 'BELOW' ? '≤' : '≥'} ${result.threshold.toFixed(2)}%`
+                                                                                                    const statusLabel = result.status === 'triggered' ? 'PASSED' : 'FAILED'
+                                                                                                    const tone = result.status === 'triggered'
+                                                                                                        ? 'bg-emerald-500/10 text-emerald-100'
+                                                                                                        : 'bg-rose-500/10 text-rose-100'
+
+                                                                                                    return (
+                                                                                                        <div key={result.ruleId} className={`rounded-xl px-3 py-2 text-sm ${tone}`}>
+                                                                                                            <div className="flex items-start justify-between gap-2">
+                                                                                                                <div className="font-semibold">
+                                                                                                                    {result.protocolSlug} {statusLabel} - {condition}
+                                                                                                                </div>
+                                                                                                                <span className="text-[10px] uppercase tracking-wide text-zinc-400">{result.status === 'triggered' ? 'Triggered' : 'Skipped'}</span>
+                                                                                                            </div>
+                                                                                                            <p className="mt-1 text-xs text-zinc-300">
+                                                                                                                {result.currentValue == null ? result.reason : `${result.reason} Current value: ${result.currentValue.toFixed(2)}%.`}
+                                                                                                            </p>
+                                                                                                        </div>
+                                                                                                    )
+                                                                                                })}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
                                                                                     // ignore and continue polling
                                                                                 }
                                                                             }
@@ -691,33 +1496,211 @@ export default function WatchlistPage() {
                 (() => {
                     const evt = events.find((e) => e.id === fullSummaryEventId)
                     if (!evt) return null
+                    const condition = `${ALERT_METRIC_LABEL[evt.metric]} ${evt.direction === 'BELOW' ? '≤' : '≥'} ${evt.threshold.toFixed(2)}%`
                     return (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                            <div className="max-h-[80vh] w-[min(900px,95%)] overflow-auto rounded-xl bg-zinc-900 p-6">
-                                <div className="flex items-start justify-between">
-                                    <h3 className="text-lg font-bold text-white">{evt.protocolSlug} — Summary</h3>
+                            <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl shadow-black/40">
+                                <div className="flex items-start justify-between gap-4">
                                     <div>
-                                        <button className="text-sm text-zinc-400" onClick={() => setFullSummaryOpen(false)}>Close</button>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Alert details</p>
+                                        <h3 className="mt-2 text-xl font-black text-white">{evt.protocolSlug}</h3>
+                                        <p className="mt-1 text-sm text-zinc-400">Why this alert fired and what exactly was checked.</p>
+                                    </div>
+                                    <button
+                                        className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+                                        onClick={() => setFullSummaryOpen(false)}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+
+                                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+
+                                    <Dialog open={false} onOpenChange={setTestRuleOpen}>
+                                        <DialogContent className="border-white/10 bg-zinc-950 text-zinc-100 sm:max-w-lg">
+                                            <DialogHeader>
+                                                <DialogTitle>Manual test rule</DialogTitle>
+                                                <DialogDescription className="text-zinc-400">
+                                                    Enter a value to see whether the rule would pass or fail. This does not create a real alert.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            {selectedTestRule && (
+                                                <div className="space-y-4">
+                                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-200">
+                                                        <p className="font-semibold text-zinc-100">{selectedTestRule.protocolSlug}</p>
+                                                        <p className="mt-1 text-zinc-400">
+                                                            {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'} {selectedTestRule.threshold.toFixed(2)}%
+                                                        </p>
+                                                    </div>
+                                                    <label className="grid gap-2 text-sm text-zinc-300">
+                                                        Test value
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={testRuleValue}
+                                                            onChange={(event) => setTestRuleValue(event.target.value)}
+                                                            className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none transition focus:border-cyan-400/60"
+                                                        />
+                                                    </label>
+                                                    <p className="text-xs text-zinc-500">
+                                                        Current live value for reference:{' '}
+                                                        {(() => {
+                                                            const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(selectedTestRule.protocolSlug))?.market
+                                                            const liveValue = getLocalCurrentValueForRule(selectedTestRule, market)
+                                                            return liveValue == null ? 'unavailable' : `${liveValue.toFixed(2)}%`
+                                                        })()}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <DialogFooter className="sm:justify-between">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTestRuleOpen(false)}
+                                                    className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-700"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        if (!selectedTestRule) return
+                                                        await runSpecificAlertTest(selectedTestRule, testRuleValue)
+                                                        setTestRuleOpen(false)
+                                                    }}
+                                                    className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition hover:bg-cyan-300"
+                                                >
+                                                    Evaluate test
+                                                </button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                    <DetailPill label="Metric" value={ALERT_METRIC_LABEL[evt.metric]} />
+                                    <DetailPill label="Condition" value={condition} />
+                                    <DetailPill label="Current value" value={`${evt.currentValue.toFixed(2)}%`} />
+                                    <DetailPill label="Triggered at" value={new Date(evt.triggeredAt).toLocaleString()} />
+                                </div>
+
+                                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Full summary</p>
+                                    <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
+                                        {evt.summary ?? 'No summary available.'}
                                     </div>
                                 </div>
-                                <div className="mt-4 whitespace-pre-wrap text-sm text-zinc-200">
-                                    {evt.summary ?? 'No summary available.'}
+
+                                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
+                                    <span>Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</span>
+                                    <button
+                                        type="button"
+                                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-semibold text-zinc-200 transition hover:bg-white/10"
+                                        onClick={async () => {
+                                            try {
+                                                await navigator.clipboard.writeText(
+                                                    [
+                                                        `Protocol: ${evt.protocolSlug}`,
+                                                        `Metric: ${ALERT_METRIC_LABEL[evt.metric]}`,
+                                                        `Condition: ${condition}`,
+                                                        `Current value: ${evt.currentValue.toFixed(2)}%`,
+                                                        `Triggered at: ${new Date(evt.triggeredAt).toLocaleString()}`,
+                                                        `Generated: ${evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}`,
+                                                        '',
+                                                        evt.summary ?? 'No summary available.',
+                                                    ].join('\n')
+                                                )
+                                                toast.success('Copied full summary to clipboard.')
+                                            } catch {
+                                                toast.error('Could not copy the summary.')
+                                            }
+                                        }}
+                                    >
+                                        Copy full summary
+                                    </button>
                                 </div>
-                                <div className="mt-4 text-xs text-zinc-500">Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</div>
                             </div>
                         </div>
                     )
                 })()
             ) : null}
+            <Dialog open={testRuleOpen} onOpenChange={setTestRuleOpen}>
+                <DialogContent className="border-white/10 bg-zinc-950 text-zinc-100 sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Manual test rule</DialogTitle>
+                        <DialogDescription className="text-zinc-400">
+                            Enter a value to see whether the rule would pass or fail. This does not create a real alert.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedTestRule && (
+                        <div className="space-y-4">
+                            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-200">
+                                <p className="font-semibold text-zinc-100">{selectedTestRule.protocolSlug}</p>
+                                <p className="mt-1 text-zinc-400">
+                                    {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'} {selectedTestRule.threshold.toFixed(2)}%
+                                </p>
+                            </div>
+                            <label className="grid gap-2 text-sm text-zinc-300">
+                                Test value
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={testRuleValue}
+                                    onChange={(event) => setTestRuleValue(event.target.value)}
+                                    className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none transition focus:border-cyan-400/60"
+                                />
+                            </label>
+                            <p className="text-xs text-zinc-500">
+                                Current live value for reference:{' '}
+                                {(() => {
+                                    const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(selectedTestRule.protocolSlug))?.market
+                                    const liveValue = getLocalCurrentValueForRule(selectedTestRule, market)
+                                    return liveValue == null ? 'unavailable' : `${liveValue.toFixed(2)}%`
+                                })()}
+                            </p>
+                            {testResults[0]?.ruleId === selectedTestRule.id ? (
+                                <div className={`rounded-2xl px-4 py-3 text-sm ${testResults[0].triggered ? 'bg-emerald-500/10 text-emerald-100' : 'bg-amber-500/10 text-amber-100'}`}>
+                                    <p className="font-semibold">Latest manual result</p>
+                                    <p className="mt-1">{testResults[0].summary}</p>
+                                </div>
+                            ) : null}
+                        </div>
+                    )}
+                    <DialogFooter className="sm:justify-between">
+                        <button
+                            type="button"
+                            onClick={() => setTestRuleOpen(false)}
+                            className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-700"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                if (!selectedTestRule) return
+                                await runSpecificAlertTest(selectedTestRule, testRuleValue)
+                            }}
+                            className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition hover:bg-cyan-300"
+                        >
+                            Evaluate test
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
 
 function StatPill({ label, value, tone }: { label: string; value: string; tone?: string }) {
     return (
-        <div className="rounded-xl bg-zinc-950/70 px-4 py-3 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
-            <p className={`mt-1 text-2xl font-black ${tone ?? 'text-white'}`}>{value}</p>
+        <div className="rounded-xl bg-zinc-950/70 px-3 py-2.5 text-center shadow-inner shadow-black/20 sm:px-4 sm:py-3">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500 sm:text-[10px]">{label}</p>
+            <p className={`mt-1 text-xl font-black leading-none sm:text-2xl ${tone ?? 'text-white'}`}>{value}</p>
+        </div>
+    )
+}
+
+function DetailPill({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-zinc-100">{value}</p>
         </div>
     )
 }

@@ -32,6 +32,16 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
 
   let triggered = 0;
   let skipped = 0;
+  const results: Array<{
+    ruleId: string;
+    protocolSlug: string;
+    metric: AlertMetric;
+    threshold: number;
+    direction: AlertDirection;
+    status: 'triggered' | 'skipped';
+    currentValue: number | null;
+    reason: string;
+  }> = [];
 
   for (const rule of rules) {
     const market = resolveProtocolFromList(rule.protocolSlug, protocols);
@@ -39,10 +49,31 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
 
     if (currentValue == null) {
       skipped++;
+      results.push({
+        ruleId: rule.id,
+        protocolSlug: rule.protocolSlug,
+        metric: rule.metric,
+        threshold: rule.threshold,
+        direction: rule.direction,
+        status: 'skipped',
+        currentValue: null,
+        reason: 'No live market value was available.',
+      });
       continue;
     }
 
     if (!isTriggered(currentValue, rule.threshold, rule.direction)) {
+      skipped++;
+      results.push({
+        ruleId: rule.id,
+        protocolSlug: rule.protocolSlug,
+        metric: rule.metric,
+        threshold: rule.threshold,
+        direction: rule.direction,
+        status: 'skipped',
+        currentValue,
+        reason: 'Live value did not meet the rule condition.',
+      });
       continue;
     }
 
@@ -85,11 +116,22 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
     });
 
     triggered++;
+    results.push({
+      ruleId: rule.id,
+      protocolSlug: rule.protocolSlug,
+      metric: rule.metric,
+      threshold: rule.threshold,
+      direction: rule.direction,
+      status: 'triggered',
+      currentValue,
+      reason: 'Rule condition met and alert event created.',
+    });
   }
 
   return {
     totalRules: rules.length,
     triggered,
     skipped,
+    results,
   };
 }
