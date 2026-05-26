@@ -25,6 +25,8 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public
 
 `DATABASE_URL` enables persistent research history and alert rules/events. If you use Vercel Postgres, you can point it at `POSTGRES_PRISMA_URL`.
 
+Email alert delivery has been removed in this branch; alerts still create events and summaries but delivery is disabled.
+
 ## Database
 
 After setting `DATABASE_URL`, generate the Prisma client and apply migrations:

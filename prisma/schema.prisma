@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
     provider = "postgresql"
-    url      = env("DATABASE_URL")
 }
 
 enum AlertMetric {
@@ -54,17 +53,18 @@ model AlertRule {
 }
 
 model AlertEvent {
-    id            String         @id @default(cuid())
-    ruleId        String
-    walletAddress String
-    protocolSlug  String
-    metric        AlertMetric
-    threshold     Float
-    direction     AlertDirection
-    currentValue  Float
-    summary       String?
+    id                 String         @id @default(cuid())
+    ruleId             String
+    walletAddress      String
+    protocolSlug       String
+    metric             AlertMetric
+    threshold          Float
+    direction          AlertDirection
+    currentValue       Float
+    // email-related fields removed
+    summary            String?
     summaryGeneratedAt DateTime?
-    triggeredAt   DateTime       @default(now())
+    triggeredAt        DateTime       @default(now())
 
     rule AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 

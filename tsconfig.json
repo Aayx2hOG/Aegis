@@ -23,13 +23,15 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
     "paths": {
       "@project/anchor": [
-        "anchor/src"
+        "./anchor/src"
       ],
       "@/*": [
         "./src/*"
+      ],
+      "*": [
+        "./*"
       ]
     }
   },

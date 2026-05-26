@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Activity, AlertTriangle, ExternalLink, Layers3, Plus, Play, Radar, ShieldAlert, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Activity, AlertTriangle, ChevronDown, ExternalLink, Layers3, Plus, Play, Radar, ShieldAlert, Sparkles } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useQueries } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -71,6 +71,13 @@ interface AlertEvaluationResultItem {
     status: 'triggered' | 'skipped'
     currentValue: number | null
     reason: string
+}
+
+interface WalletProfileItem {
+    walletAddress: string
+    displayName: string | null
+    createdAt: string
+    updatedAt: string
 }
 
 type CoinGeckoResponse = {
@@ -413,7 +420,7 @@ export default function WatchlistPage() {
     const [showAllAlertRules, setShowAllAlertRules] = useState(false)
 
     const availableAlertProtocolSlugs = useMemo(
-        () => Array.from(new Set(watchlistMarketRows.map((row) => row.slug))).slice(0, 12),
+        () => Array.from(new Set(watchlistMarketRows.map((row) => row.slug))),
         [watchlistMarketRows]
     )
 
@@ -464,6 +471,16 @@ export default function WatchlistPage() {
         }
 
         return (await res.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] }
+    }
+
+    async function fetchWalletProfile(targetWalletAddress: string) {
+        const res = await fetch(`/api/wallet/profile?walletAddress=${encodeURIComponent(targetWalletAddress)}`)
+        if (!res.ok) {
+            const body = (await res.json().catch(() => null)) as { error?: string } | null
+            throw new Error(body?.error ?? 'Wallet profile unavailable.')
+        }
+
+        return (await res.json()) as { profile: WalletProfileItem | null }
     }
 
     async function reloadAlerts() {
@@ -625,10 +642,14 @@ export default function WatchlistPage() {
     }
 
     async function createAndTestAlert() {
-        const created = await createAlertRule({ useLocal: alertStorageMode === 'local' })
-        if (created) {
-            openTestRuleDialog(created.rule)
-        }
+        const created = await createAlertRule({
+            threshold: selectedAlertCurrentValue ?? undefined,
+            useLocal: alertStorageMode === 'local',
+        })
+
+        if (!created) return
+
+        await runAlertEvaluation(created.mode === 'local')
     }
 
     async function runSpecificAlertTest(rule: AlertRuleItem, valueText: string) {
@@ -763,13 +784,20 @@ export default function WatchlistPage() {
                 body: JSON.stringify({ walletAddress: alertWalletAddress }),
             })
 
-            const body = (await res.json().catch(() => null)) as { error?: string; triggered?: number; skipped?: number; results?: AlertEvaluationResultItem[] } | null
+            const body = (await res.json().catch(() => null)) as {
+                error?: string
+                triggered?: number
+                skipped?: number
+                results?: AlertEvaluationResultItem[]
+            } | null
             if (!res.ok) {
                 throw new Error(body?.error ?? 'Failed to evaluate alerts.')
             }
 
             setEvaluationResults(body?.results ?? [])
-            toast.success(`Alert check complete: ${body?.triggered ?? 0} triggered, ${body?.skipped ?? 0} skipped.`)
+            const triggeredCount = body?.triggered ?? 0
+            const skippedCount = body?.skipped ?? 0
+            toast.success(`Alert check complete: ${triggeredCount} triggered, ${skippedCount} skipped.`)
             await reloadAlerts()
         } catch (err) {
             setAlertStorageMode('local')
@@ -907,6 +935,8 @@ export default function WatchlistPage() {
         loadHistory()
         loadAlerts()
 
+        // Wallet profile email handling removed.
+
         return () => {
             cancelled = true
         }
@@ -996,15 +1026,6 @@ export default function WatchlistPage() {
                         </div>
                     </div>
                 </header>
-
-                {!walletAddress && (
-                    <div className="rounded-xl bg-zinc-900/55 px-4 py-3 text-xs text-zinc-300">
-                        Guest mode is active. Your watchlists are saved locally in this browser. Connect a wallet to sync research history and alert automation.
-                    </div>
-                )}
-
-                {dbStatus && <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200">{dbStatus}</div>}
-
                 <section className={`grid gap-4 ${compactWatchlistLayout ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
                     {chainViews.map(({ chain, slugs, marketRows, riskyCount }) => (
                         <article key={chain.name} className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
@@ -1147,6 +1168,8 @@ export default function WatchlistPage() {
                                     </div>
                                 </div>
 
+                                {/* Alert email UI removed */}
+
                                 <div className="mt-3 grid gap-2 text-[11px] text-zinc-500 sm:grid-cols-2">
                                     <p>Run saved alerts: checks every enabled rule against the latest market data.</p>
                                     <p>Create & test: saves the new rule and tests only that specific rule right away.</p>
@@ -1161,20 +1184,25 @@ export default function WatchlistPage() {
                                 >
                                     <div className="md:col-span-2">
                                         <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Protocol slug</label>
-                                        <input
-                                            list="alert-protocol-options"
-                                            value={alertProtocolSlug}
-                                            onChange={(event) => setAlertProtocolSlug(event.target.value)}
-                                            placeholder="raydium"
-                                            className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
-                                            disabled={!alertWalletAddress || creatingAlert}
-                                        />
-                                        <datalist id="alert-protocol-options">
-                                            {availableAlertProtocolSlugs.map((slug) => (
-                                                <option key={slug} value={slug} />
-                                            ))}
-                                        </datalist>
-                                        <p className="mt-1 text-[11px] text-zinc-500">Pick from your current watchlist or type another protocol slug.</p>
+                                        <div className="relative">
+                                            <select
+                                                value={alertProtocolSlug}
+                                                onChange={(event) => setAlertProtocolSlug(event.target.value)}
+                                                className="h-11 w-full appearance-none rounded-xl border border-cyan-300/15 bg-black px-3 pr-10 text-sm text-white outline-none transition hover:border-cyan-300/30 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20 [color-scheme:dark]"
+                                                disabled={!alertWalletAddress || creatingAlert}
+                                            >
+                                                <option value="" disabled>
+                                                    Select a protocol from your watchlist
+                                                </option>
+                                                {availableAlertProtocolSlugs.map((slug) => (
+                                                    <option key={slug} value={slug} className="bg-black text-white">
+                                                        {slug}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-200/70" />
+                                        </div>
+                                        <p className="mt-1 text-[11px] text-zinc-500">Choose a protocol from your current watchlist.</p>
                                         <p className="mt-2 text-[11px] text-zinc-400">
                                             Live {ALERT_METRIC_LABEL[alertMetric]}: {selectedAlertCurrentValue == null ? 'not available' : `${selectedAlertCurrentValue.toFixed(2)}%`}
                                         </p>
@@ -1394,40 +1422,6 @@ export default function WatchlistPage() {
                                                                                         break
                                                                                     }
                                                                                 } catch {
-
-                                                                                    <div className="rounded-2xl bg-zinc-950/60 p-4">
-                                                                                        <div className="flex items-center justify-between gap-3">
-                                                                                            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Last check</p>
-                                                                                            {evaluationResults.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{evaluationResults.length} rules</span>}
-                                                                                        </div>
-                                                                                        {evaluationResults.length === 0 ? (
-                                                                                            <p className="mt-2 text-sm text-zinc-400">Run saved alerts to see a pass/fail line for each enabled rule.</p>
-                                                                                        ) : (
-                                                                                            <div className="mt-3 space-y-2">
-                                                                                                {evaluationResults.map((result) => {
-                                                                                                    const condition = `${ALERT_METRIC_LABEL[result.metric]} ${result.direction === 'BELOW' ? '≤' : '≥'} ${result.threshold.toFixed(2)}%`
-                                                                                                    const statusLabel = result.status === 'triggered' ? 'PASSED' : 'FAILED'
-                                                                                                    const tone = result.status === 'triggered'
-                                                                                                        ? 'bg-emerald-500/10 text-emerald-100'
-                                                                                                        : 'bg-rose-500/10 text-rose-100'
-
-                                                                                                    return (
-                                                                                                        <div key={result.ruleId} className={`rounded-xl px-3 py-2 text-sm ${tone}`}>
-                                                                                                            <div className="flex items-start justify-between gap-2">
-                                                                                                                <div className="font-semibold">
-                                                                                                                    {result.protocolSlug} {statusLabel} - {condition}
-                                                                                                                </div>
-                                                                                                                <span className="text-[10px] uppercase tracking-wide text-zinc-400">{result.status === 'triggered' ? 'Triggered' : 'Skipped'}</span>
-                                                                                                            </div>
-                                                                                                            <p className="mt-1 text-xs text-zinc-300">
-                                                                                                                {result.currentValue == null ? result.reason : `${result.reason} Current value: ${result.currentValue.toFixed(2)}%.`}
-                                                                                                            </p>
-                                                                                                        </div>
-                                                                                                    )
-                                                                                                })}
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
                                                                                     // ignore and continue polling
                                                                                 }
                                                                             }
@@ -1486,140 +1480,80 @@ export default function WatchlistPage() {
                     </div>
                 </section>
 
-                {watchlistsLoading && (
+                {watchlistsLoading ? (
                     <div className="rounded-xl bg-zinc-900/55 px-4 py-3 text-sm text-zinc-300">
                         Loading multichain watchlists...
                     </div>
-                )}
+                ) : null}
             </div>
-            {fullSummaryOpen && fullSummaryEventId ? (
-                (() => {
-                    const evt = events.find((e) => e.id === fullSummaryEventId)
-                    if (!evt) return null
-                    const condition = `${ALERT_METRIC_LABEL[evt.metric]} ${evt.direction === 'BELOW' ? '≤' : '≥'} ${evt.threshold.toFixed(2)}%`
-                    return (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                            <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl shadow-black/40">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Alert details</p>
-                                        <h3 className="mt-2 text-xl font-black text-white">{evt.protocolSlug}</h3>
-                                        <p className="mt-1 text-sm text-zinc-400">Why this alert fired and what exactly was checked.</p>
-                                    </div>
-                                    <button
-                                        className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
-                                        onClick={() => setFullSummaryOpen(false)}
-                                    >
-                                        Close
-                                    </button>
+            {fullSummaryOpen && fullSummaryEventId ? (() => {
+                const evt = events.find((e) => e.id === fullSummaryEventId)
+                if (!evt) return null
+                const condition = `${ALERT_METRIC_LABEL[evt.metric]} ${evt.direction === 'BELOW' ? '≤' : '≥'} ${evt.threshold.toFixed(2)}%`
+
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                        <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl shadow-black/40">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Alert details</p>
+                                    <h3 className="mt-2 text-xl font-black text-white">{evt.protocolSlug}</h3>
+                                    <p className="mt-1 text-sm text-zinc-400">Why this alert fired and what exactly was checked.</p>
                                 </div>
+                                <button
+                                    className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+                                    onClick={() => setFullSummaryOpen(false)}
+                                >
+                                    Close
+                                </button>
+                            </div>
 
-                                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                <DetailPill label="Metric" value={ALERT_METRIC_LABEL[evt.metric]} />
+                                <DetailPill label="Condition" value={condition} />
+                                <DetailPill label="Current value" value={`${evt.currentValue.toFixed(2)}%`} />
+                                <DetailPill label="Triggered at" value={new Date(evt.triggeredAt).toLocaleString()} />
+                            </div>
 
-                                    <Dialog open={false} onOpenChange={setTestRuleOpen}>
-                                        <DialogContent className="border-white/10 bg-zinc-950 text-zinc-100 sm:max-w-lg">
-                                            <DialogHeader>
-                                                <DialogTitle>Manual test rule</DialogTitle>
-                                                <DialogDescription className="text-zinc-400">
-                                                    Enter a value to see whether the rule would pass or fail. This does not create a real alert.
-                                                </DialogDescription>
-                                            </DialogHeader>
-                                            {selectedTestRule && (
-                                                <div className="space-y-4">
-                                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-200">
-                                                        <p className="font-semibold text-zinc-100">{selectedTestRule.protocolSlug}</p>
-                                                        <p className="mt-1 text-zinc-400">
-                                                            {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'} {selectedTestRule.threshold.toFixed(2)}%
-                                                        </p>
-                                                    </div>
-                                                    <label className="grid gap-2 text-sm text-zinc-300">
-                                                        Test value
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={testRuleValue}
-                                                            onChange={(event) => setTestRuleValue(event.target.value)}
-                                                            className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none transition focus:border-cyan-400/60"
-                                                        />
-                                                    </label>
-                                                    <p className="text-xs text-zinc-500">
-                                                        Current live value for reference:{' '}
-                                                        {(() => {
-                                                            const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(selectedTestRule.protocolSlug))?.market
-                                                            const liveValue = getLocalCurrentValueForRule(selectedTestRule, market)
-                                                            return liveValue == null ? 'unavailable' : `${liveValue.toFixed(2)}%`
-                                                        })()}
-                                                    </p>
-                                                </div>
-                                            )}
-                                            <DialogFooter className="sm:justify-between">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setTestRuleOpen(false)}
-                                                    className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-700"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={async () => {
-                                                        if (!selectedTestRule) return
-                                                        await runSpecificAlertTest(selectedTestRule, testRuleValue)
-                                                        setTestRuleOpen(false)
-                                                    }}
-                                                    className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition hover:bg-cyan-300"
-                                                >
-                                                    Evaluate test
-                                                </button>
-                                            </DialogFooter>
-                                        </DialogContent>
-                                    </Dialog>
-                                    <DetailPill label="Metric" value={ALERT_METRIC_LABEL[evt.metric]} />
-                                    <DetailPill label="Condition" value={condition} />
-                                    <DetailPill label="Current value" value={`${evt.currentValue.toFixed(2)}%`} />
-                                    <DetailPill label="Triggered at" value={new Date(evt.triggeredAt).toLocaleString()} />
-                                </div>
-
-                                <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Full summary</p>
-                                    <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
-                                        {evt.summary ?? 'No summary available.'}
-                                    </div>
-                                </div>
-
-                                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
-                                    <span>Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</span>
-                                    <button
-                                        type="button"
-                                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-semibold text-zinc-200 transition hover:bg-white/10"
-                                        onClick={async () => {
-                                            try {
-                                                await navigator.clipboard.writeText(
-                                                    [
-                                                        `Protocol: ${evt.protocolSlug}`,
-                                                        `Metric: ${ALERT_METRIC_LABEL[evt.metric]}`,
-                                                        `Condition: ${condition}`,
-                                                        `Current value: ${evt.currentValue.toFixed(2)}%`,
-                                                        `Triggered at: ${new Date(evt.triggeredAt).toLocaleString()}`,
-                                                        `Generated: ${evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}`,
-                                                        '',
-                                                        evt.summary ?? 'No summary available.',
-                                                    ].join('\n')
-                                                )
-                                                toast.success('Copied full summary to clipboard.')
-                                            } catch {
-                                                toast.error('Could not copy the summary.')
-                                            }
-                                        }}
-                                    >
-                                        Copy full summary
-                                    </button>
+                            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Full summary</p>
+                                <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
+                                    {evt.summary ?? 'No summary available.'}
                                 </div>
                             </div>
+
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
+                                <span>Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</span>
+                                <button
+                                    type="button"
+                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-semibold text-zinc-200 transition hover:bg-white/10"
+                                    onClick={async () => {
+                                        try {
+                                            await navigator.clipboard.writeText(
+                                                [
+                                                    `Protocol: ${evt.protocolSlug}`,
+                                                    `Metric: ${ALERT_METRIC_LABEL[evt.metric]}`,
+                                                    `Condition: ${condition}`,
+                                                    `Current value: ${evt.currentValue.toFixed(2)}%`,
+                                                    `Triggered at: ${new Date(evt.triggeredAt).toLocaleString()}`,
+                                                    `Generated: ${evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}`,
+                                                    '',
+                                                    evt.summary ?? 'No summary available.',
+                                                ].join('\n')
+                                            )
+                                            toast.success('Copied full summary to clipboard.')
+                                        } catch {
+                                            toast.error('Could not copy the summary.')
+                                        }
+                                    }}
+                                >
+                                    Copy full summary
+                                </button>
+                            </div>
                         </div>
-                    )
-                })()
-            ) : null}
+                    </div>
+                )
+            })() : null}
             <Dialog open={testRuleOpen} onOpenChange={setTestRuleOpen}>
                 <DialogContent className="border-white/10 bg-zinc-950 text-zinc-100 sm:max-w-lg">
                     <DialogHeader>

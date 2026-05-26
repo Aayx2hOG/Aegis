@@ -20,6 +20,13 @@ import { toast } from 'sonner';
 const WATCHLIST_INITIAL_SPACE_BYTES = 8 + 32 + 4 + 1;
 const TX_FEE_BUFFER_LAMPORTS = 15_000;
 const MAX_WATCHLIST_ITEMS = 20;
+const WATCHLIST_UPDATED_EVENT = 'aegis-watchlist-updated';
+
+function notifyWatchlistUpdated() {
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(new Event(WATCHLIST_UPDATED_EVENT));
+}
 
 function getWatchlistCacheKey(walletAddress: string | undefined, chainType: ChainType, environment: string) {
   return `watchlist-cache:${chainType}:${environment}:${walletAddress ?? 'guest'}`;
@@ -334,6 +341,7 @@ export function useWatchlist() {
       transactionToast(signature);
       invalidate();
       if (walletAddress) saveCachedWatchlist(walletAddress, activeChain.type, activeChain.environment, []);
+      notifyWatchlistUpdated();
     },
     onError: async (err) => {
       console.error('Initialize failed:', err);
@@ -376,6 +384,7 @@ export function useWatchlist() {
     },
     onSuccess: (nextWatchlist) => {
       qc.setQueryData(['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'], nextWatchlist);
+      notifyWatchlistUpdated();
     },
     onError: (err) => {
       console.error('Add failed:', err);
@@ -396,6 +405,7 @@ export function useWatchlist() {
     },
     onSuccess: (nextWatchlist) => {
       qc.setQueryData(['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'], nextWatchlist);
+      notifyWatchlistUpdated();
     },
     onError: (err) => {
       console.error('Remove failed:', err);

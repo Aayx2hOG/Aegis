@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     const protocols = chainType === ChainType.Solana ? await getSolanaProtocols() : await getProtocolsByChain(chainType);
     return Response.json(protocols);
   } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
+    console.error('[api/defillama] falling back to empty protocol list', err);
+    return Response.json([]);
   }
 }

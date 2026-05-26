@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 declare global {
   var __prisma: PrismaClient | undefined;
@@ -13,14 +14,10 @@ export const isDatabaseConfigured = Boolean(databaseUrl);
 
 export const prisma = isDatabaseConfigured
   ? global.__prisma ??
-    new PrismaClient({
-      datasources: {
-        db: {
-          url: databaseUrl!,
-        },
-      },
-      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-    })
+  new PrismaClient({
+    adapter: new PrismaPg({ connectionString: databaseUrl! }),
+    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  })
   : null;
 
 if (process.env.NODE_ENV !== 'production' && prisma) {

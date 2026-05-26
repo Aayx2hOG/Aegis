@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChainType } from '@/lib/chain/types';
 import { useMultiChain } from '@/components/chain/chain-provider';
@@ -7,6 +8,13 @@ import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 import { toast } from 'sonner';
 
 const MAX_WATCHLIST_ITEMS = 20;
+const WATCHLIST_UPDATED_EVENT = 'aegis-watchlist-updated';
+
+function notifyWatchlistUpdated() {
+    if (typeof window === 'undefined') return;
+
+    window.dispatchEvent(new Event(WATCHLIST_UPDATED_EVENT));
+}
 
 /**
  * Generate cache key for watchlist across chains
@@ -116,8 +124,7 @@ export function useWatchlist(
  */
 export function useMultiChainWatchlist(walletAddress?: string) {
     const { activeChainConnections, allChains } = useMultiChain();
-
-    return useQuery<Partial<Record<ChainType, string[]>>>({
+    const query = useQuery<Partial<Record<ChainType, string[]>>>({
         queryKey: ['multichain-watchlist', walletAddress, activeChainConnections],
         queryFn: () => {
             const result: Partial<Record<ChainType, string[]>> = {};
@@ -144,12 +151,27 @@ export function useMultiChainWatchlist(walletAddress?: string) {
         staleTime: Infinity,
         gcTime: Infinity,
     });
+
+    useEffect(() => {
+        const handleWatchlistUpdate = () => {
+            query.refetch();
+        };
+
+        window.addEventListener(WATCHLIST_UPDATED_EVENT, handleWatchlistUpdate);
+        window.addEventListener('storage', handleWatchlistUpdate);
+
+        return () => {
+            window.removeEventListener(WATCHLIST_UPDATED_EVENT, handleWatchlistUpdate);
+            window.removeEventListener('storage', handleWatchlistUpdate);
+        };
+    }, [query]);
+
+    return query;
 }
 
 export function useMultiChainWatchlistByChain(walletAddress?: string) {
     const { allChains } = useMultiChain();
-
-    return useQuery<Record<string, string[]>>({
+    const query = useQuery<Record<string, string[]>>({
         queryKey: ['multichain-watchlist-by-chain', walletAddress, allChains.map((chain) => chain.name)],
         queryFn: () => {
             const result: Record<string, string[]> = {};
@@ -163,6 +185,22 @@ export function useMultiChainWatchlistByChain(walletAddress?: string) {
         staleTime: Infinity,
         gcTime: Infinity,
     });
+
+    useEffect(() => {
+        const handleWatchlistUpdate = () => {
+            query.refetch();
+        };
+
+        window.addEventListener(WATCHLIST_UPDATED_EVENT, handleWatchlistUpdate);
+        window.addEventListener('storage', handleWatchlistUpdate);
+
+        return () => {
+            window.removeEventListener(WATCHLIST_UPDATED_EVENT, handleWatchlistUpdate);
+            window.removeEventListener('storage', handleWatchlistUpdate);
+        };
+    }, [query]);
+
+    return query;
 }
 
 /**
@@ -179,6 +217,7 @@ export function addToWatchlist(
         const current = loadWatchlistByKey(cacheKey);
         const updated = sanitizeWatchlist([...current, slug]);
         saveWatchlistByKey(cacheKey, updated);
+        notifyWatchlistUpdated();
         return true;
     } catch (error) {
         console.error('Failed to add to watchlist:', error);
@@ -201,6 +240,7 @@ export function removeFromWatchlist(
         const current = loadWatchlistByKey(cacheKey);
         const updated = current.filter((s) => normalizeProtocolSlug(s) !== normalizeProtocolSlug(slug));
         saveWatchlistByKey(cacheKey, updated);
+        notifyWatchlistUpdated();
         return true;
     } catch (error) {
         console.error('Failed to remove from watchlist:', error);
@@ -221,6 +261,7 @@ export function clearWatchlist(
         const cacheKey = getWatchlistCacheKey(chainType, environment, walletAddress);
         if (typeof window !== 'undefined') {
             window.localStorage.removeItem(cacheKey);
+            notifyWatchlistUpdated();
         }
         return true;
     } catch (error) {

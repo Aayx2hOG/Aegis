@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     const data = await res.json();
     return Response.json(data);
   } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
+    console.error('[api/coingecko] falling back to empty response', err);
+    return Response.json({});
   }
 }
