@@ -20,8 +20,8 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-[#050910]/80 px-4 py-3 text-zinc-300 shadow-[0_6px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-      
+    <header className="sticky top-0 z-50 bg-[#050910]/90 px-4 py-3 text-zinc-300 shadow-[0_2px_12px_rgba(0,0,0,0.18)] backdrop-blur-md">
+
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <div className="flex items-baseline gap-4">
           <Link className="text-lg font-black tracking-tight text-zinc-100 transition hover:text-cyan-200" href="/">
@@ -62,7 +62,7 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
         </div>
 
         {showMenu && (
-          <div className="fixed inset-x-0 bottom-0 top-[64px] bg-[#060b13]/95 backdrop-blur md:hidden">
+          <div className="fixed inset-x-0 bottom-0 top-[64px] bg-[#060b13]/96 backdrop-blur-sm md:hidden">
             <div className="flex flex-col gap-4 p-4">
               <ul className="flex flex-col gap-4">
                 {links.map(({ label, path }) => (

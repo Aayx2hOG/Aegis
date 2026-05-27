@@ -111,8 +111,19 @@
 }
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
   * {
     @apply border-border outline-ring/50;
+  }
+
+  body {
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeSpeed;
   }
 
   body {
@@ -122,6 +133,21 @@
   button:not(:disabled),
   [role='button']:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

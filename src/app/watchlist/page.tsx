@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Activity, AlertTriangle, ChevronDown, ExternalLink, Layers3, Plus, Play, Radar, ShieldAlert, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, ArrowRight, Activity, ChevronDown, ExternalLink, Layers3, Plus, Play, ShieldAlert } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain } from '@/hooks/use-multichain-watchlist'
@@ -73,13 +76,6 @@ interface AlertEvaluationResultItem {
     reason: string
 }
 
-interface WalletProfileItem {
-    walletAddress: string
-    displayName: string | null
-    createdAt: string
-    updatedAt: string
-}
-
 type CoinGeckoResponse = {
     market_data?: {
         current_price?: {
@@ -100,11 +96,59 @@ type DefiLlamaProtocolDetail = {
 
 type WatchlistMarketRow = {
     slug: string
+    chainName: string
+    chainType: ChainType
     market?: SolanaProtocol & {
         gecko_id?: string | null
         geckoId?: string | null
     }
     geckoId: string | null
+}
+
+type AnomalySeverity = 'critical' | 'high' | 'moderate'
+
+type AnomalyType = 'tvl_move' | 'liquidity_compression' | 'concentration_shift' | 'chain_spike'
+
+interface AnomalyAlertItem {
+    id: string
+    type: AnomalyType
+    severity: AnomalySeverity
+    title: string
+    detail: string
+    actionLabel: string
+    actionKind: 'refresh' | 'research' | 'war-room'
+    protocolSlug?: string | null
+    chainName?: string
+}
+
+interface ProtocolSnapshotItem {
+    slug: string
+    chainName: string
+    tvl: number
+    change1d: number | null
+    change7d: number | null
+}
+
+interface ChainSnapshotItem {
+    chainName: string
+    chainType: ChainType
+    totalTvl: number
+    protocolCount: number
+    topProtocolSlug: string | null
+    topProtocolTvl: number
+    topProtocolShare: number
+    shareOfTrackedBasket: number
+}
+
+interface AnomalySnapshot {
+    capturedAt: string
+    protocols: ProtocolSnapshotItem[]
+    chains: ChainSnapshotItem[]
+    totalTvl: number
+    dominantProtocolSlug: string | null
+    dominantProtocolShare: number
+    dominantChainName: string | null
+    dominantChainShare: number
 }
 
 type LocalAlertStore = {
@@ -268,12 +312,217 @@ const CHAIN_TONES: Record<ChainType, string> = {
     [ChainType.Base]: 'bg-emerald-400/10 text-emerald-100 ring-emerald-300/20',
 }
 
+const ANOMALY_STORAGE_PREFIX = 'aegis-anomaly-snapshot:'
+
+function getAnomalyStorageKey(walletAddress?: string | null) {
+    return `${ANOMALY_STORAGE_PREFIX}${walletAddress ?? 'guest'}`
+}
+
+function formatCompactUsd(value: number) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        notation: 'compact',
+        maximumFractionDigits: 1,
+    }).format(value)
+}
+
+function formatSignedPct(value: number) {
+    const sign = value > 0 ? '+' : ''
+    return `${sign}${value.toFixed(1)}%`
+}
+
+function makeAnchorId(value: string) {
+    return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+function loadAnomalySnapshot(storageKey: string): AnomalySnapshot | null {
+    if (typeof window === 'undefined') return null
+
+    try {
+        const raw = window.localStorage.getItem(storageKey)
+        if (!raw) return null
+
+        const parsed = JSON.parse(raw) as AnomalySnapshot
+        if (!parsed || !Array.isArray(parsed.protocols) || !Array.isArray(parsed.chains)) return null
+        return parsed
+    } catch {
+        return null
+    }
+}
+
+function saveAnomalySnapshot(storageKey: string, snapshot: AnomalySnapshot) {
+    if (typeof window === 'undefined') return
+
+    try {
+        window.localStorage.setItem(storageKey, JSON.stringify(snapshot))
+    } catch {
+        // Best-effort cache only.
+    }
+}
+
+function buildAnomalySnapshot(rows: WatchlistMarketRow[]): AnomalySnapshot | null {
+    const protocols = rows
+        .flatMap((row) => {
+            const tvl = row.market?.tvl
+            if (typeof tvl !== 'number' || !Number.isFinite(tvl) || tvl <= 0) return []
+
+            return [{
+                slug: row.slug,
+                chainName: row.chainName,
+                chainType: row.chainType,
+                tvl,
+                change1d: row.market?.change_1d ?? null,
+                change7d: row.market?.change_7d ?? null,
+            }]
+        })
+        .sort((left, right) => right.tvl - left.tvl)
+
+    if (protocols.length === 0) return null
+
+    const chainBuckets = Array.from(new Map(rows.map((row) => [row.chainName, row.chainType]))).map(([chainName, chainType]) => {
+        const chainProtocols = protocols.filter((protocol) => protocol.chainName === chainName)
+        const totalTvl = chainProtocols.reduce((sum, protocol) => sum + protocol.tvl, 0)
+        const topProtocol = chainProtocols[0] ?? null
+        return {
+            chainName,
+            chainType,
+            totalTvl,
+            protocolCount: chainProtocols.length,
+            topProtocolSlug: topProtocol?.slug ?? null,
+            topProtocolTvl: topProtocol?.tvl ?? 0,
+            topProtocolShare: totalTvl > 0 && topProtocol ? topProtocol.tvl / totalTvl : 0,
+            shareOfTrackedBasket: 0,
+        }
+    })
+
+    const totalTvl = protocols.reduce((sum, protocol) => sum + protocol.tvl, 0)
+    const dominantProtocol = protocols[0]
+    const enrichedChains = chainBuckets.map((chain) => ({
+        ...chain,
+        shareOfTrackedBasket: totalTvl > 0 ? chain.totalTvl / totalTvl : 0,
+    }))
+    const dominantChain = [...enrichedChains].sort((left, right) => right.totalTvl - left.totalTvl)[0] ?? null
+
+    return {
+        capturedAt: new Date().toISOString(),
+        protocols,
+        chains: enrichedChains,
+        totalTvl,
+        dominantProtocolSlug: dominantProtocol.slug,
+        dominantProtocolShare: totalTvl > 0 ? dominantProtocol.tvl / totalTvl : 0,
+        dominantChainName: dominantChain?.chainName ?? null,
+        dominantChainShare: dominantChain?.shareOfTrackedBasket ?? 0,
+    }
+}
+
+function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySnapshot | null): AnomalyAlertItem[] {
+    if (!current) return []
+
+    const alerts: AnomalyAlertItem[] = []
+    const previousProtocolMap = new Map(previous?.protocols.map((item) => [item.slug, item]) ?? [])
+    const previousChainMap = new Map(previous?.chains.map((item) => [item.chainName, item]) ?? [])
+
+    current.protocols.forEach((protocol) => {
+        const prior = previousProtocolMap.get(protocol.slug)
+        const tvlDeltaPct = prior && prior.tvl > 0 ? ((protocol.tvl - prior.tvl) / prior.tvl) * 100 : null
+        const sharpDrop = typeof tvlDeltaPct === 'number' && tvlDeltaPct <= -18
+        const sharpRise = typeof tvlDeltaPct === 'number' && tvlDeltaPct >= 22
+        const liveDrop = (protocol.change1d ?? 0) <= -15 || (protocol.change7d ?? 0) <= -30
+        const liveRise = (protocol.change1d ?? 0) >= 18 || (protocol.change7d ?? 0) >= 40
+
+        if (liveDrop || sharpDrop) {
+            const deltaText = typeof tvlDeltaPct === 'number' ? ` vs. the last refresh (${formatSignedPct(tvlDeltaPct)})` : ''
+            alerts.push({
+                id: `tvl-drop:${protocol.slug}`,
+                type: 'tvl_move',
+                severity: 'critical',
+                title: `${protocol.slug} is under pressure`,
+                detail: `TVL is ${formatCompactUsd(protocol.tvl)} and the trend is soft${deltaText}. 24h ${protocol.change1d == null ? 'N/A' : formatSignedPct(protocol.change1d)}; 7d ${protocol.change7d == null ? 'N/A' : formatSignedPct(protocol.change7d)}.`,
+                actionLabel: 'Open research',
+                actionKind: 'research',
+                protocolSlug: protocol.slug,
+            })
+        } else if (liveRise || sharpRise) {
+            const deltaText = typeof tvlDeltaPct === 'number' ? ` vs. the last refresh (${formatSignedPct(tvlDeltaPct)})` : ''
+            alerts.push({
+                id: `tvl-rise:${protocol.slug}`,
+                type: 'tvl_move',
+                severity: 'high',
+                title: `${protocol.slug} is accelerating`,
+                detail: `TVL is ${formatCompactUsd(protocol.tvl)} and momentum is expanding${deltaText}. 24h ${protocol.change1d == null ? 'N/A' : formatSignedPct(protocol.change1d)}; 7d ${protocol.change7d == null ? 'N/A' : formatSignedPct(protocol.change7d)}.`,
+                actionLabel: 'Inspect thesis',
+                actionKind: 'research',
+                protocolSlug: protocol.slug,
+            })
+        }
+
+        const compressionScore = Math.abs(protocol.change1d ?? 0) + Math.abs(protocol.change7d ?? 0)
+        if ((protocol.change1d ?? 0) <= -8 && (protocol.change7d ?? 0) <= -18) {
+            alerts.push({
+                id: `liquidity:${protocol.slug}`,
+                type: 'liquidity_compression',
+                severity: compressionScore > 60 ? 'critical' : 'high',
+                title: `${protocol.slug} liquidity is compressing`,
+                detail: `Both 24h and 7d trend lines are moving lower, which usually shows up before exit quality worsens. TVL is ${formatCompactUsd(protocol.tvl)} and the 24h / 7d trend is ${formatSignedPct(protocol.change1d ?? 0)} / ${formatSignedPct(protocol.change7d ?? 0)}.`,
+                actionLabel: 'Open war room',
+                actionKind: 'war-room',
+                protocolSlug: protocol.slug,
+            })
+        }
+    })
+
+    current.chains.forEach((chain) => {
+        const prior = previousChainMap.get(chain.chainName)
+        const shareDeltaPct = prior ? (chain.shareOfTrackedBasket - prior.shareOfTrackedBasket) * 100 : null
+        const concentration = chain.topProtocolShare >= 0.42 || (typeof shareDeltaPct === 'number' && shareDeltaPct >= 8)
+        const chainSpike = chain.shareOfTrackedBasket >= 0.4 || (typeof shareDeltaPct === 'number' && Math.abs(shareDeltaPct) >= 10)
+
+        if (concentration && chain.topProtocolSlug) {
+            alerts.push({
+                id: `concentration:${chain.chainName}`,
+                type: 'concentration_shift',
+                severity: chain.topProtocolShare >= 0.52 ? 'critical' : 'high',
+                title: `${chain.chainName} concentration is rising`,
+                detail: `${chain.topProtocolSlug} now represents ${formatSignedPct(chain.topProtocolShare * 100)} of ${chain.chainName}'s tracked basket${typeof shareDeltaPct === 'number' ? ` (${formatSignedPct(shareDeltaPct)})` : ''}.`,
+                actionLabel: 'Refresh feed',
+                actionKind: 'refresh',
+                chainName: chain.chainName,
+                protocolSlug: chain.topProtocolSlug,
+            })
+        }
+
+        if (chainSpike) {
+            alerts.push({
+                id: `chain:${chain.chainName}`,
+                type: 'chain_spike',
+                severity: chain.shareOfTrackedBasket >= 0.5 ? 'critical' : 'moderate',
+                title: `${chain.chainName} is dominating flow`,
+                detail: `${chain.protocolCount} protocols account for ${formatSignedPct(chain.shareOfTrackedBasket * 100)} of the tracked basket${typeof shareDeltaPct === 'number' ? ` (${formatSignedPct(shareDeltaPct)})` : ''}.`,
+                actionLabel: 'Open top protocol',
+                actionKind: 'research',
+                chainName: chain.chainName,
+                protocolSlug: chain.topProtocolSlug,
+            })
+        }
+    })
+
+    return alerts
+        .sort((left, right) => {
+            const severityRank: Record<AnomalySeverity, number> = { critical: 0, high: 1, moderate: 2 }
+            return severityRank[left.severity] - severityRank[right.severity]
+        })
+        .slice(0, 5)
+}
+
 export default function WatchlistPage() {
+    const router = useRouter()
+    const queryClient = useQueryClient()
     const { activeChain, activeChainConnections, allChains } = useMultiChain()
     const wallet = useWallet()
     const walletAddress = wallet.publicKey?.toBase58()
     const { data: watchlistsByChainData, isLoading: watchlistsLoading } = useMultiChainWatchlistByChain(walletAddress)
-    const watchlistsByChain: Record<string, string[]> = watchlistsByChainData ?? {}
+    const watchlistsByChain = useMemo<Record<string, string[]>>(() => watchlistsByChainData ?? {}, [watchlistsByChainData])
 
     const protocolChainTypes = useMemo(
         () => Array.from(new Set(allChains.map((chain) => chain.type))),
@@ -317,7 +566,7 @@ export default function WatchlistPage() {
                     ?? (market as WatchlistMarketRow['market'] | undefined)?.geckoId
                     ?? null
 
-                return { slug, market, geckoId }
+                return { slug, chainName: chain.name, chainType: chain.type, market, geckoId }
             })
         })
     }, [allChains, protocolsByChainType, watchlistsByChain])
@@ -372,7 +621,7 @@ export default function WatchlistPage() {
     const priceBySlug = useMemo(() => {
         const result: Record<string, { priceUsd: number | null; priceChange24h: number | null }> = {}
 
-        watchlistMarketRows.forEach((row, index) => {
+        watchlistMarketRows.forEach((row) => {
             if (row.geckoId) {
                 const price = priceByGeckoId[row.geckoId]
                 if (price) result[row.slug] = price
@@ -397,7 +646,7 @@ export default function WatchlistPage() {
     const [events, setEvents] = useState<AlertEventItem[]>([])
     const [testResults, setTestResults] = useState<AlertTestResultItem[]>([])
     const [evaluationResults, setEvaluationResults] = useState<AlertEvaluationResultItem[]>([])
-    const [dbStatus, setDbStatus] = useState<string | null>(null)
+    const [, setDbStatus] = useState<string | null>(null)
     const [historyLoading, setHistoryLoading] = useState(false)
     const [alertsLoading, setAlertsLoading] = useState(false)
     const [alertProtocolSlug, setAlertProtocolSlug] = useState('')
@@ -439,8 +688,46 @@ export default function WatchlistPage() {
         () => (showAllAlertRules ? rules : rules.slice(0, 3)),
         [rules, showAllAlertRules]
     )
-    const visibleTestResults = useMemo(() => testResults.slice(0, 3), [testResults])
     const alertWalletAddress = walletAddress ?? guestAlertWalletAddress
+    const anomalyStorageKey = useMemo(() => getAnomalyStorageKey(alertWalletAddress), [alertWalletAddress])
+    const currentAnomalySnapshot = useMemo(
+        () => buildAnomalySnapshot(watchlistMarketRows),
+        [watchlistMarketRows]
+    )
+    const previousAnomalySnapshot = useMemo(
+        () => loadAnomalySnapshot(anomalyStorageKey),
+        [anomalyStorageKey]
+    )
+    const anomalyAlerts = useMemo(
+        () => buildAnomalyAlerts(currentAnomalySnapshot, previousAnomalySnapshot),
+        [currentAnomalySnapshot, previousAnomalySnapshot]
+    )
+
+    function handleAnomalyAction(alert: AnomalyAlertItem) {
+        if (alert.actionKind === 'refresh') {
+            void Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['chain-protocols'] }),
+                queryClient.invalidateQueries({ queryKey: ['coingecko-price'] }),
+                queryClient.invalidateQueries({ queryKey: ['defillama-protocol-detail'] }),
+            ])
+            toast.success('Live feed refresh queued.')
+            return
+        }
+
+        if (!alert.protocolSlug) return
+
+        if (alert.actionKind === 'war-room') {
+            router.push(`/war-room?protocol=${encodeURIComponent(alert.protocolSlug)}`)
+            return
+        }
+
+        router.push(`/research?q=${encodeURIComponent(alert.protocolSlug)}`)
+    }
+
+    useEffect(() => {
+        if (!currentAnomalySnapshot) return
+        saveAnomalySnapshot(anomalyStorageKey, currentAnomalySnapshot)
+    }, [anomalyStorageKey, currentAnomalySnapshot])
 
     useEffect(() => {
         if (typeof window === 'undefined') return
@@ -471,16 +758,6 @@ export default function WatchlistPage() {
         }
 
         return (await res.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] }
-    }
-
-    async function fetchWalletProfile(targetWalletAddress: string) {
-        const res = await fetch(`/api/wallet/profile?walletAddress=${encodeURIComponent(targetWalletAddress)}`)
-        if (!res.ok) {
-            const body = (await res.json().catch(() => null)) as { error?: string } | null
-            throw new Error(body?.error ?? 'Wallet profile unavailable.')
-        }
-
-        return (await res.json()) as { profile: WalletProfileItem | null }
     }
 
     async function reloadAlerts() {
@@ -519,22 +796,6 @@ export default function WatchlistPage() {
             updatedAt: new Date().toISOString(),
         })
         setRules(nextRules)
-    }
-
-    function persistLocalEvent(event: AlertEventItem) {
-        if (!alertWalletAddress) return
-
-        const store = readLocalAlertStore(alertWalletAddress)
-        const nextEvents = normalizeAlertEvents([
-            event,
-            ...store.events.filter((existing) => getAlertEventKey(existing) !== getAlertEventKey(event)),
-        ])
-        writeLocalAlertStore(alertWalletAddress, {
-            ...store,
-            events: nextEvents,
-            updatedAt: new Date().toISOString(),
-        })
-        setEvents(nextEvents)
     }
 
     async function createAlertRule(options?: { threshold?: number; useLocal?: boolean }): Promise<{ mode: 'database' | 'local'; rule: AlertRuleItem } | null> {
@@ -977,7 +1238,7 @@ export default function WatchlistPage() {
                 }
             })
             .filter((value): value is NonNullable<typeof value> => Boolean(value))
-    }, [activeChain, activeChainConnections, allChains, priceByGeckoId, watchlistMarketRows, watchlistsByChain])
+    }, [activeChain, activeChainConnections, allChains, priceByGeckoId, priceBySlug, watchlistMarketRows, watchlistsByChain])
 
     const totalProtocols = chainViews.reduce((acc, item) => acc + item.total, 0)
     const riskyProtocols = chainViews.reduce((acc, item) => acc + item.riskyCount, 0)
@@ -1026,9 +1287,102 @@ export default function WatchlistPage() {
                         </div>
                     </div>
                 </header>
+                <section id="live-basket" className="scroll-mt-24 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                    <Card className="border-cyan-300/10 bg-zinc-950/55 shadow-2xl shadow-cyan-950/15 backdrop-blur-xl">
+                        <CardHeader className="space-y-3 pb-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <CardTitle className="text-lg font-black text-white">Live anomaly feed</CardTitle>
+                                    <CardDescription className="text-zinc-400">
+                                        Real-time alerts from the protocol feed. The cards update automatically as market data refreshes.
+                                    </CardDescription>
+                                </div>
+                                <Badge variant="accent" className="gap-2">
+                                    <Activity className="h-3.5 w-3.5" />
+                                    {marketLoading ? 'Updating' : `${anomalyAlerts.length} signals`}
+                                </Badge>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {anomalyAlerts.length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-zinc-400">
+                                    No active anomalies right now. That usually means the tracked basket is stable or the latest refresh has not diverged enough to trigger a signal.
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {anomalyAlerts.map((alert) => (
+                                        <div key={alert.id} className="rounded-2xl border border-white/10 bg-zinc-900/65 p-4">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                <div className="min-w-0 space-y-1">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={
+                                                                alert.severity === 'critical'
+                                                                    ? 'border-rose-400/20 bg-rose-400/10 text-rose-100'
+                                                                    : alert.severity === 'high'
+                                                                        ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+                                                                        : 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100'
+                                                            }
+                                                        >
+                                                            {alert.severity}
+                                                        </Badge>
+                                                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                                                            {alert.type.replace(/_/g, ' ')}
+                                                        </span>
+                                                    </div>
+                                                    <h3 className="text-base font-black text-white">{alert.title}</h3>
+                                                    <p className="max-w-3xl text-sm leading-6 text-zinc-300">{alert.detail}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAnomalyAction(alert)}
+                                                    className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-cyan-300 px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-950 transition hover:bg-cyan-200"
+                                                >
+                                                    {alert.actionLabel}
+                                                    <ArrowRight className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-white/10 bg-zinc-950/55 shadow-2xl shadow-black/20 backdrop-blur-xl">
+                        <CardHeader className="space-y-3 pb-3">
+                            <CardTitle className="text-lg font-black text-white">Signal coverage</CardTitle>
+                            <CardDescription className="text-zinc-400">A compact view of what the detector sees across the current basket.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Tracked TVL</p>
+                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot ? formatCompactUsd(currentAnomalySnapshot.totalTvl) : 'N/A'}</p>
+                                </div>
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Dominant share</p>
+                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot ? formatSignedPct(currentAnomalySnapshot.dominantProtocolShare * 100) : 'N/A'}</p>
+                                </div>
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Chains monitored</p>
+                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot?.chains.length ?? 0}</p>
+                                </div>
+                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Snapshot age</p>
+                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot ? 'Live' : 'Waiting'}</p>
+                                </div>
+                            </div>
+                            <div className="rounded-2xl border border-cyan-300/10 bg-cyan-300/5 p-4 text-sm text-cyan-100/90">
+                                Alerts are generated from the live protocol feed and compared with the previous refresh, so the feed stays free and responsive.
+                            </div>
+                        </CardContent>
+                    </Card>
+                </section>
                 <section className={`grid gap-4 ${compactWatchlistLayout ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
                     {chainViews.map(({ chain, slugs, marketRows, riskyCount }) => (
-                        <article key={chain.name} className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
+                        <article id={`chain-${makeAnchorId(chain.name)}`} key={chain.name} className="scroll-mt-24 rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <div className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ring-1 ${CHAIN_TONES[chain.type]}`}>{CHAIN_LABELS[chain.type]}</div>

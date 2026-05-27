@@ -148,6 +148,13 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
         .join('\n')
       : `- No parsed Helius tx available; fallback activity proxy (TVL trend 1d): ${displayText(txFallback.delta1dPct, 'Not listed')}%`;
 
+  const formatPct = (value: unknown, fallbackText: string) => {
+    const num = Number(value);
+    if (Number.isFinite(num)) return `${num.toFixed(2)}%`;
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    return fallbackText;
+  };
+
   const fallback = [
     '### Overview',
     `${protocolName} is a ${buildChainLabel(chainType)} DeFi protocol. ${protocolDescription}`,
@@ -156,9 +163,10 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
     '| Metric | Value |',
     '| --- | --- |',
     `| TVL | ${usd(t.tvl)} |`,
-    `| 24h TVL Change | ${formatFallbackMetric(t.change1d, 'Not available from the current DeFiLlama history')}${typeof t.change1d === 'number' ? '%' : ''} |`,
+    `| 24h TVL Change | ${formatPct(t.change1d, 'Not available from the current DeFiLlama history')} |`,
+    `| 7d TVL Change | ${formatPct(t.change7d, 'Not available from the current DeFiLlama history')} |`,
     `| Token Price | ${usd(resolvedPrice)} |`,
-    `| 24h Price Change | ${formatFallbackMetric(resolvedPriceChange, priceNote)}${typeof resolvedPriceChange === 'number' ? '%' : ''} |`,
+    `| 24h Price Change | ${formatPct(resolvedPriceChange, priceNote)} |`,
     `| 24h Volume | ${usd(resolvedVolume)} |`,
     `| Market Cap | ${usd(resolvedMarketCap)} |`,
     '',
