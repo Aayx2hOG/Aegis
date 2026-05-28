@@ -15,6 +15,9 @@ const links: { label: string; path: string }[] = [
   { label: 'Research', path: '/research' },
   { label: 'War Room', path: '/war-room' },
   { label: 'Watchlist', path: '/watchlist' },
+]
+
+const utilityLinks: { label: string; path: string }[] = [
   { label: 'Notifications', path: '/settings/notifications' },
 ]
 
@@ -23,7 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html lang="en" suppressHydrationWarning>
       <body className={`antialiased`}>
         <AppProviders>
-          <AppLayout links={links}>{children}</AppLayout>
+          <AppLayout links={links} utilityLinks={utilityLinks}>{children}</AppLayout>
         </AppProviders>
       </body>
     </html>

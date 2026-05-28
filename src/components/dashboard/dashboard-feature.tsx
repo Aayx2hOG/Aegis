@@ -163,13 +163,6 @@ export function DashboardFeature() {
                         </CardContent>
                     </Card>
                 </section>
-
-                <div className="flex justify-center">
-                    <Link href="/watchlist" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 transition-colors hover:text-cyan-100">
-                        Open full watchlist
-                        <ArrowRight className="h-4 w-4" />
-                    </Link>
-                </div>
             </div>
         </div>
     )

@@ -3,16 +3,24 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Menu, X } from 'lucide-react'
+import { Bell, ChevronDown, Menu, X } from 'lucide-react'
 import { ThemeSelect } from '@/components/theme-select'
 import { WalletButton } from '@/components/solana/solana-provider'
 import { ChainUiSelect } from './chain/chain-ui'
 
 
 
-export function AppHeader({ links = [] }: { links: { label: string; path: string }[] }) {
+export function AppHeader({
+  links = [],
+  utilityLinks = [],
+}: {
+  links: { label: string; path: string }[]
+  utilityLinks: { label: string; path: string }[]
+}) {
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
+  const [showUtilities, setShowUtilities] = useState(false)
+  const hasActiveUtility = utilityLinks.some(({ path }) => isActive(path))
 
 
   function isActive(path: string) {
@@ -28,7 +36,7 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
             <span>Aegis Intelligence</span>
           </Link>
           <div className="hidden md:flex items-center">
-            <ul className="flex gap-4 flex-nowrap items-center">
+            <ul className="flex flex-nowrap items-center gap-4">
               {links.map(({ label, path }) => (
                 <li key={path}>
                   <Link
@@ -42,6 +50,19 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
                   </Link>
                 </li>
               ))}
+              <li>
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wide transition ${showUtilities || hasActiveUtility
+                    ? 'text-cyan-200'
+                    : 'text-zinc-400 hover:text-zinc-100'
+                    }`}
+                  onClick={() => setShowUtilities(!showUtilities)}
+                >
+                  Utilities
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </li>
             </ul>
           </div>
         </div>
@@ -50,12 +71,38 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
           variant="ghost"
           size="icon"
           className="bg-zinc-900/70 text-zinc-300 hover:bg-zinc-800 md:hidden"
-          onClick={() => setShowMenu(!showMenu)}
+          onClick={() => {
+            setShowUtilities(false)
+            setShowMenu(!showMenu)
+          }}
         >
           {showMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>
 
         <div className="hidden md:flex items-center gap-4">
+          <div className="relative">
+            {showUtilities && (
+              <div className="absolute right-0 top-full z-50 mt-2 min-w-48 rounded-xl border border-white/10 bg-[#060b13]/98 p-2 shadow-2xl shadow-black/40 backdrop-blur-md">
+                <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">Tools</p>
+                <div className="flex flex-col gap-1">
+                  {utilityLinks.map(({ label, path }) => (
+                    <Link
+                      key={path}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${isActive(path)
+                        ? 'bg-cyan-400/10 text-cyan-200'
+                        : 'text-zinc-300 hover:bg-white/5 hover:text-zinc-100'
+                        }`}
+                      href={path}
+                      onClick={() => setShowUtilities(false)}
+                    >
+                      <Bell className="h-4 w-4" />
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <WalletButton />
           <ChainUiSelect />
           <ThemeSelect />
@@ -78,6 +125,25 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
                   </li>
                 ))}
               </ul>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">Utilities</p>
+                <div className="flex flex-col gap-2">
+                  {utilityLinks.map(({ label, path }) => (
+                    <Link
+                      key={path}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-base font-semibold transition ${isActive(path)
+                        ? 'bg-cyan-400/10 text-cyan-200'
+                        : 'text-zinc-300 hover:bg-white/5 hover:text-zinc-100'
+                        }`}
+                      href={path}
+                      onClick={() => setShowMenu(false)}
+                    >
+                      <Bell className="h-4 w-4" />
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
               <div className="flex flex-col gap-4">
                 <WalletButton />
                 <ChainUiSelect />

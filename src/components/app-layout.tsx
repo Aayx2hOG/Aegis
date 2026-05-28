@@ -11,14 +11,16 @@ import { AccountChecker } from '@/components/account/account-ui'
 export function AppLayout({
   children,
   links,
+  utilityLinks,
 }: {
   children: React.ReactNode
   links: { label: string; path: string }[]
+  utilityLinks: { label: string; path: string }[]
 }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#070b11] text-zinc-100">
-        <AppHeader links={links} />
+        <AppHeader links={links} utilityLinks={utilityLinks} />
         <main className="flex-grow px-4 pb-8 pt-4 md:px-6 md:pb-10 md:pt-5">
           <ClusterChecker>
             <AccountChecker />
