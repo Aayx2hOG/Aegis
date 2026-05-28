@@ -5,6 +5,21 @@ import type {
     ScenarioConfig,
     SimulationResult,
 } from '@/shared/types/war-room'
+import {
+    EXPLOIT_LOSS_FACTOR,
+    AGG_WEIGHTS,
+    MARKET_SHOCK_MULT,
+    LIQUIDITY_DIVISOR,
+    LIQUIDITY_SCENARIO_MULT,
+    CONCENTRATION_SCENARIO_MULT,
+    LIQUIDATION_MARKET_MULT,
+    ORACLE_DELAY_MIN_MULT,
+    SMART_CONTRACT_BASE_MULT,
+    LIQUIDITY_SLIPPAGE_MULT,
+    LIQUIDATION_PROB_MULT,
+    ACTIONS,
+    DEFAULT_CONFIDENCES,
+} from '@/shared/config/war-room-config'
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value))
@@ -36,27 +51,27 @@ function riskFromPositions(positions: PortfolioPosition[], scenario: ScenarioCon
     const total = positions.reduce((acc, p) => acc + p.usdValue, 0) || 1
 
     const marketRisk = clamp(
-        positions.reduce((acc, p) => acc + p.usdValue * p.volatility, 0) / total + Math.abs(scenario.marketShockPct) * 0.6,
+        positions.reduce((acc, p) => acc + p.usdValue * p.volatility, 0) / total + Math.abs(scenario.marketShockPct) * MARKET_SHOCK_MULT,
         0,
         100
     )
 
     const liquidityRisk = clamp(
-        positions.reduce((acc, p) => acc + p.usdValue * (100 - p.liquidityScore), 0) / total / 1.4 + scenario.liquidityDropPct * 0.5,
+        positions.reduce((acc, p) => acc + p.usdValue * (100 - p.liquidityScore), 0) / total / LIQUIDITY_DIVISOR + scenario.liquidityDropPct * LIQUIDITY_SCENARIO_MULT,
         0,
         100
     )
 
-    const concentrationRisk = clamp(getProtocolExposureShare(positions) * 100 + scenario.protocolExploitSeverity * 0.5, 0, 100)
+    const concentrationRisk = clamp(getProtocolExposureShare(positions) * 100 + scenario.protocolExploitSeverity * CONCENTRATION_SCENARIO_MULT, 0, 100)
 
     const leveragedExposure = positions
         .filter((p) => p.kind === 'lending')
         .reduce((acc, p) => acc + p.usdValue * (p.collateralFactor ?? 0.6), 0)
 
-    const liquidationRisk = clamp((leveragedExposure / total) * 100 + Math.abs(scenario.marketShockPct) * 1.1 + scenario.oracleDelayMinutes * 0.25, 0, 100)
+    const liquidationRisk = clamp((leveragedExposure / total) * 100 + Math.abs(scenario.marketShockPct) * LIQUIDATION_MARKET_MULT + scenario.oracleDelayMinutes * ORACLE_DELAY_MIN_MULT, 0, 100)
 
     const smartContractRisk = clamp(
-        positions.reduce((acc, p) => acc + p.usdValue * (p.kind === 'lp' ? 0.8 : p.kind === 'lending' ? 0.7 : 0.45), 0) / total * 100 * 0.5 +
+        positions.reduce((acc, p) => acc + p.usdValue * (p.kind === 'lp' ? 0.8 : p.kind === 'lending' ? 0.7 : 0.45), 0) / total * 100 * SMART_CONTRACT_BASE_MULT +
         scenario.protocolExploitSeverity,
         0,
         100
@@ -73,11 +88,11 @@ function riskFromPositions(positions: PortfolioPosition[], scenario: ScenarioCon
 
 function aggregateRiskScore(risk: RiskBreakdown): number {
     const weighted =
-        risk.marketRisk * 0.28 +
-        risk.liquidityRisk * 0.2 +
-        risk.concentrationRisk * 0.17 +
-        risk.liquidationRisk * 0.2 +
-        risk.smartContractRisk * 0.15
+        risk.marketRisk * AGG_WEIGHTS.market +
+        risk.liquidityRisk * AGG_WEIGHTS.liquidity +
+        risk.concentrationRisk * AGG_WEIGHTS.concentration +
+        risk.liquidationRisk * AGG_WEIGHTS.liquidation +
+        risk.smartContractRisk * AGG_WEIGHTS.smart
     return round(clamp(weighted, 0, 100))
 }
 
@@ -92,11 +107,11 @@ function simulatePortfolioValue(positions: PortfolioPosition[], scenario: Scenar
     const loss = positions.reduce((acc, p) => {
         const marketLoss = p.usdValue * (Math.abs(scenario.marketShockPct) / 100) * (p.volatility / 100)
         const stablecoinLoss = p.symbol.includes('USDC') || p.symbol.includes('USDT') ? p.usdValue * (scenario.stablecoinDepegPct / 100) : 0
-        const liquiditySlippage = p.usdValue * (scenario.liquidityDropPct / 100) * ((100 - p.liquidityScore) / 100) * 0.35
+        const liquiditySlippage = p.usdValue * (scenario.liquidityDropPct / 100) * ((100 - p.liquidityScore) / 100) * LIQUIDITY_SLIPPAGE_MULT
         return acc + marketLoss + stablecoinLoss + liquiditySlippage
     }, 0)
 
-    const exploitLoss = currentValue * (scenario.protocolExploitSeverity / 100) * 0.08
+    const exploitLoss = currentValue * (scenario.protocolExploitSeverity / 100) * EXPLOIT_LOSS_FACTOR
     const projectedValue = Math.max(0, currentValue - loss - exploitLoss)
     const varUsd = currentValue - projectedValue
     const drawdownPct = currentValue === 0 ? 0 : (varUsd / currentValue) * 100
@@ -119,9 +134,9 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
             title: 'Protect Part of Your Portfolio With a Hedge',
             rationale: 'Use simple downside protection on SOL and other volatile tokens so losses are smaller during sharp drops.',
             impact: {
-                riskReduction: round(risk.marketRisk * 0.25),
-                estimatedCostUsd: round((largest?.usdValue ?? 0) * 0.004),
-                confidence: 0.83,
+                riskReduction: round(risk.marketRisk * ACTIONS.hedgeRiskReduction),
+                estimatedCostUsd: round((largest?.usdValue ?? 0) * ACTIONS.hedgeCostMultiplier),
+                confidence: DEFAULT_CONFIDENCES.hedge,
             },
         },
         {
@@ -129,9 +144,9 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
             title: 'Spread Funds Across More Than One Protocol',
             rationale: `About ${protocolShare}% of exposure is concentrated in one protocol. Splitting that exposure lowers single-point failure risk.`,
             impact: {
-                riskReduction: round(risk.concentrationRisk * 0.3),
-                estimatedCostUsd: round((largest?.usdValue ?? 0) * 0.0025),
-                confidence: 0.79,
+                riskReduction: round(risk.concentrationRisk * ACTIONS.rebalanceRiskReduction),
+                estimatedCostUsd: round((largest?.usdValue ?? 0) * ACTIONS.rebalanceCostMultiplier),
+                confidence: DEFAULT_CONFIDENCES.rebalance,
             },
         },
         {
@@ -139,9 +154,9 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
             title: 'Increase Safety Buffer on Borrowed Positions',
             rationale: 'Add extra collateral or reduce borrow size so positions are less likely to be force-closed during fast moves.',
             impact: {
-                riskReduction: round(risk.liquidationRisk * 0.35),
-                estimatedCostUsd: round((positions.reduce((acc, p) => acc + p.usdValue, 0) * 0.0018)),
-                confidence: 0.87,
+                riskReduction: round(risk.liquidationRisk * ACTIONS.raiseCollateralRiskReduction),
+                estimatedCostUsd: round((positions.reduce((acc, p) => acc + p.usdValue, 0) * ACTIONS.raiseCollateralCostMultiplier)),
+                confidence: DEFAULT_CONFIDENCES.collateral,
             },
         },
         {
@@ -149,9 +164,9 @@ function recommendActions(risk: RiskBreakdown, positions: PortfolioPosition[]): 
             title: 'Set Automatic Alerts and Emergency Actions',
             rationale: 'Create automatic alerts and predefined actions for depegs, exploit news, and liquidity drops to respond faster.',
             impact: {
-                riskReduction: round((risk.smartContractRisk + risk.liquidityRisk) * 0.15),
+                riskReduction: round((risk.smartContractRisk + risk.liquidityRisk) * ACTIONS.emergencyRiskReduction),
                 estimatedCostUsd: 0,
-                confidence: 0.74,
+                confidence: DEFAULT_CONFIDENCES.emergency,
             },
         },
     ]

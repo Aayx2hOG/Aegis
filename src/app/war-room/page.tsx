@@ -6,8 +6,31 @@ import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { WalletButton } from '@/components/solana/solana-provider'
+import { useCluster } from '@/components/cluster/cluster-data-access'
 import { useSolanaProtocols } from '@/hooks/use-defillama'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
+import {
+    POSITION_SCALE,
+    POSITION_MIN_USD,
+    POSITION_MAX_USD,
+    VOL_BASE,
+    VOL_INDEX_MULT,
+    VOL_MIN,
+    VOL_MAX,
+    LIQUIDITY_BASE,
+    LIQUIDITY_LOG_MULT,
+    LIQUIDITY_INDEX_PENALTY,
+    LIQUIDITY_MIN,
+    LIQUIDITY_MAX,
+    COLLATERAL_BASE,
+    COLLATERAL_TVL_CAP,
+    COLLATERAL_TVL_MAX_ADJUST,
+    COLLATERAL_INDEX_PENALTY,
+    COLLATERAL_MIN,
+    COLLATERAL_MAX,
+    UI_DISCLAIMER,
+} from '@/shared/config/war-room-config'
+import { createSampleBasket } from '@/shared/war-room-sample'
 import type { PortfolioPosition, RiskBreakdown, ScenarioConfig, SimulationResult } from '@/shared/types/war-room'
 import type { SolanaProtocol } from '@/shared/types/protocol'
 
@@ -16,12 +39,7 @@ type ScenarioPreset = ScenarioConfig & {
     beginnerSummary: string
 }
 
-type PortfolioTemplate = {
-    id: string
-    title: string
-    summary: string
-    positions: PortfolioPosition[]
-}
+// templates removed for simplicity
 
 type TokenProfile = {
     symbol: string
@@ -103,48 +121,7 @@ const TOKEN_PROFILES: Record<string, TokenProfile> = {
     },
 }
 
-const COMPARATIVE_CHAINS: ComparativeChain[] = [
-    {
-        name: 'solana',
-        label: 'Solana',
-        baseRisk: 42,
-        marketSensitivity: 0.42,
-        liquiditySensitivity: 0.34,
-        exploitSensitivity: 0.26,
-        bridgeSensitivity: 0.12,
-        posture: 'balanced',
-    },
-    {
-        name: 'ethereum',
-        label: 'Ethereum',
-        baseRisk: 34,
-        marketSensitivity: 0.34,
-        liquiditySensitivity: 0.18,
-        exploitSensitivity: 0.18,
-        bridgeSensitivity: 0.08,
-        posture: 'best',
-    },
-    {
-        name: 'arbitrum',
-        label: 'Arbitrum',
-        baseRisk: 38,
-        marketSensitivity: 0.36,
-        liquiditySensitivity: 0.24,
-        exploitSensitivity: 0.22,
-        bridgeSensitivity: 0.22,
-        posture: 'balanced',
-    },
-    {
-        name: 'base',
-        label: 'Base',
-        baseRisk: 31,
-        marketSensitivity: 0.3,
-        liquiditySensitivity: 0.2,
-        exploitSensitivity: 0.2,
-        bridgeSensitivity: 0.14,
-        posture: 'best',
-    },
-]
+// Comparative chains view removed for simplicity.
 
 function selectLiveProtocolBasket(protocols: SolanaProtocol[], focusedProtocol?: string, limit = 4): SolanaProtocol[] {
     const normalizedFocus = normalizeProtocolSlug(focusedProtocol ?? '')
@@ -167,25 +144,25 @@ function getProtocolSymbol(protocol: SolanaProtocol): string {
 
 function derivePositionUsdValue(protocol: SolanaProtocol, index: number): number {
     const tvl = protocol.tvl ?? 0
-    const scale = index === 0 ? 0.018 : index === 1 ? 0.012 : 0.008
-    return Math.max(25_000, Math.min(220_000, Math.round(tvl * scale)))
+    const scale = POSITION_SCALE[index] ?? POSITION_SCALE[POSITION_SCALE.length - 1]
+    return Math.max(POSITION_MIN_USD, Math.min(POSITION_MAX_USD, Math.round(tvl * scale)))
 }
 
 function deriveVolatility(protocol: SolanaProtocol, index: number): number {
     const change = Math.abs(protocol.change_1d ?? 0) * 1.5 + Math.abs(protocol.change_7d ?? 0) * 0.5
-    return Math.round(clamp(22 + change + index * 5, 6, 94))
+    return Math.round(clamp(VOL_BASE + change + index * VOL_INDEX_MULT, VOL_MIN, VOL_MAX))
 }
 
 function deriveLiquidityScore(protocol: SolanaProtocol, index: number): number {
     const tvl = Math.max(1, protocol.tvl ?? 1)
-    const score = 38 + Math.log10(tvl) * 7 - index * 3
-    return Math.round(clamp(score, 18, 98))
+    const score = LIQUIDITY_BASE + Math.log10(tvl) * LIQUIDITY_LOG_MULT - index * LIQUIDITY_INDEX_PENALTY
+    return Math.round(clamp(score, LIQUIDITY_MIN, LIQUIDITY_MAX))
 }
 
 function deriveCollateralFactor(protocol: SolanaProtocol, index: number): number {
     const tvl = protocol.tvl ?? 0
-    const score = 0.28 + Math.min(tvl / 500_000_000, 0.25) - index * 0.03
-    return Number(clamp(score, 0.12, 0.82).toFixed(2))
+    const score = COLLATERAL_BASE + Math.min(tvl / COLLATERAL_TVL_CAP, COLLATERAL_TVL_MAX_ADJUST) - index * COLLATERAL_INDEX_PENALTY
+    return Number(clamp(score, COLLATERAL_MIN, COLLATERAL_MAX).toFixed(2))
 }
 
 function buildPositionFromProtocol(protocol: SolanaProtocol, index: number): PortfolioPosition {
@@ -215,36 +192,7 @@ function buildPositionsForProtocol(protocols: SolanaProtocol[], focusedProtocol?
     return basket.map((protocol, index) => buildPositionFromProtocol(protocol, index))
 }
 
-function buildPortfolioTemplates(protocols: SolanaProtocol[], focusedProtocol?: string): PortfolioTemplate[] {
-    const basket = selectLiveProtocolBasket(protocols, focusedProtocol, 3)
-    if (basket.length === 0) return []
-
-    const basePositions = basket.map((protocol, index) => buildPositionFromProtocol(protocol, index))
-    const primaryName = basket[0]?.name ?? 'Solana market leaders'
-    const secondaryName = basket[1]?.name ?? primaryName
-    const tertiaryName = basket[2]?.name ?? primaryName
-
-    return [
-        {
-            id: 'live-core',
-            title: 'Live Core',
-            summary: `Anchored to current TVL leaders such as ${primaryName}.`,
-            positions: scalePositions(basePositions, [1, 0.82, 0.65], 'core'),
-        },
-        {
-            id: 'live-yield',
-            title: 'Live Yield',
-            summary: `Tilts toward ${primaryName} and ${secondaryName} while keeping the basket diversified.`,
-            positions: scalePositions(basePositions, [1.15, 0.95, 0.7], 'yield'),
-        },
-        {
-            id: 'live-defensive',
-            title: 'Live Defensive',
-            summary: `Prioritizes larger live-market protocols such as ${primaryName}, ${secondaryName}, and ${tertiaryName}.`,
-            positions: scalePositions(basePositions, [0.9, 0.75, 0.55], 'defensive'),
-        },
-    ]
-}
+// portfolio templates removed for simplicity
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value))
@@ -338,6 +286,17 @@ function shortenMint(mint: string): string {
     return `${mint.slice(0, 4)}...${mint.slice(-4)}`
 }
 
+function isTestNetworkContext(network?: string, endpoint?: string): boolean {
+    const normalizedNetwork = (network ?? '').toLowerCase()
+    const normalizedEndpoint = (endpoint ?? '').toLowerCase()
+
+    if (normalizedNetwork.includes('devnet') || normalizedNetwork.includes('testnet')) return true
+    if (normalizedEndpoint.includes('devnet') || normalizedEndpoint.includes('testnet')) return true
+    if (normalizedEndpoint.includes('localhost') || normalizedEndpoint.includes('127.0.0.1')) return true
+
+    return false
+}
+
 async function fetchTokenPrices(ids: string[]): Promise<Record<string, number>> {
     if (!ids.length) return {}
 
@@ -380,6 +339,7 @@ function WarRoomContent() {
     const searchParams = useSearchParams()
     const wallet = useWallet()
     const { connection } = useConnection()
+    const { cluster } = useCluster()
     const focusedProtocol = searchParams.get('protocol')?.trim().toLowerCase()
     const { data: solanaProtocols = [], isLoading: protocolsLoading } = useSolanaProtocols()
 
@@ -388,20 +348,15 @@ function WarRoomContent() {
     const [result, setResult] = useState<SimulationResult | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [beginnerMode, setBeginnerMode] = useState(true)
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
     const [importingWallet, setImportingWallet] = useState(false)
     const [importStatus, setImportStatus] = useState<string | null>(null)
-    const [portfolioSource, setPortfolioSource] = useState<'live' | 'wallet' | 'template' | 'custom'>('live')
+    const [portfolioSource, setPortfolioSource] = useState<'live' | 'wallet' | 'custom'>('custom')
 
     const livePositions = useMemo(
         () => buildPositionsForProtocol(solanaProtocols, focusedProtocol),
         [focusedProtocol, solanaProtocols]
     )
-    const portfolioTemplates = useMemo(
-        () => buildPortfolioTemplates(solanaProtocols, focusedProtocol),
-        [focusedProtocol, solanaProtocols]
-    )
+    // templates removed for simplicity
 
     const totalValue = useMemo(() => positions.reduce((acc, p) => acc + p.usdValue, 0), [positions])
     const selectedScenario = SCENARIOS[selectedScenarioIdx]
@@ -409,44 +364,15 @@ function WarRoomContent() {
         () => (result ? getTopRiskDrivers(result.riskBreakdown) : []),
         [result]
     )
+    const isTestNetworkWallet = isTestNetworkContext(cluster.network, cluster.endpoint)
 
     useEffect(() => {
         if (portfolioSource !== 'live' || livePositions.length === 0) return
         setPositions(livePositions)
-        setSelectedTemplateId(null)
         setResult(null)
     }, [livePositions, portfolioSource])
 
-    const comparativeChains = useMemo(() => {
-        return COMPARATIVE_CHAINS.map((chain) => {
-            const chainFocusBoost = focusedProtocol ? (chain.name === 'solana' ? 8 : chain.name === 'ethereum' ? 2 : 4) : 0
-            const spreadPenalty = selectedScenario.type === 'smart-contract-incident' ? chain.exploitSensitivity * 18 : 0
-            const bridgePenalty = chain.bridgeSensitivity * (selectedScenario.liquidityDropPct * 0.35 + selectedScenario.protocolExploitSeverity * 0.2)
-            const score = clamp(
-                chain.baseRisk +
-                selectedScenario.marketShockPct * chain.marketSensitivity +
-                selectedScenario.liquidityDropPct * chain.liquiditySensitivity +
-                selectedScenario.protocolExploitSeverity * chain.exploitSensitivity +
-                bridgePenalty +
-                chainFocusBoost +
-                spreadPenalty,
-                0,
-                100
-            )
-
-            return {
-                ...chain,
-                score,
-                postureLabel: getPostureLabel(score),
-                recommendation:
-                    score >= 70
-                        ? 'Keep position size light and hedge duration.'
-                        : score >= 48
-                            ? 'Monitor closely and prefer stable collateral.'
-                            : 'This chain is a viable deployment venue.'
-            }
-        }).sort((a, b) => a.score - b.score)
-    }, [focusedProtocol, selectedScenario])
+    // Comparative chain scoring removed for simplicity.
 
     async function runSimulation() {
         setLoading(true)
@@ -481,16 +407,7 @@ function WarRoomContent() {
         )
     }
 
-    function applyTemplate(templateId: string) {
-        const template = portfolioTemplates.find((item) => item.id === templateId)
-        if (!template) return
-        setPositions(template.positions)
-        setSelectedTemplateId(template.id)
-        setResult(null)
-        setError(null)
-        setPortfolioSource('template')
-        setImportStatus(`Loaded template: ${template.title}`)
-    }
+    // applyTemplate removed
 
     async function importFromWallet() {
         if (!wallet.publicKey) {
@@ -569,40 +486,21 @@ function WarRoomContent() {
             importedPositions.sort((a, b) => b.usdValue - a.usdValue)
 
             if (!importedPositions.length) {
-                const fallbackTemplate = portfolioTemplates[0]
-                if (fallbackTemplate) {
-                    setPositions(fallbackTemplate.positions)
-                    setSelectedTemplateId(fallbackTemplate.id)
-                    setPortfolioSource('template')
-                    setImportStatus(`No sizable balances detected, so we loaded the ${fallbackTemplate.title} live basket as fallback.`)
-                } else {
-                    setPositions(livePositions)
-                    setSelectedTemplateId(null)
-                    setPortfolioSource('live')
-                    setImportStatus('No sizable balances detected, so we loaded the live market basket as fallback.')
-                }
+                setPositions([])
+                setPortfolioSource('custom')
+                setImportStatus('No sizable balances detected. Connect a wallet or load a live market basket.')
                 return
             }
 
             const topPositions = importedPositions.slice(0, 8)
             setPositions(topPositions)
-            setSelectedTemplateId(null)
             setResult(null)
             setPortfolioSource('wallet')
             setImportStatus(`Imported ${topPositions.length} positions from wallet balances.`)
         } catch {
-            const fallbackTemplate = portfolioTemplates[0]
-            if (fallbackTemplate) {
-                setPositions(fallbackTemplate.positions)
-                setSelectedTemplateId(fallbackTemplate.id)
-                setPortfolioSource('template')
-                setError(`Wallet import failed, so we loaded the ${fallbackTemplate.title} live basket instead.`)
-            } else {
-                setPositions(livePositions)
-                setSelectedTemplateId(null)
-                setPortfolioSource('live')
-                setError('Wallet import failed, so we loaded the live market basket instead.')
-            }
+            setPositions([])
+            setPortfolioSource('custom')
+            setError('Wallet import failed. Connect wallet or load a live market basket.')
         } finally {
             setImportingWallet(false)
         }
@@ -617,19 +515,20 @@ function WarRoomContent() {
                     <p className="text-zinc-300 max-w-3xl">
                         Connect a wallet or use a template, pick a market shock, and get plain-English actions to reduce downside risk.
                     </p>
+                    <div className="rounded-md bg-yellow-900/10 border border-yellow-800/20 p-3 text-xs text-yellow-200">
+                        {UI_DISCLAIMER}
+                    </div>
+                    {isTestNetworkWallet && (
+                        <div className="rounded-md border border-amber-300/25 bg-amber-400/10 p-3 text-sm text-amber-100">
+                            You are connected to a test network. USD values in this page are estimates from market data, not real dollars in your wallet.
+                        </div>
+                    )}
                     <div className="flex flex-wrap items-center gap-3">
                         {focusedProtocol && (
                             <div className="inline-flex items-center gap-2 rounded-lg bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100">
                                 Focused Protocol: {focusedProtocol}
                             </div>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => setBeginnerMode((current) => !current)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-cyan-200/30 bg-cyan-100/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-cyan-100"
-                        >
-                            Beginner Mode: {beginnerMode ? 'On' : 'Off'}
-                        </button>
                     </div>
                 </header>
 
@@ -652,73 +551,66 @@ function WarRoomContent() {
                             <p className="mt-1 text-xs text-zinc-400">Use ranked actions to lower risk before real volatility appears.</p>
                         </div>
                     </div>
-                    <div className="mt-4 rounded-xl bg-zinc-900/65 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Quick glossary</p>
-                        <p className="mt-2 text-xs text-zinc-400">
-                            Drawdown = portfolio drop during stress. Liquidity = how easily you can exit. Forced close risk = probability of liquidation if collateral weakens.
-                        </p>
-                    </div>
-                    <div className="mt-3 rounded-xl bg-cyan-300/10 p-3 ring-1 ring-cyan-200/20">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100">Wallet import</p>
-                        <p className="mt-2 text-xs text-zinc-300">
-                            Connect a wallet, then click Import Wallet Balances to auto-fill SOL + largest token positions. If nothing is detected, the live market basket is loaded.
-                        </p>
-                    </div>
                 </section>
 
-                <section className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Comparative War-Room</p>
-                            <h2 className="text-lg font-bold">Chain-by-chain deployment view</h2>
-                        </div>
-                        <div className="rounded-full bg-zinc-950/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
-                            {focusedProtocol ? `Focused on ${focusedProtocol}` : 'Portfolio view'}
-                        </div>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                        {comparativeChains.map((chain) => (
-                            <div key={chain.name} className="rounded-2xl bg-zinc-950/60 p-4 ring-1 ring-white/5">
-                                <div className="flex items-start justify-between gap-2">
-                                    <div>
-                                        <p className="text-sm font-semibold text-white">{chain.label}</p>
-                                        <p className="text-xs text-zinc-500">Best deployment posture for this scenario</p>
-                                    </div>
-                                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${chain.postureLabel === 'Best' ? 'bg-emerald-500/15 text-emerald-200' : chain.postureLabel === 'Balanced' ? 'bg-amber-500/15 text-amber-200' : 'bg-rose-500/15 text-rose-200'}`}>
-                                        {chain.postureLabel}
-                                    </span>
-                                </div>
-
-                                <div className="mt-3 h-2 rounded-full bg-zinc-800">
-                                    <div className={`h-2 rounded-full ${chain.postureLabel === 'Best' ? 'bg-emerald-300' : chain.postureLabel === 'Balanced' ? 'bg-amber-300' : 'bg-rose-300'}`} style={{ width: `${chain.score}%` }} />
-                                </div>
-
-                                <p className="mt-3 text-xs text-zinc-400">
-                                    Risk score: <span className="font-semibold text-zinc-100">{chain.score.toFixed(0)}</span>
-                                </p>
-                                <p className="mt-2 text-xs text-zinc-400">{chain.recommendation}</p>
-                            </div>
-                        ))}
-                    </div>
-                </section>
+                {/* Comparative War-Room removed for a simpler UI */}
 
                 <section className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     <div className="lg:col-span-3 rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
                         <div className="flex items-center justify-between">
                             <h2 className="font-bold text-lg">Your Current Holdings</h2>
-                            <span className="text-xs text-zinc-400">Total: {formatCurrency(totalValue)}</span>
+                            <div className="flex items-center gap-3">
+                                {positions.length === 0 ? (
+                                    <span className="text-xs text-zinc-400">Total: —</span>
+                                ) : (
+                                    <span className="text-xs text-zinc-400">{isTestNetworkWallet ? 'Estimated total*: ' : 'Total: '}{formatCurrency(totalValue)}</span>
+                                )}
+                                {portfolioSource === 'live' && (
+                                    <span className="rounded-full bg-yellow-500/20 px-2 py-1 text-xs font-semibold text-yellow-300">
+                                        Sample data
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
                             <WalletButton />
                             <button
                                 type="button"
+                                aria-pressed={portfolioSource === 'wallet'}
                                 onClick={importFromWallet}
                                 disabled={!wallet.publicKey || importingWallet}
-                                className="inline-flex items-center gap-2 rounded-lg border border-cyan-200/30 bg-cyan-100/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                className={
+                                    `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide ` +
+                                    (portfolioSource === 'wallet'
+                                        ? 'border border-cyan-200/30 bg-cyan-100/10 text-cyan-100'
+                                        : 'border border-zinc-700/60 bg-zinc-900/70 text-zinc-300') +
+                                    (!wallet.publicKey || importingWallet ? ' disabled:cursor-not-allowed disabled:opacity-50' : '')
+                                }
                             >
                                 {importingWallet ? 'Importing...' : 'Import Wallet Balances'}
+                            </button>
+                            <button
+                                type="button"
+                                aria-pressed={portfolioSource === 'live'}
+                                onClick={() => {
+                                    if (!livePositions || livePositions.length === 0) {
+                                        setImportStatus('Live market data not available right now.')
+                                        return
+                                    }
+                                    const sample = createSampleBasket(livePositions)
+                                    setPositions(sample)
+                                    setPortfolioSource('live')
+                                    setImportStatus('Loaded live market basket (sample).')
+                                }}
+                                className={
+                                    `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide ` +
+                                    (portfolioSource === 'live'
+                                        ? 'border border-cyan-200/30 bg-cyan-100/10 text-cyan-100'
+                                        : 'border-zinc-700/60 bg-zinc-900/70 text-zinc-300 hover:border-zinc-500')
+                                }
+                            >
+                                Load Live Market Basket
                             </button>
                             {!wallet.publicKey && (
                                 <span className="text-xs text-zinc-400">Connect wallet to import live balances.</span>
@@ -728,30 +620,13 @@ function WarRoomContent() {
                         {importStatus && (
                             <p className="rounded-lg bg-zinc-900/70 px-3 py-2 text-xs text-zinc-300">{importStatus}</p>
                         )}
+                        {isTestNetworkWallet && (
+                            <p className="rounded-lg border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                                * Estimated values are for learning and simulation only on test networks.
+                            </p>
+                        )}
 
-                        <div className="space-y-2">
-                            <p className="text-xs uppercase tracking-wide text-zinc-400">Quick-start templates</p>
-                            {protocolsLoading && portfolioTemplates.length === 0 ? (
-                                <p className="text-xs text-zinc-400">Loading live market baskets...</p>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                    {portfolioTemplates.map((template) => (
-                                        <button
-                                            key={template.id}
-                                            type="button"
-                                            onClick={() => applyTemplate(template.id)}
-                                            className={`rounded-lg border px-3 py-2 text-left transition ${selectedTemplateId === template.id
-                                                ? 'border-cyan-200/60 bg-cyan-400/15 text-cyan-100'
-                                                : 'border-zinc-700/70 bg-zinc-900/70 text-zinc-300 hover:border-zinc-500'
-                                                }`}
-                                        >
-                                            <p className="text-sm font-semibold">{template.title}</p>
-                                            <p className="mt-1 text-xs text-zinc-400">{template.summary}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        {/* Templates removed for simplicity */}
 
                         <div className="space-y-3">
                             {positions.map((position) => (
@@ -760,11 +635,7 @@ function WarRoomContent() {
                                         <p className="font-semibold text-sm">{position.label}</p>
                                         <p className="text-xs text-zinc-400 uppercase tracking-wide">{position.protocol} • {position.kind}</p>
                                     </div>
-                                    <div className="md:col-span-2 text-xs text-zinc-400">
-                                        {beginnerMode
-                                            ? `Price swings: ${getVolatilityLabel(position.volatility)}`
-                                            : `Volatility ${position.volatility}%`}
-                                    </div>
+                                    <div className="md:col-span-2 text-xs text-zinc-400">Volatility {position.volatility}%</div>
                                     <div className="md:col-span-2">
                                         <input
                                             type="number"
@@ -793,14 +664,8 @@ function WarRoomContent() {
                                         : 'bg-zinc-900/70 text-zinc-300 hover:bg-zinc-800/80'
                                         }`}
                                 >
-                                    <p className="text-sm font-semibold">
-                                        {beginnerMode ? scenario.beginnerLabel : scenario.title}
-                                    </p>
-                                    <p className="text-xs text-zinc-400 mt-1">
-                                        {beginnerMode
-                                            ? scenario.beginnerSummary
-                                            : `Market -${scenario.marketShockPct}% • Liquidity -${scenario.liquidityDropPct}%`}
-                                    </p>
+                                    <p className="text-sm font-semibold">{scenario.title}</p>
+                                    <p className="text-xs text-zinc-400 mt-1">Market -{scenario.marketShockPct}% • Liquidity -{scenario.liquidityDropPct}%</p>
                                 </button>
                             ))}
                         </div>
@@ -889,24 +754,14 @@ function WarRoomContent() {
                                     <span className="font-semibold text-rose-300">{formatPercent(result.summary.liquidationProbabilityPct)}</span>
                                 </p>
 
-                                {beginnerMode ? (
-                                    <div className="pt-2 space-y-2 text-xs text-zinc-300">
-                                        <p className="font-semibold text-zinc-200">Top risk drivers</p>
-                                        {topDrivers.map((driver) => (
-                                            <p key={driver.key}>
-                                                {driver.key}: <span className={getRiskBand(driver.value).color}>{driver.value}</span>
-                                            </p>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="pt-2 space-y-2 text-xs text-zinc-400">
-                                        <p>Market risk: {result.riskBreakdown.marketRisk}</p>
-                                        <p>Liquidity risk: {result.riskBreakdown.liquidityRisk}</p>
-                                        <p>Concentration risk: {result.riskBreakdown.concentrationRisk}</p>
-                                        <p>Liquidation risk: {result.riskBreakdown.liquidationRisk}</p>
-                                        <p>Smart contract risk: {result.riskBreakdown.smartContractRisk}</p>
-                                    </div>
-                                )}
+                                <div className="pt-2 space-y-2 text-xs text-zinc-300">
+                                    <p className="font-semibold text-zinc-200">Top risk drivers</p>
+                                    {topDrivers.map((driver) => (
+                                        <p key={driver.key}>
+                                            {driver.key}: <span className={getRiskBand(driver.value).color}>{driver.value}</span>
+                                        </p>
+                                    ))}
+                                </div>
                             </div>
 
                             <div className="lg:col-span-3 rounded-2xl bg-zinc-900/60 p-5">

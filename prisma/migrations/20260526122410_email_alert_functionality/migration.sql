@@ -1,0 +1,3 @@
+-- Placeholder migration
+-- Original migration content missing; placeholder to satisfy Prisma.
+-- No schema changes in this placeholder.

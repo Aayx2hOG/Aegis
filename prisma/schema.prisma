@@ -112,3 +112,56 @@ model ProtocolSnapshot {
     @@index([protocolSlug, cluster, capturedAt])
     @@index([capturedAt])
 }
+
+enum NotificationChannelType {
+    DISCORD
+    WEBHOOK
+}
+
+enum NotificationStatus {
+    PENDING
+    SENT
+    FAILED
+}
+
+model NotificationChannel {
+    id            String                  @id @default(cuid())
+    walletAddress String
+    name          String?
+    type          NotificationChannelType
+    config        Json
+    enabled       Boolean                 @default(true)
+    createdAt     DateTime                @default(now())
+    updatedAt     DateTime                @updatedAt
+
+    logs NotificationLog[]
+
+    @@index([walletAddress])
+}
+
+model NotificationLog {
+    id        String             @id @default(cuid())
+    eventId   String
+    channelId String
+    status    NotificationStatus @default(PENDING)
+    error     String?
+    sentAt    DateTime?
+    createdAt DateTime           @default(now())
+
+    channel NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+    @@index([eventId])
+    @@index([channelId])
+}
+
+model TestArtifact {
+    id            String   @id @default(cuid())
+    ruleId        String
+    eventId       String
+    walletAddress String
+    protocolSlug  String
+    createdAt     DateTime @default(now())
+
+    @@index([createdAt])
+    @@index([walletAddress])
+}

@@ -15,7 +15,7 @@ import { useMultiChainWatchlistByChain } from '@/hooks/use-multichain-watchlist'
 import { fetchJson } from '@/lib/api/fetch-json'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import MiniMetric from '@/components/ui/mini-metric'
-import { ChainType } from '@/lib/chain/types'
+import { ChainEnvironment, ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/shared/types/protocol'
 import { toast } from 'sonner'
 
@@ -334,6 +334,10 @@ function formatSignedPct(value: number) {
 
 function makeAnchorId(value: string) {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+function isTestNetwork(environment: ChainEnvironment) {
+    return environment !== ChainEnvironment.Mainnet
 }
 
 function loadAnomalySnapshot(storageKey: string): AnomalySnapshot | null {
@@ -1249,6 +1253,7 @@ export default function WatchlistPage() {
     )
 
     const compactWatchlistLayout = chainViews.length <= 1
+    const hasTestNetworkData = chainViews.some(({ chain }) => isTestNetwork(chain.environment))
 
     return (
         <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
@@ -1286,6 +1291,11 @@ export default function WatchlistPage() {
                             <StatPill label="Flags" value={String(riskyProtocols)} tone={riskyProtocols > 0 ? 'text-rose-200' : 'text-emerald-200'} />
                         </div>
                     </div>
+                    {hasTestNetworkData && (
+                        <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                            You are viewing a test network. USD numbers here are learning estimates based on market feeds, not real money in your wallet.
+                        </div>
+                    )}
                 </header>
                 <section id="live-basket" className="scroll-mt-24 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                     <Card className="border-cyan-300/10 bg-zinc-950/55 shadow-2xl shadow-cyan-950/15 backdrop-blur-xl">
@@ -1388,6 +1398,9 @@ export default function WatchlistPage() {
                                     <div className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ring-1 ${CHAIN_TONES[chain.type]}`}>{CHAIN_LABELS[chain.type]}</div>
                                     <h2 className="mt-3 text-2xl font-black text-white">{chain.displayName}</h2>
                                     <p className="mt-1 text-sm text-zinc-400">{slugs.length} tracked protocol{slugs.length === 1 ? '' : 's'}</p>
+                                    {isTestNetwork(chain.environment) && (
+                                        <p className="mt-2 text-xs text-amber-200/90">Test network: USD values are estimates for practice only.</p>
+                                    )}
                                 </div>
                                 <div className="rounded-xl bg-zinc-950/70 px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
                                     {riskyCount} flagged
@@ -1413,7 +1426,7 @@ export default function WatchlistPage() {
                                                 </div>
 
                                                 <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
-                                                    <MiniMetric label="Price" value={formatUsd(priceUsd)} tone={(priceChange24h ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                                                    <MiniMetric label={isTestNetwork(chain.environment) ? 'Est. Price*' : 'Price'} value={formatUsd(priceUsd)} tone={(priceChange24h ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
                                                     <MiniMetric label="TVL" value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'} />
                                                     <MiniMetric label="24h" value={formatPct(market?.change_1d)} tone={(market?.change_1d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
                                                     <MiniMetric label="7d" value={formatPct(market?.change_7d)} tone={(market?.change_7d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
