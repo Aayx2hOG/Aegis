@@ -28,8 +28,8 @@ export default function NotificationsSettingsPage() {
                     </p>
                 </header>
 
-                <section className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-cyan-950/20 backdrop-blur-sm md:col-span-2">
+                <section className="grid gap-4 lg:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-cyan-950/20 backdrop-blur-sm lg:col-span-2">
                         <div className="flex items-center gap-2 text-sm font-semibold text-cyan-200">
                             <ShieldAlert className="h-4 w-4" />
                             Delivery controls

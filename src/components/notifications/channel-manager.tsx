@@ -141,9 +141,9 @@ export default function ChannelManager() {
                 <CardContent>
                     <div className="mb-4 text-sm text-zinc-400">Manage where alert summaries are delivered for your wallet identity.</div>
 
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 lg:grid-cols-3">
                         <Input placeholder="Channel name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-                        <select className="h-9 rounded-md border px-3" value={type} onChange={(e) => setType(e.target.value as any)}>
+                        <select className="h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100" value={type} onChange={(e) => setType(e.target.value as any)}>
                             <option value="DISCORD">Discord webhook</option>
                             <option value="WEBHOOK">Generic webhook</option>
                         </select>
@@ -156,8 +156,8 @@ export default function ChannelManager() {
 
                     <div className="mt-6 border-t pt-4">
                         <p className="mb-2 text-sm text-zinc-400">End-to-end test: generate an AI summary for a protocol and deliver notifications to your configured channels.</p>
-                        <div className="flex gap-2">
-                            <Input placeholder="protocol slug (e.g. serum)" value={testProtocol} onChange={(e) => setTestProtocol(e.target.value)} />
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <Input className="min-w-0" placeholder="protocol slug (e.g. serum)" value={testProtocol} onChange={(e) => setTestProtocol(e.target.value)} />
                             <Button onClick={async () => {
                                 if (!walletAddress) { toast.error('Wallet identity not ready'); return }
                                 if (!testProtocol) { toast.error('Enter a protocol slug'); return }
@@ -203,13 +203,13 @@ export default function ChannelManager() {
                     ) : (
                         <div className="space-y-3">
                             {channels.map((ch) => (
-                                <div key={ch.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
-                                    <div>
+                                <div key={ch.id} className="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+                                    <div className="min-w-0 flex-1">
                                         <div className="font-semibold">{ch.name ?? ch.type}</div>
                                         <div className="text-xs text-zinc-500">{ch.type} • {ch.enabled ? 'enabled' : 'disabled'}</div>
-                                        <div className="text-xs text-zinc-400 mt-1 truncate max-w-xl">{String((ch.config as any)?.url ?? '')}</div>
+                                        <div className="mt-1 break-all text-xs text-zinc-400 md:truncate md:max-w-xl">{String((ch.config as any)?.url ?? '')}</div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap gap-2 md:justify-end">
                                         <Button variant="outline" onClick={() => testSend(ch.id)}>Test</Button>
                                         <Button variant="ghost" onClick={() => toggleEnabled(ch.id, ch.enabled)}>{ch.enabled ? 'Disable' : 'Enable'}</Button>
                                         <Button variant="destructive" onClick={() => deleteChannel(ch.id)}>Delete</Button>

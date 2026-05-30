@@ -14,6 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     try {
         const channel = await prisma.notificationChannel.findUnique({ where: { id } })
         if (!channel) return Response.json({ error: 'Channel not found' }, { status: 404 })
+        if (!channel.enabled) return Response.json({ error: 'Channel is disabled' }, { status: 409 })
 
         const message = body?.message ?? `Test notification from Aegis: ${new Date().toISOString()}`
         const cfg = channel.config as Record<string, unknown>
