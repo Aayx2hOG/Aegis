@@ -1,8 +1,7 @@
 import Redis from 'ioredis'
 import { Worker } from 'bullmq'
 import { prisma } from '@/server/db/prisma'
-import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
-import { sendGenericWebhook } from '@/server/notifications/adapters/webhook'
+import deliverNotificationsForEvent from '@/server/notifications/delivery'
 
 const redisUrl = process.env.REDIS_URL
 if (!redisUrl) {
@@ -23,33 +22,9 @@ const worker = new Worker(
         const { eventId } = job.data as { eventId: string }
         console.log('[notification-worker] processing', eventId)
 
-        const event = await prisma!.alertEvent.findUnique({ where: { id: eventId } })
-        if (!event) throw new Error('Alert event not found')
-
-        const channels = await prisma!.notificationChannel.findMany({ where: { walletAddress: event.walletAddress, enabled: true } })
-
-        for (const ch of channels) {
-            const log = await prisma!.notificationLog.create({ data: { eventId: event.id, channelId: ch.id, status: 'PENDING' } })
-            try {
-                const cfg = ch.config as Record<string, any>
-                if (ch.type === 'DISCORD') {
-                    const url = String(cfg.url ?? '')
-                    if (!url) throw new Error('Missing Discord webhook URL in channel config')
-                    await sendDiscordWebhook(url, event.summary ?? `Alert: ${event.protocolSlug}`)
-                } else {
-                    const url = String(cfg.url ?? '')
-                    if (!url) throw new Error('Missing webhook URL in channel config')
-                    await sendGenericWebhook(url, { eventId: event.id, protocol: event.protocolSlug, summary: event.summary ?? null })
-                }
-
-                await prisma!.notificationLog.update({ where: { id: log.id }, data: { status: 'SENT', sentAt: new Date() } })
-            } catch (err) {
-                const message = err instanceof Error ? err.message : String(err)
-                console.error('[notification-worker] failed to send notification', message)
-                await prisma!.notificationLog.update({ where: { id: log.id }, data: { status: 'FAILED', error: message } })
-                throw err
-            }
-        }
+        const concurrency = Number(process.env.NOTIFICATION_DELIVERY_CONCURRENCY ?? '5')
+        // Use the shared delivery helper; it will log per-channel failures and continue.
+        await deliverNotificationsForEvent(eventId, concurrency)
     },
     { connection, concurrency: 5 }
 )

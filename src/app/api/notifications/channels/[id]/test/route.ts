@@ -4,10 +4,11 @@ import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
 import { sendGenericWebhook } from '@/server/notifications/adapters/webhook'
 
-export async function POST(req: NextRequest, { params }: { params: any }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     if (!prisma) return Response.json({ error: 'Database not configured.' }, { status: 503 })
 
-    const id = params.id
+    const { id } = await params
+    if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
     const body = (await req.json()) as Partial<{ message?: string }>
 
     try {

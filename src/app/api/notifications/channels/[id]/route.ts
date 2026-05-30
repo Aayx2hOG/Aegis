@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 
-export async function GET(req: NextRequest, { params }: { params: any }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     if (!prisma) return Response.json({ error: 'Database not configured.' }, { status: 503 })
 
-    const id = params.id
+    const { id } = await params
+    if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
     try {
         const channel = await prisma.notificationChannel.findUnique({ where: { id } })
         if (!channel) return Response.json({ error: 'Channel not found' }, { status: 404 })
@@ -17,10 +18,11 @@ export async function GET(req: NextRequest, { params }: { params: any }) {
     }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: any }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     if (!prisma) return Response.json({ error: 'Database not configured.' }, { status: 503 })
 
-    const id = params.id
+    const { id } = await params
+    if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
     const body = (await req.json()) as Partial<{ name?: string; config?: unknown; enabled?: boolean }>
 
     try {
@@ -33,10 +35,11 @@ export async function PATCH(req: NextRequest, { params }: { params: any }) {
     }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: any }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     if (!prisma) return Response.json({ error: 'Database not configured.' }, { status: 503 })
 
-    const id = params.id
+    const { id } = await params
+    if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
     try {
         await prisma.notificationChannel.delete({ where: { id } })
         return new Response(null, { status: 204 })

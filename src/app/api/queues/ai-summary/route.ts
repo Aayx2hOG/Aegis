@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
-import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
-import { sendGenericWebhook } from '@/server/notifications/adapters/webhook'
+import deliverNotificationsForEvent from '@/server/notifications/delivery'
 
 const WEBHOOK_SECRET = process.env.UPSTASH_WEBHOOK_SECRET
 
@@ -61,27 +60,11 @@ export async function POST(req: NextRequest) {
                     console.error('[ai-summary-webhook] failed to enqueue notification message', err)
                 }
             } else {
-                // Fallback: deliver notifications immediately in-process
-                const channels = await prisma.notificationChannel.findMany({ where: { walletAddress: existing.walletAddress, enabled: true } })
-                for (const ch of channels) {
-                    const log = await prisma.notificationLog.create({ data: { eventId, channelId: ch.id, status: 'PENDING' } })
-                    try {
-                        const cfg = ch.config as Record<string, any>
-                        if (ch.type === 'DISCORD') {
-                            const url = String(cfg.url ?? '')
-                            if (!url) throw new Error('Missing Discord webhook URL in channel config')
-                            await sendDiscordWebhook(url, summary ?? `Alert: ${existing.protocolSlug}`)
-                        } else {
-                            const url = String(cfg.url ?? '')
-                            if (!url) throw new Error('Missing webhook URL in channel config')
-                            await sendGenericWebhook(url, { eventId: existing.id, protocol: existing.protocolSlug, summary })
-                        }
-                        await prisma.notificationLog.update({ where: { id: log.id }, data: { status: 'SENT', sentAt: new Date() } })
-                    } catch (err) {
-                        const message = err instanceof Error ? err.message : String(err)
-                        console.error('[ai-summary-webhook] notification failed', message)
-                        await prisma.notificationLog.update({ where: { id: log.id }, data: { status: 'FAILED', error: message } })
-                    }
+                // Fallback: deliver notifications immediately in-process (use shared helper)
+                try {
+                    await deliverNotificationsForEvent(eventId)
+                } catch (err) {
+                    console.error('[ai-summary-webhook] fallback notification delivery failed', err)
                 }
             }
         } catch (err) {

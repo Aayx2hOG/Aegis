@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
-import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
-import { sendGenericWebhook } from '@/server/notifications/adapters/webhook'
+import deliverNotificationsForEvent from '@/server/notifications/delivery'
 
 const WEBHOOK_SECRET = process.env.UPSTASH_WEBHOOK_SECRET
 
@@ -27,30 +26,8 @@ export async function POST(req: NextRequest) {
         if (!eventId) continue
 
         try {
-            const event = await prisma.alertEvent.findUnique({ where: { id: eventId } })
-            if (!event) continue
-
-            const channels = await prisma.notificationChannel.findMany({ where: { walletAddress: event.walletAddress, enabled: true } })
-            for (const ch of channels) {
-                const log = await prisma.notificationLog.create({ data: { eventId, channelId: ch.id, status: 'PENDING' } })
-                try {
-                    const cfg = ch.config as Record<string, any>
-                    if (ch.type === 'DISCORD') {
-                        const url = String(cfg.url ?? '')
-                        if (!url) throw new Error('Missing Discord webhook URL in channel config')
-                        await sendDiscordWebhook(url, event.summary ?? `Alert: ${event.protocolSlug}`)
-                    } else {
-                        const url = String(cfg.url ?? '')
-                        if (!url) throw new Error('Missing webhook URL in channel config')
-                        await sendGenericWebhook(url, { eventId: event.id, protocol: event.protocolSlug, summary: event.summary ?? null })
-                    }
-                    await prisma.notificationLog.update({ where: { id: log.id }, data: { status: 'SENT', sentAt: new Date() } })
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err)
-                    console.error('[notifications-webhook] delivery failed', message)
-                    await prisma.notificationLog.update({ where: { id: log.id }, data: { status: 'FAILED', error: message } })
-                }
-            }
+            // Delegate delivery to shared helper which handles per-channel logging and concurrency
+            await deliverNotificationsForEvent(eventId)
         } catch (err) {
             console.error('[notifications-webhook] processing message failed', err)
         }
