@@ -39,7 +39,7 @@ export async function deliverNotificationsForEvent(eventId: string, concurrency 
     let failed = 0
     const failures: Array<{ channelId: string; error: string }> = []
     const targetKeys = new Set<string>()
-    const deliverableChannels: Array<{ channel: (typeof channels)[number]; url: string }> = []
+    const deliverableChannels: Array<{ channel: (typeof channels)[number]; cfg: ReturnType<typeof normalizeNotificationConfig> }> = []
 
     for (const channel of channels) {
         try {
@@ -48,7 +48,7 @@ export async function deliverNotificationsForEvent(eventId: string, concurrency 
             if (targetKeys.has(targetKey)) continue
 
             targetKeys.add(targetKey)
-            deliverableChannels.push({ channel, url: cfg.url })
+            deliverableChannels.push({ channel, cfg })
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err)
             const log = await db.notificationLog.upsert({
@@ -66,7 +66,7 @@ export async function deliverNotificationsForEvent(eventId: string, concurrency 
     for (let i = 0; i < deliverableChannels.length; i += concurrency) {
         const batch = deliverableChannels.slice(i, i + concurrency)
         await Promise.all(
-            batch.map(async ({ channel: ch, url }) => {
+            batch.map(async ({ channel: ch, cfg }) => {
                 let log: Awaited<ReturnType<typeof db.notificationLog.create>>
 
                 try {
@@ -87,9 +87,9 @@ export async function deliverNotificationsForEvent(eventId: string, concurrency 
 
                 try {
                     if (ch.type === 'DISCORD') {
-                        await sendDiscordWebhook(url, event.summary ?? `Alert: ${event.protocolSlug}`)
+                        await sendDiscordWebhook(cfg.url, event.summary ?? `Alert: ${event.protocolSlug}`)
                     } else {
-                        await sendGenericWebhook(url, {
+                        await sendGenericWebhook(cfg, {
                             eventId: event.id,
                             protocol: event.protocolSlug,
                             metric: event.metric,

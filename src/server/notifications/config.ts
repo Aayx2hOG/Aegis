@@ -2,8 +2,12 @@ import net from 'node:net'
 
 import { NotificationChannelType } from '@prisma/client'
 
-type ChannelConfig = {
+export type ChannelConfig = {
     url: string
+    method?: string
+    headers?: Record<string, string>
+    secret?: string
+    signatureHeader?: string
 }
 
 const BLOCKED_HOSTS = new Set(['localhost', '0.0.0.0'])
@@ -70,8 +74,39 @@ export function validateNotificationUrl(rawUrl: unknown, type: NotificationChann
 
 export function normalizeNotificationConfig(config: unknown, type: NotificationChannelType): ChannelConfig {
     const candidate = config && typeof config === 'object' ? (config as Record<string, unknown>) : {}
-    return {
-        url: validateNotificationUrl(candidate.url, type),
+
+    const url = validateNotificationUrl(candidate.url, type)
+
+    let method: string | undefined
+    if (candidate.method != null) {
+        if (typeof candidate.method !== 'string') throw new Error('Invalid HTTP method')
+        method = candidate.method.toUpperCase()
+        const allowed = new Set(['POST', 'PUT', 'PATCH'])
+        if (!allowed.has(method)) throw new Error('Unsupported HTTP method')
     }
+
+    let headers: Record<string, string> | undefined
+    if (candidate.headers != null) {
+        if (typeof candidate.headers !== 'object' || Array.isArray(candidate.headers)) throw new Error('Invalid headers')
+        headers = {}
+        for (const [k, v] of Object.entries(candidate.headers as Record<string, unknown>)) {
+            if (typeof v !== 'string') throw new Error('Header values must be strings')
+            headers[k] = v
+        }
+    }
+
+    let secret: string | undefined
+    if (candidate.secret != null) {
+        if (typeof candidate.secret !== 'string' || candidate.secret.length === 0) throw new Error('Invalid secret')
+        secret = candidate.secret
+    }
+
+    let signatureHeader: string | undefined
+    if (candidate.signatureHeader != null) {
+        if (typeof candidate.signatureHeader !== 'string' || candidate.signatureHeader.trim().length === 0) throw new Error('Invalid signatureHeader')
+        signatureHeader = candidate.signatureHeader.trim()
+    }
+
+    return { url, method, headers, secret, signatureHeader }
 }
 

@@ -53,6 +53,10 @@ export default function ChannelManager() {
     const [name, setName] = useState('')
     const [type, setType] = useState<'DISCORD' | 'WEBHOOK'>('DISCORD')
     const [url, setUrl] = useState('')
+    const [method, setMethod] = useState<'POST' | 'PUT' | 'PATCH'>('POST')
+    const [headersJson, setHeadersJson] = useState('')
+    const [secret, setSecret] = useState('')
+    const [signatureHeader, setSignatureHeader] = useState('x-aegis-signature')
     const [testProtocol, setTestProtocol] = useState('')
     const [testChannelId, setTestChannelId] = useState('')
     const [testing, setTesting] = useState(false)
@@ -97,10 +101,26 @@ export default function ChannelManager() {
         }
 
         try {
+            let headers: Record<string, string> | undefined
+            if (type === 'WEBHOOK' && headersJson.trim()) {
+                try {
+                    const parsed = JSON.parse(headersJson)
+                    if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Headers must be an object')
+                    headers = {}
+                    for (const [k, v] of Object.entries(parsed)) {
+                        if (typeof v !== 'string') throw new Error('Header values must be strings')
+                        headers[k] = v
+                    }
+                } catch (err) {
+                    toast.error((err instanceof Error) ? err.message : 'Invalid headers JSON')
+                    return
+                }
+            }
+
             const res = await fetch('/api/notifications/channels', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ walletAddress, type, name: name || undefined, config: { url } }),
+                body: JSON.stringify({ walletAddress, type, name: name || undefined, config: { url, method: type === 'WEBHOOK' ? method : undefined, headers: type === 'WEBHOOK' ? headers : undefined, secret: type === 'WEBHOOK' ? (secret || undefined) : undefined, signatureHeader: type === 'WEBHOOK' ? (signatureHeader || undefined) : undefined } }),
             })
 
             const body = await res.json()
@@ -108,6 +128,10 @@ export default function ChannelManager() {
             toast.success('Channel created')
             setName('')
             setUrl('')
+            setHeadersJson('')
+            setMethod('POST')
+            setSecret('')
+            setSignatureHeader('x-aegis-signature')
             await loadChannels()
         } catch (err) {
             console.error(err)
@@ -171,6 +195,60 @@ export default function ChannelManager() {
         }
     }
 
+    async function editChannel(id: string) {
+        if (!walletAddress) { toast.error('Wallet identity not ready'); return }
+        const ch = channels.find((c) => c.id === id)
+        if (!ch) { toast.error('Channel not found'); return }
+
+        const newUrl = prompt('Webhook URL', String(ch.config?.url ?? ''))
+        if (newUrl == null) return
+
+        let newMethod: string | undefined
+        let newHeadersJson: string | undefined
+        let newSecret: string | undefined
+        let newSignatureHeader: string | undefined
+
+        if (ch.type === 'WEBHOOK') {
+            newMethod = prompt('HTTP method (POST/PUT/PATCH)', String(ch.config?.method ?? 'POST')) ?? undefined
+            newHeadersJson = prompt('Headers JSON (e.g. {"Authorization":"Bearer x"})', JSON.stringify(ch.config?.headers ?? {})) ?? undefined
+            newSecret = prompt('Secret (leave blank to unset)', String(ch.config?.secret ?? '')) ?? undefined
+            newSignatureHeader = prompt('Signature header (leave blank for default)', String(ch.config?.signatureHeader ?? 'x-aegis-signature')) ?? undefined
+        }
+
+        let parsedHeaders: Record<string, string> | undefined
+        if (newHeadersJson && newHeadersJson.trim()) {
+            try {
+                const parsed = JSON.parse(newHeadersJson)
+                if (typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Headers must be an object')
+                parsedHeaders = {}
+                for (const [k, v] of Object.entries(parsed)) {
+                    if (typeof v !== 'string') throw new Error('Header values must be strings')
+                    parsedHeaders[k] = v
+                }
+            } catch (err) {
+                toast.error((err instanceof Error) ? err.message : 'Invalid headers JSON')
+                return
+            }
+        }
+
+        try {
+            const res = await fetch(`/api/notifications/channels/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ walletAddress, config: { url: newUrl, method: newMethod, headers: parsedHeaders, secret: newSecret || undefined, signatureHeader: newSignatureHeader || undefined } }),
+            })
+            if (!res.ok) {
+                const body = await res.json().catch(() => null)
+                throw new Error(body?.error ?? 'Update failed')
+            }
+            toast.success('Channel updated')
+            await loadChannels()
+        } catch (err) {
+            console.error(err)
+            toast.error((err instanceof Error) ? err.message : 'Failed to update channel')
+        }
+    }
+
     return (
         <div className="space-y-6">
             <Card>
@@ -190,6 +268,26 @@ export default function ChannelManager() {
                         </select>
                         <Input placeholder="Webhook URL" value={url} onChange={(e) => setUrl(e.target.value)} />
                     </div>
+
+                    {type === 'WEBHOOK' && (
+                        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                            <select className="h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100" value={method} onChange={(e) => setMethod(e.target.value as any)}>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                                <option value="PATCH">PATCH</option>
+                            </select>
+                            <Input placeholder='Headers JSON (e.g. {"Authorization":"Bearer x"})' value={headersJson} onChange={(e) => setHeadersJson(e.target.value)} />
+                            <div />
+                        </div>
+                    )}
+
+                    {type === 'WEBHOOK' && (
+                        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                            <Input placeholder="Secret (optional)" value={secret} onChange={(e) => setSecret(e.target.value)} />
+                            <Input placeholder="Signature header (optional)" value={signatureHeader} onChange={(e) => setSignatureHeader(e.target.value)} />
+                            <div />
+                        </div>
+                    )}
 
                     <div className="mt-3">
                         <Button onClick={createChannel}>Create channel</Button>
@@ -263,6 +361,7 @@ export default function ChannelManager() {
                                     </div>
                                     <div className="flex flex-wrap gap-2 md:justify-end">
                                         <Button variant="outline" onClick={() => testSend(ch.id)}>Test</Button>
+                                        <Button variant="outline" onClick={() => editChannel(ch.id)}>Edit</Button>
                                         <Button variant="ghost" onClick={() => toggleEnabled(ch.id, ch.enabled)}>{ch.enabled ? 'Disable' : 'Enable'}</Button>
                                         <Button variant="destructive" onClick={() => deleteChannel(ch.id)}>Delete</Button>
                                     </div>

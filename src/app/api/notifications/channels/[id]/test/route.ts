@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (channel.type === 'DISCORD') {
             await sendDiscordWebhook(cfg.url, message)
         } else {
-            await sendGenericWebhook(cfg.url, { test: true, message })
+            await sendGenericWebhook(cfg, { test: true, message })
         }
 
         const log = await prisma.notificationLog.create({ data: { eventId: `test-${Date.now()}`, channelId: channel.id, status: 'SENT', sentAt: new Date() } })
