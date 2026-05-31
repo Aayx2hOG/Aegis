@@ -25,7 +25,12 @@ pub mod basic {
         watchlist.authority = ctx.accounts.authority.key();
         watchlist.slugs = Vec::new();
         watchlist.bump = ctx.bumps.watchlist;
+        let ts = Clock::get()?.unix_timestamp;
         msg!("Watchlist initialized for {}", watchlist.authority);
+        emit!(InitializeEvent {
+            authority: watchlist.authority,
+            ts
+        });
         Ok(())
     }
 
@@ -44,7 +49,13 @@ pub mod basic {
         );
 
         watchlist.slugs.push(slug.clone());
+        let ts = Clock::get()?.unix_timestamp;
         msg!("Added {} to watchlist", slug);
+        emit!(AddProtocolEvent {
+            authority: watchlist.authority,
+            slug: slug.clone(),
+            ts
+        });
         Ok(())
     }
 
@@ -54,9 +65,37 @@ pub mod basic {
         let before = watchlist.slugs.len();
         watchlist.slugs.retain(|s| s != &slug);
         require!(watchlist.slugs.len() < before, WatchlistError::NotFound);
+        let ts = Clock::get()?.unix_timestamp;
         msg!("Removed {} from watchlist", slug);
+        emit!(RemoveProtocolEvent {
+            authority: watchlist.authority,
+            slug,
+            ts
+        });
         Ok(())
     }
+}
+
+// Events
+
+#[event]
+pub struct InitializeEvent {
+    pub authority: Pubkey,
+    pub ts: i64,
+}
+
+#[event]
+pub struct AddProtocolEvent {
+    pub authority: Pubkey,
+    pub slug: String,
+    pub ts: i64,
+}
+
+#[event]
+pub struct RemoveProtocolEvent {
+    pub authority: Pubkey,
+    pub slug: String,
+    pub ts: i64,
 }
 
 // Accounts
@@ -89,7 +128,7 @@ pub struct AddProtocol<'info> {
         has_one = authority,  // ensures only owner can modify
         realloc = Watchlist::space_after_add(&watchlist.slugs, &slug),
         realloc::payer = authority,
-        realloc::zero = false,
+        realloc::zero = true,
     )]
     pub watchlist: Account<'info, Watchlist>,
 
