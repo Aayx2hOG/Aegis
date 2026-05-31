@@ -16,6 +16,11 @@ enum AlertDirection {
     ABOVE
 }
 
+enum AlertRuleSource {
+    APP
+    TEST
+}
+
 enum ClusterName {
     DEVNET
     TESTNET
@@ -36,16 +41,17 @@ model ResearchRun {
 }
 
 model AlertRule {
-    id              String         @id @default(cuid())
+    id              String          @id @default(cuid())
     walletAddress   String
     protocolSlug    String
     metric          AlertMetric
     threshold       Float
     direction       AlertDirection
-    enabled         Boolean        @default(true)
+    enabled         Boolean         @default(true)
+    source          AlertRuleSource @default(APP)
     lastTriggeredAt DateTime?
-    createdAt       DateTime       @default(now())
-    updatedAt       DateTime       @updatedAt
+    createdAt       DateTime        @default(now())
+    updatedAt       DateTime        @updatedAt
     events          AlertEvent[]
 
     @@index([walletAddress, enabled])

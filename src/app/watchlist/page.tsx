@@ -1093,7 +1093,7 @@ export default function WatchlistPage() {
             const res = await fetch(`/api/alerts/rules/${rule.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled: !rule.enabled }),
+                body: JSON.stringify({ walletAddress: alertWalletAddress, enabled: !rule.enabled }),
             })
 
             const body = (await res.json().catch(() => null)) as { error?: string } | null
@@ -1125,7 +1125,11 @@ export default function WatchlistPage() {
                 return
             }
 
-            const res = await fetch(`/api/alerts/rules/${rule.id}`, { method: 'DELETE' })
+            if (!alertWalletAddress) {
+                throw new Error('Wallet address is required to delete an alert.')
+            }
+
+            const res = await fetch(`/api/alerts/rules/${rule.id}?walletAddress=${encodeURIComponent(alertWalletAddress)}`, { method: 'DELETE' })
 
             if (!res.ok && res.status !== 204) {
                 const body = (await res.json().catch(() => null)) as { error?: string } | null

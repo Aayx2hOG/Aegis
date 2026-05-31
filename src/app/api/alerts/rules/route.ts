@@ -25,9 +25,12 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        const testArtifacts = await prisma.testArtifact.findMany({ select: { ruleId: true } })
+        const testRuleIds = testArtifacts.map((artifact) => artifact.ruleId)
+
         const [rules, recentEvents] = await Promise.all([
             prisma.alertRule.findMany({
-                where: { walletAddress },
+                where: { walletAddress, source: 'APP', ...(testRuleIds.length > 0 ? { id: { notIn: testRuleIds } } : {}) },
                 orderBy: { createdAt: 'desc' },
             }),
             prisma.alertEvent.findMany({
@@ -85,6 +88,7 @@ export async function POST(req: NextRequest) {
             threshold,
             direction: body.direction,
             enabled: true,
+            source: 'APP',
         },
     });
 
