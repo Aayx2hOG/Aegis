@@ -1,15 +1,27 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
+import { normalizeNotificationConfig } from '@/server/notifications/config'
+
+function getWalletAddress(req: NextRequest) {
+    return new URL(req.url).searchParams.get('walletAddress')?.trim()
+}
+
+function forbiddenChannelResponse() {
+    return Response.json({ error: 'Channel not found' }, { status: 404 })
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     if (!prisma) return Response.json({ error: 'Database not configured.' }, { status: 503 })
 
     const { id } = await params
     if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
+    const walletAddress = getWalletAddress(req)
+    if (!walletAddress) return Response.json({ error: 'walletAddress is required' }, { status: 400 })
     try {
         const channel = await prisma.notificationChannel.findUnique({ where: { id } })
         if (!channel) return Response.json({ error: 'Channel not found' }, { status: 404 })
+        if (channel.walletAddress !== walletAddress) return forbiddenChannelResponse()
         return Response.json({ channel })
     } catch (err) {
         const setupError = getDatabaseSetupErrorMessage(err)
@@ -23,10 +35,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { id } = await params
     if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
-    const body = (await req.json()) as Partial<{ name?: string; config?: unknown; enabled?: boolean }>
+    const body = (await req.json()) as Partial<{ walletAddress: string; name?: string; config?: unknown; enabled?: boolean }>
+    if (!body.walletAddress?.trim()) return Response.json({ error: 'walletAddress is required' }, { status: 400 })
 
     try {
-        const updated = await prisma.notificationChannel.update({ where: { id }, data: { name: body.name ?? undefined, config: body.config as any ?? undefined, enabled: body.enabled ?? undefined } })
+        const channel = await prisma.notificationChannel.findUnique({ where: { id } })
+        if (!channel) return Response.json({ error: 'Channel not found' }, { status: 404 })
+        if (channel.walletAddress !== body.walletAddress.trim()) return forbiddenChannelResponse()
+
+        let config: ReturnType<typeof normalizeNotificationConfig> | undefined
+        try {
+            config = body.config == null ? undefined : normalizeNotificationConfig(body.config, channel.type)
+        } catch (err) {
+            return Response.json({ error: err instanceof Error ? err.message : 'Invalid channel config' }, { status: 400 })
+        }
+
+        const updated = await prisma.notificationChannel.update({ where: { id }, data: { name: body.name ?? undefined, config, enabled: body.enabled ?? undefined } })
         return Response.json({ channel: updated })
     } catch (err) {
         const setupError = getDatabaseSetupErrorMessage(err)
@@ -40,7 +64,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const { id } = await params
     if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
+    const walletAddress = getWalletAddress(req)
+    if (!walletAddress) return Response.json({ error: 'walletAddress is required' }, { status: 400 })
     try {
+        const channel = await prisma.notificationChannel.findUnique({ where: { id } })
+        if (!channel) return Response.json({ error: 'Channel not found' }, { status: 404 })
+        if (channel.walletAddress !== walletAddress) return forbiddenChannelResponse()
         await prisma.notificationChannel.delete({ where: { id } })
         return new Response(null, { status: 204 })
     } catch (err) {

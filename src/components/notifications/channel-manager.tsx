@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -27,6 +27,22 @@ function getGuestWallet() {
     return val
 }
 
+function maskWebhookUrl(rawUrl: unknown) {
+    if (typeof rawUrl !== 'string' || rawUrl.length === 0) return 'URL not configured'
+
+    try {
+        const parsed = new URL(rawUrl)
+        const tail = parsed.pathname.split('/').filter(Boolean).at(-1)?.slice(-4)
+        return `${parsed.origin}/...${tail ? tail : ''}`
+    } catch {
+        return 'Configured URL'
+    }
+}
+
+function isChannelType(value: string): value is Channel['type'] {
+    return value === 'DISCORD' || value === 'WEBHOOK'
+}
+
 export default function ChannelManager() {
     const wallet = useWallet()
     const [walletAddress, setWalletAddress] = useState<string | null>(null)
@@ -38,19 +54,16 @@ export default function ChannelManager() {
     const [type, setType] = useState<'DISCORD' | 'WEBHOOK'>('DISCORD')
     const [url, setUrl] = useState('')
     const [testProtocol, setTestProtocol] = useState('')
+    const [testChannelId, setTestChannelId] = useState('')
     const [testing, setTesting] = useState(false)
+    const testingRef = useRef(false)
 
     useEffect(() => {
         const g = getGuestWallet()
         setWalletAddress(wallet.publicKey?.toBase58() ?? g)
     }, [wallet.publicKey])
 
-    useEffect(() => {
-        if (!walletAddress) return
-        void loadChannels()
-    }, [walletAddress])
-
-    async function loadChannels() {
+    const loadChannels = useCallback(async () => {
         if (!walletAddress) return
         setLoading(true)
         try {
@@ -64,7 +77,18 @@ export default function ChannelManager() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [walletAddress])
+
+    useEffect(() => {
+        if (!walletAddress) return
+        void loadChannels()
+    }, [walletAddress, loadChannels])
+
+    useEffect(() => {
+        if (testChannelId && !channels.some((channel) => channel.id === testChannelId && channel.enabled)) {
+            setTestChannelId('')
+        }
+    }, [channels, testChannelId])
 
     async function createChannel() {
         if (!walletAddress) {
@@ -92,11 +116,16 @@ export default function ChannelManager() {
     }
 
     async function toggleEnabled(id: string, enabled: boolean) {
+        if (!walletAddress) {
+            toast.error('Wallet identity not ready')
+            return
+        }
+
         try {
             const res = await fetch(`/api/notifications/channels/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled: !enabled }),
+                body: JSON.stringify({ walletAddress, enabled: !enabled }),
             })
             if (!res.ok) throw new Error('Update failed')
             toast.success(enabled ? 'Disabled' : 'Enabled')
@@ -108,9 +137,14 @@ export default function ChannelManager() {
     }
 
     async function deleteChannel(id: string) {
+        if (!walletAddress) {
+            toast.error('Wallet identity not ready')
+            return
+        }
+
         if (!confirm('Delete this notification channel?')) return
         try {
-            const res = await fetch(`/api/notifications/channels/${id}`, { method: 'DELETE' })
+            const res = await fetch(`/api/notifications/channels/${id}?walletAddress=${encodeURIComponent(walletAddress)}`, { method: 'DELETE' })
             if (!res.ok && res.status !== 204) throw new Error('Delete failed')
             toast.success('Channel deleted')
             await loadChannels()
@@ -121,8 +155,13 @@ export default function ChannelManager() {
     }
 
     async function testSend(id: string) {
+        if (!walletAddress) {
+            toast.error('Wallet identity not ready')
+            return
+        }
+
         try {
-            const res = await fetch(`/api/notifications/channels/${id}/test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Test notification from Aegis' }) })
+            const res = await fetch(`/api/notifications/channels/${id}/test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletAddress, message: 'Test notification from Aegis' }) })
             const body = await res.json()
             if (!res.ok) throw new Error(body?.error ?? 'Test send failed')
             toast.success('Test sent')
@@ -143,7 +182,9 @@ export default function ChannelManager() {
 
                     <div className="grid gap-3 lg:grid-cols-3">
                         <Input placeholder="Channel name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-                        <select className="h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100" value={type} onChange={(e) => setType(e.target.value as any)}>
+                        <select className="h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100" value={type} onChange={(e) => {
+                            if (isChannelType(e.target.value)) setType(e.target.value)
+                        }}>
                             <option value="DISCORD">Discord webhook</option>
                             <option value="WEBHOOK">Generic webhook</option>
                         </select>
@@ -156,21 +197,31 @@ export default function ChannelManager() {
 
                     <div className="mt-6 border-t pt-4">
                         <p className="mb-2 text-sm text-zinc-400">End-to-end test: generate an AI summary for a protocol and deliver notifications to your configured channels.</p>
-                        <div className="flex flex-col gap-2 sm:flex-row">
+                        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)_auto]">
                             <Input className="min-w-0" placeholder="protocol slug (e.g. serum)" value={testProtocol} onChange={(e) => setTestProtocol(e.target.value)} />
+                            <select className="h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100" value={testChannelId} onChange={(e) => setTestChannelId(e.target.value)}>
+                                <option value="">All enabled channels</option>
+                                {channels.filter((channel) => channel.enabled).map((channel) => (
+                                    <option key={channel.id} value={channel.id}>{channel.name ?? channel.type}</option>
+                                ))}
+                            </select>
                             <Button onClick={async () => {
+                                if (testingRef.current) return
                                 if (!walletAddress) { toast.error('Wallet identity not ready'); return }
                                 if (!testProtocol) { toast.error('Enter a protocol slug'); return }
+                                testingRef.current = true
                                 setTesting(true)
                                 try {
                                     const res = await fetch('/api/test/e2e', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ walletAddress, protocolSlug: testProtocol }),
+                                        body: JSON.stringify({ walletAddress, protocolSlug: testProtocol, channelId: testChannelId || undefined }),
                                     })
                                     const body = await res.json().catch(() => null)
                                     if (!res.ok) throw new Error(body?.error ?? 'E2E test failed')
-                                    toast.success('E2E test enqueued — check your channels')
+                                    const sent = Number(body?.delivery?.sent ?? 0)
+                                    const failed = Number(body?.delivery?.failed ?? 0)
+                                    toast.success(`E2E test complete: ${sent} sent, ${failed} failed.`)
                                     setTestProtocol('')
                                     if (body?.eventId) {
                                         // show small inline link
@@ -181,6 +232,7 @@ export default function ChannelManager() {
                                     console.error(err)
                                     toast.error((err instanceof Error) ? err.message : 'E2E test failed')
                                 } finally {
+                                    testingRef.current = false
                                     setTesting(false)
                                 }
                             }} disabled={testing}>{testing ? 'Running…' : 'Run E2E test'}</Button>
@@ -207,7 +259,7 @@ export default function ChannelManager() {
                                     <div className="min-w-0 flex-1">
                                         <div className="font-semibold">{ch.name ?? ch.type}</div>
                                         <div className="text-xs text-zinc-500">{ch.type} • {ch.enabled ? 'enabled' : 'disabled'}</div>
-                                        <div className="mt-1 break-all text-xs text-zinc-400 md:truncate md:max-w-xl">{String((ch.config as any)?.url ?? '')}</div>
+                                        <div className="mt-1 break-all text-xs text-zinc-400 md:truncate md:max-w-xl">{maskWebhookUrl(ch.config.url)}</div>
                                     </div>
                                     <div className="flex flex-wrap gap-2 md:justify-end">
                                         <Button variant="outline" onClick={() => testSend(ch.id)}>Test</Button>

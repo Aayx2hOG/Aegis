@@ -1,9 +1,12 @@
+import { NotificationChannelType } from '@prisma/client'
+import { validateNotificationUrl } from '@/server/notifications/config'
+
 export async function sendDiscordWebhook(url: string, content: string) {
-    if (!url) throw new Error('Discord webhook URL is required')
+    const safeUrl = validateNotificationUrl(url, NotificationChannelType.DISCORD)
 
     const body = { content }
 
-    const res = await fetch(url, {
+    const res = await fetch(safeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

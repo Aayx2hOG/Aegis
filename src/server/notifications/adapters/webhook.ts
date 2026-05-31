@@ -1,7 +1,10 @@
-export async function sendGenericWebhook(url: string, payload: unknown) {
-    if (!url) throw new Error('Webhook URL is required')
+import { NotificationChannelType } from '@prisma/client'
+import { validateNotificationUrl } from '@/server/notifications/config'
 
-    const res = await fetch(url, {
+export async function sendGenericWebhook(url: string, payload: unknown) {
+    const safeUrl = validateNotificationUrl(url, NotificationChannelType.WEBHOOK)
+
+    const res = await fetch(safeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

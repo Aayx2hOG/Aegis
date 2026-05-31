@@ -1,4 +1,5 @@
 import Redis from 'ioredis'
+import type { Queue } from 'bullmq'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
 import { enqueueNotification } from '@/server/queue/notification-queue'
@@ -10,6 +11,18 @@ const UPSTASH_TOKEN = process.env.UPSTASH_REST_TOKEN
 
 if (!redisUrl && !UPSTASH_URL) {
     console.warn('[summary-queue] REDIS_URL and UPSTASH_REST_URL not set — using inline fallback for summary jobs')
+}
+
+let redisQueuePromise: Promise<Queue> | null = null
+
+async function getRedisQueue() {
+    if (!redisUrl) throw new Error('REDIS_URL is not configured.')
+    redisQueuePromise ??= (async () => {
+        const connection = new Redis(redisUrl, { maxRetriesPerRequest: null, lazyConnect: true })
+        const { Queue } = await import('bullmq')
+        return new Queue(QUEUE_NAME, { connection })
+    })()
+    return redisQueuePromise
 }
 
 export async function enqueueSummary(eventId: string, protocolSlug: string) {
@@ -41,19 +54,8 @@ export async function enqueueSummary(eventId: string, protocolSlug: string) {
 
     // If Redis is configured, use BullMQ as before
     if (redisUrl) {
-        const connection = new Redis(redisUrl, { maxRetriesPerRequest: null as any, lazyConnect: true })
-        const { Queue } = await import('bullmq')
-        const queue = new Queue(QUEUE_NAME, { connection })
-        const job = await queue.add('generate', { eventId, protocolSlug }, { attempts: 3, backoff: { type: 'exponential', delay: 1000 } })
-
-        // Also enqueue a notification job (worker will deduplicate if summary not ready yet).
-        try {
-            await enqueueNotification(eventId)
-        } catch (err) {
-            console.error('[summary-queue] failed to enqueue notification job', err)
-        }
-
-        return job
+        const queue = await getRedisQueue()
+        return queue.add('generate', { eventId, protocolSlug }, { attempts: 3, backoff: { type: 'exponential', delay: 1000 } })
     }
 
     // Inline fallback: execute immediately (no retries)

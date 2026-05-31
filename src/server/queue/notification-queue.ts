@@ -1,5 +1,5 @@
 import Redis from 'ioredis'
-import { prisma } from '@/server/db/prisma'
+import type { Queue } from 'bullmq'
 import deliverNotificationsForEvent from '@/server/notifications/delivery'
 
 const redisUrl = process.env.REDIS_URL
@@ -9,6 +9,18 @@ const UPSTASH_TOKEN = process.env.UPSTASH_REST_TOKEN
 
 if (!redisUrl && !UPSTASH_URL) {
     console.warn('[notification-queue] REDIS_URL and UPSTASH_REST_URL not set — using inline fallback for notification jobs')
+}
+
+let redisQueuePromise: Promise<Queue> | null = null
+
+async function getRedisQueue() {
+    if (!redisUrl) throw new Error('REDIS_URL is not configured.')
+    redisQueuePromise ??= (async () => {
+        const connection = new Redis(redisUrl, { maxRetriesPerRequest: null, lazyConnect: true })
+        const { Queue } = await import('bullmq')
+        return new Queue(QUEUE_NAME, { connection })
+    })()
+    return redisQueuePromise
 }
 
 export async function enqueueNotification(eventId: string) {
@@ -39,9 +51,7 @@ export async function enqueueNotification(eventId: string) {
 
     // Redis/BullMQ path
     if (redisUrl) {
-        const connection = new Redis(redisUrl, { maxRetriesPerRequest: null as any, lazyConnect: true })
-        const { Queue } = await import('bullmq')
-        const queue = new Queue(QUEUE_NAME, { connection })
+        const queue = await getRedisQueue()
         return queue.add('deliver', { eventId }, { attempts: 5, backoff: { type: 'exponential', delay: 2000 } })
     }
 

@@ -10,6 +10,8 @@ const prismaMock = {
     },
 }
 
+export {}
+
 jest.mock('@/server/db/prisma', () => ({
     prisma: prismaMock,
 }))
@@ -30,13 +32,15 @@ describe('notification channel test route', () => {
     it('blocks disabled channels from sending tests', async () => {
         prismaMock.notificationChannel.findUnique.mockResolvedValue({
             id: 'channel-1',
+            walletAddress: 'wallet-1',
             enabled: false,
             type: 'DISCORD',
-            config: { url: 'https://example.com/webhook' },
+            config: { url: 'https://discord.com/api/webhooks/123/token' },
         })
 
         const { POST } = await import('@/app/api/notifications/channels/[id]/test/route')
-        const response = await POST(new Request('http://localhost/api/notifications/channels/channel-1/test', { method: 'POST', body: JSON.stringify({ message: 'hello' }) }) as any, {
+        const request = new Request('http://localhost/api/notifications/channels/channel-1/test', { method: 'POST', body: JSON.stringify({ walletAddress: 'wallet-1', message: 'hello' }) }) as Parameters<typeof POST>[0]
+        const response = await POST(request, {
             params: Promise.resolve({ id: 'channel-1' }),
         })
 

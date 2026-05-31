@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server'
+import { NotificationChannelType } from '@prisma/client'
 import { prisma } from '@/server/db/prisma'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
+import { normalizeNotificationConfig } from '@/server/notifications/config'
 
-function isChannelType(value: string): value is 'DISCORD' | 'WEBHOOK' {
-    return value === 'DISCORD' || value === 'WEBHOOK'
+function isChannelType(value: string): value is NotificationChannelType {
+    return value === NotificationChannelType.DISCORD || value === NotificationChannelType.WEBHOOK
 }
 
 export async function GET(req: NextRequest) {
@@ -43,12 +45,19 @@ export async function POST(req: NextRequest) {
         return Response.json({ error: 'Invalid channel type' }, { status: 400 })
     }
 
+    let config: ReturnType<typeof normalizeNotificationConfig>
+    try {
+        config = normalizeNotificationConfig(body.config, body.type)
+    } catch (err) {
+        return Response.json({ error: err instanceof Error ? err.message : 'Invalid channel config' }, { status: 400 })
+    }
+
     try {
         const channel = await prisma.notificationChannel.create({
             data: {
                 walletAddress: body.walletAddress.trim(),
                 type: body.type,
-                config: body.config as any,
+                config,
                 name: body.name ?? null,
                 enabled: body.enabled ?? true,
             },

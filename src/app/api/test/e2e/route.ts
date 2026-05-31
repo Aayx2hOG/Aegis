@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
-import { enqueueSummary } from '@/server/queue/summary-queue'
+import { runResearchAgent } from '@/server/ai/aegis-research-agent'
+import deliverNotificationsForEvent from '@/server/notifications/delivery'
 
 export async function POST(req: NextRequest) {
     if (!prisma) return new Response(JSON.stringify({ error: 'Database not configured' }), { status: 503 })
@@ -8,12 +9,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null)
     const walletAddress = body?.walletAddress?.trim()
     const protocolSlug = body?.protocolSlug?.trim()
+    const channelId = body?.channelId?.trim()
 
     if (!walletAddress || !protocolSlug) {
         return new Response(JSON.stringify({ error: 'walletAddress and protocolSlug are required' }), { status: 400 })
     }
 
     try {
+        if (channelId) {
+            const channel = await prisma.notificationChannel.findUnique({ where: { id: channelId } })
+            if (!channel || channel.walletAddress !== walletAddress) {
+                return new Response(JSON.stringify({ error: 'Channel not found' }), { status: 404 })
+            }
+            if (!channel.enabled) {
+                return new Response(JSON.stringify({ error: 'Channel is disabled' }), { status: 409 })
+            }
+        }
+
         // Create a temporary rule to attach the event to
         const rule = await prisma.alertRule.create({
             data: {
@@ -41,8 +53,11 @@ export async function POST(req: NextRequest) {
         // Track artifact for cleanup
         await prisma.testArtifact.create({ data: { ruleId: rule.id, eventId: event.id, walletAddress, protocolSlug } })
 
-        // Enqueue summary generation (Upstash or Redis or inline)
-        await enqueueSummary(event.id, protocolSlug)
+        const brief = await runResearchAgent(protocolSlug)
+        const summary = typeof brief.brief === 'string' ? brief.brief : null
+        await prisma.alertEvent.update({ where: { id: event.id }, data: { summary, summaryGeneratedAt: new Date() } })
+
+        const delivery = await deliverNotificationsForEvent(event.id, 5, { channelId })
 
         // If Upstash is configured, enqueue a delayed cleanup message for this test artifact
         const UPSTASH_URL = process.env.UPSTASH_REST_URL
@@ -65,7 +80,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        return new Response(JSON.stringify({ ok: true, eventId: event.id }))
+        return new Response(JSON.stringify({ ok: true, eventId: event.id, delivery }))
     } catch (err) {
         console.error('[test-e2e] failed', err)
         return new Response(JSON.stringify({ error: (err instanceof Error) ? err.message : String(err) }), { status: 500 })

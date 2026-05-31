@@ -1,6 +1,8 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/server/db/prisma'
 import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
 import { sendGenericWebhook } from '@/server/notifications/adapters/webhook'
+import { normalizeNotificationConfig } from '@/server/notifications/config'
 
 type DeliverResult = {
     sent: number
@@ -8,34 +10,95 @@ type DeliverResult = {
     failures: Array<{ channelId: string; error: string }>
 }
 
-export async function deliverNotificationsForEvent(eventId: string, concurrency = 5): Promise<DeliverResult> {
+type DeliverOptions = {
+    channelId?: string
+}
+
+const PENDING_RETRY_MS = 1000 * 60 * 10
+
+function isUniqueConstraintError(err: unknown) {
+    return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'
+}
+
+export async function deliverNotificationsForEvent(eventId: string, concurrency = 5, options: DeliverOptions = {}): Promise<DeliverResult> {
     if (!prisma) throw new Error('Database not configured.')
     const db = prisma
 
     const event = await db.alertEvent.findUnique({ where: { id: eventId } })
     if (!event) throw new Error('Alert event not found')
 
-    const channels = await db.notificationChannel.findMany({ where: { walletAddress: event.walletAddress, enabled: true } })
+    const channels = await db.notificationChannel.findMany({
+        where: {
+            walletAddress: event.walletAddress,
+            enabled: true,
+            ...(options.channelId ? { id: options.channelId } : {}),
+        },
+    })
 
     let sent = 0
     let failed = 0
     const failures: Array<{ channelId: string; error: string }> = []
+    const targetKeys = new Set<string>()
+    const deliverableChannels: Array<{ channel: (typeof channels)[number]; url: string }> = []
 
-    for (let i = 0; i < channels.length; i += concurrency) {
-        const batch = channels.slice(i, i + concurrency)
+    for (const channel of channels) {
+        try {
+            const cfg = normalizeNotificationConfig(channel.config, channel.type)
+            const targetKey = `${channel.type}:${cfg.url}`
+            if (targetKeys.has(targetKey)) continue
+
+            targetKeys.add(targetKey)
+            deliverableChannels.push({ channel, url: cfg.url })
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            const log = await db.notificationLog.upsert({
+                where: { eventId_channelId: { eventId: event.id, channelId: channel.id } },
+                create: { eventId: event.id, channelId: channel.id, status: 'FAILED', error: message },
+                update: { status: 'FAILED', error: message },
+            })
+            if (log.status !== 'SENT') {
+                failed += 1
+                failures.push({ channelId: channel.id, error: message })
+            }
+        }
+    }
+
+    for (let i = 0; i < deliverableChannels.length; i += concurrency) {
+        const batch = deliverableChannels.slice(i, i + concurrency)
         await Promise.all(
-            batch.map(async (ch) => {
-                const log = await db.notificationLog.create({ data: { eventId: event.id, channelId: ch.id, status: 'PENDING' } })
+            batch.map(async ({ channel: ch, url }) => {
+                let log: Awaited<ReturnType<typeof db.notificationLog.create>>
+
                 try {
-                    const cfg = ch.config as Record<string, any>
+                    log = await db.notificationLog.create({ data: { eventId: event.id, channelId: ch.id, status: 'PENDING' } })
+                } catch (err) {
+                    if (!isUniqueConstraintError(err)) throw err
+
+                    const existingLog = await db.notificationLog.findUnique({
+                        where: { eventId_channelId: { eventId: event.id, channelId: ch.id } },
+                    })
+                    if (!existingLog || existingLog.status === 'SENT') return
+
+                    const pendingAgeMs = Date.now() - existingLog.createdAt.getTime()
+                    if (existingLog.status === 'PENDING' && existingLog.error == null && pendingAgeMs < PENDING_RETRY_MS) return
+
+                    log = await db.notificationLog.update({ where: { id: existingLog.id }, data: { status: 'PENDING', error: null } })
+                }
+
+                try {
                     if (ch.type === 'DISCORD') {
-                        const url = String(cfg.url ?? '')
-                        if (!url) throw new Error('Missing Discord webhook URL in channel config')
                         await sendDiscordWebhook(url, event.summary ?? `Alert: ${event.protocolSlug}`)
                     } else {
-                        const url = String(cfg.url ?? '')
-                        if (!url) throw new Error('Missing webhook URL in channel config')
-                        await sendGenericWebhook(url, { eventId: event.id, protocol: event.protocolSlug, summary: event.summary ?? null })
+                        await sendGenericWebhook(url, {
+                            eventId: event.id,
+                            protocol: event.protocolSlug,
+                            metric: event.metric,
+                            threshold: event.threshold,
+                            direction: event.direction,
+                            currentValue: event.currentValue,
+                            triggeredAt: event.triggeredAt,
+                            summary: event.summary ?? null,
+                        })
                     }
 
                     await db.notificationLog.update({ where: { id: log.id }, data: { status: 'SENT', sentAt: new Date() } })

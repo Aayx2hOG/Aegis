@@ -150,6 +150,7 @@ model NotificationLog {
 
     channel NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
+    @@unique([eventId, channelId])
     @@index([eventId])
     @@index([channelId])
 }
