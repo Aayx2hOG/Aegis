@@ -28,6 +28,23 @@ function getWatchlistCacheKey(
     return `watchlist-cache:${chainType}:${environment}:${walletAddress ?? 'guest'}`;
 }
 
+/**
+ * Get all watchlist cache keys for a wallet across all active chains
+ */
+function getActiveWatchlistCacheKeys(
+    activeChains: ChainType[],
+    walletAddress?: string
+): Record<ChainType, string> {
+    const keys: Record<string, string> = {};
+
+    // TODO: Get environment per chain from context
+    activeChains.forEach((chainType) => {
+        keys[chainType] = getWatchlistCacheKey(chainType, 'mainnet', walletAddress);
+    });
+
+    return keys;
+}
+
 function sanitizeWatchlist(slugs: string[]): string[] {
     const normalized = slugs
         .map((slug) => normalizeProtocolSlug(slug))
@@ -108,7 +125,7 @@ export function useWatchlist(
 export function useMultiChainWatchlist(walletAddress?: string) {
     const { activeChainConnections, allChains } = useMultiChain();
     const query = useQuery<Partial<Record<ChainType, string[]>>>({
-        queryKey: ['multichain-watchlist', walletAddress, allChains.map((chain) => `${chain.type}:${chain.environment}`)],
+        queryKey: ['multichain-watchlist', walletAddress, activeChainConnections],
         queryFn: () => {
             const result: Partial<Record<ChainType, string[]>> = {};
 
@@ -124,6 +141,7 @@ export function useMultiChainWatchlist(walletAddress?: string) {
                 // Prefer a chain entry matching the requested chain type; fall back to the first available.
                 const chain = allChains.find((c) => c.type === chainType);
                 if (chain) {
+                    const cacheKey = getWatchlistCacheKey(chainType, chain.environment, walletAddress);
                     result[chainType] = migrateLegacyWatchlist(chainType, chain.environment, walletAddress);
                 }
             });

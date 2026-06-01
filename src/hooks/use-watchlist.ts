@@ -36,10 +36,6 @@ function getActiveWatchlistCacheKey(walletAddress: string | undefined, chainType
   return getWatchlistCacheKey(walletAddress, chainType, environment);
 }
 
-function getWatchlistQueryKey(chainType: ChainType, environment: string, walletAddress?: string) {
-  return ['watchlist', chainType, environment, walletAddress ?? 'guest'] as const;
-}
-
 function sanitizeWatchlist(slugs: string[]): string[] {
   const normalized = slugs.map((slug) => normalizeProtocolSlug(slug)).filter(Boolean);
   return Array.from(new Set(normalized)).slice(0, MAX_WATCHLIST_ITEMS);
@@ -108,10 +104,6 @@ type CoinGeckoResponse = {
 type ProtocolWithGeckoId = SolanaProtocol & {
   gecko_id?: string | null;
 }
-
-type WatchlistAccount = {
-  slugs?: string[];
-};
 
 function useProgram(programId: PublicKey | null) {
   const { connection } = useConnection();
@@ -218,11 +210,10 @@ export function useWatchlist() {
   const transactionToast = useTransactionToast();
   const walletAddress = wallet.publicKey?.toBase58();
   const activeCacheKey = getActiveWatchlistCacheKey(walletAddress, activeChain.type, activeChain.environment);
-  const watchlistQueryKey = getWatchlistQueryKey(activeChain.type, activeChain.environment, walletAddress);
   const pda = wallet.publicKey && programId ? getWatchlistPda(wallet.publicKey, programId) : null;
 
   const { data: watchlist, isLoading } = useQuery<string[]>({
-    queryKey: watchlistQueryKey,
+    queryKey: ['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'],
     queryFn: async () => {
       const cached = migrateLegacyWatchlist(activeChain.type, activeChain.environment, walletAddress);
 
@@ -232,10 +223,15 @@ export function useWatchlist() {
 
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const account = (await (program.account as any).watchlist.fetch(pda)) as WatchlistAccount;
-        const onchain = sanitizeWatchlist(account.slugs ?? []);
-        saveCachedWatchlist(walletAddress, activeChain.type, activeChain.environment, onchain);
-        return onchain;
+        const account = await (program.account as any).watchlist.fetch(pda);
+        const onchain = sanitizeWatchlist((account.slugs as string[]) ?? []);
+
+        if (onchain.length > 0 && cached.length === 0) {
+          saveCachedWatchlist(walletAddress, activeChain.type, activeChain.environment, onchain);
+          return onchain;
+        }
+
+        return cached;
       } catch {
         // Off-chain is the default source of truth for UX; on-chain issues should not block watchlist access.
         return cached;
@@ -308,31 +304,7 @@ export function useWatchlist() {
   });
 
   const invalidate = () =>
-    qc.invalidateQueries({ queryKey: watchlistQueryKey });
-
-  async function fetchOnchainWatchlist() {
-    if (!program || !pda) return [] as string[];
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const account = (await (program.account as any).watchlist.fetch(pda)) as WatchlistAccount;
-    return sanitizeWatchlist(account.slugs ?? []);
-  }
-
-  async function ensureOnchainWatchlist() {
-    if (!wallet.publicKey) throw new Error('Wallet not connected');
-    if (!program || !programId || !pda) throw new Error('Watchlist program unavailable on this cluster');
-    if (isUnreachableLocalCluster(cluster.name)) {
-      throw new Error('Local validator is not reachable from this deployment. Switch cluster to devnet or testnet.');
-    }
-
-    await assertProgramDeployed(connection, programId, cluster.name);
-
-    try {
-      await fetchOnchainWatchlist();
-    } catch {
-      await initialize.mutateAsync();
-    }
-  }
+    qc.invalidateQueries({ queryKey: ['watchlist', cluster.name, walletAddress ?? 'guest'] });
 
   // Initialize the on-chain account (call once per wallet)
   const initialize = useMutation({
@@ -397,24 +369,7 @@ export function useWatchlist() {
         throw new Error('Protocol slug is required.');
       }
 
-      if (activeChain.type !== ChainType.Solana || !wallet.publicKey || !program || !programId || !pda) {
-        const current = loadWatchlistByKey(activeCacheKey);
-        if (current.includes(normalizedSlug)) {
-          return current;
-        }
-
-        if (current.length >= MAX_WATCHLIST_ITEMS) {
-          throw new Error(`Watchlist limit reached (${MAX_WATCHLIST_ITEMS} protocols). Remove one before adding another.`);
-        }
-
-        const next = sanitizeWatchlist([...current, normalizedSlug]);
-        saveWatchlistByKey(activeCacheKey, next);
-        return next;
-      }
-
-      await ensureOnchainWatchlist();
-
-      const current = await fetchOnchainWatchlist();
+      const current = loadWatchlistByKey(activeCacheKey);
       if (current.includes(normalizedSlug)) {
         return current;
       }
@@ -423,18 +378,12 @@ export function useWatchlist() {
         throw new Error(`Watchlist limit reached (${MAX_WATCHLIST_ITEMS} protocols). Remove one before adding another.`);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (program.methods as any)
-        .addProtocol(normalizedSlug)
-        .accounts({ watchlist: pda, authority: wallet.publicKey })
-        .rpc();
-
-      const next = await fetchOnchainWatchlist();
+      const next = [...current, normalizedSlug];
       saveWatchlistByKey(activeCacheKey, next);
-      return next;
+      return sanitizeWatchlist(next);
     },
     onSuccess: (nextWatchlist) => {
-      qc.setQueryData(watchlistQueryKey, nextWatchlist);
+      qc.setQueryData(['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'], nextWatchlist);
       notifyWatchlistUpdated();
     },
     onError: (err) => {
@@ -449,27 +398,13 @@ export function useWatchlist() {
     mutationFn: async (slug: string) => {
       const normalizedSlug = normalizeProtocolSlug(slug);
 
-      if (activeChain.type !== ChainType.Solana || !wallet.publicKey || !program || !programId || !pda) {
-        const current = loadWatchlistByKey(activeCacheKey);
-        const next = current.filter((item) => item !== normalizedSlug);
-        saveWatchlistByKey(activeCacheKey, next);
-        return next;
-      }
-
-      await ensureOnchainWatchlist();
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (program.methods as any)
-        .removeProtocol(normalizedSlug)
-        .accounts({ watchlist: pda, authority: wallet.publicKey })
-        .rpc();
-
-      const next = await fetchOnchainWatchlist();
+      const current = loadWatchlistByKey(activeCacheKey);
+      const next = current.filter((item) => item !== normalizedSlug);
       saveWatchlistByKey(activeCacheKey, next);
       return next;
     },
     onSuccess: (nextWatchlist) => {
-      qc.setQueryData(watchlistQueryKey, nextWatchlist);
+      qc.setQueryData(['watchlist', activeChain.type, activeChain.environment, walletAddress ?? 'guest'], nextWatchlist);
       notifyWatchlistUpdated();
     },
     onError: (err) => {
