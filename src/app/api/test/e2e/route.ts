@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
                 threshold: 0,
                 direction: 'ABOVE',
                 enabled: false,
-                source: 'TEST',
             },
         })
 

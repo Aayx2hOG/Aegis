@@ -27,17 +27,9 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
     throw new Error('DATABASE_URL is not configured.')
   }
 
-  const testArtifacts = await prisma.testArtifact.findMany({ select: { ruleId: true } })
-  const testRuleIds = testArtifacts.map((artifact) => artifact.ruleId)
-
   const [rules, protocols] = await Promise.all([
     prisma.alertRule.findMany({
-      where: {
-        walletAddress,
-        enabled: true,
-        source: 'APP',
-        ...(testRuleIds.length > 0 ? { id: { notIn: testRuleIds } } : {}),
-      },
+      where: { walletAddress, enabled: true },
       orderBy: { createdAt: 'desc' },
     }),
     getSolanaProtocols(),
