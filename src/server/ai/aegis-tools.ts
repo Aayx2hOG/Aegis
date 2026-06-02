@@ -165,29 +165,55 @@ async function getCoinGeckoMarket(geckoId: string) {
   };
 }
 
-async function getCoinGeckoMarketByContract(mint: string) {
-  const url = `https://api.coingecko.com/api/v3/coins/solana/contract/${encodeURIComponent(mint)}`;
-  const res = await fetchWithTimeout(url);
-  if (!res.ok) throw new Error(`CoinGecko contract market error ${res.status}`);
-  const data = (await res.json()) as {
-    market_data?: {
-      current_price?: { usd?: unknown };
-      price_change_percentage_24h?: unknown;
-      total_volume?: { usd?: unknown };
-      market_cap?: { usd?: unknown };
+async function getCoinGeckoMarketByContract(address: string, chainType: string): Promise<any> {
+  let platform = 'ethereum';
+  const normChain = chainType.toLowerCase();
+  if (normChain === 'solana') platform = 'solana';
+  else if (normChain === 'arbitrum' || normChain === 'arbitrum-one') platform = 'arbitrum-one';
+  else if (normChain === 'optimism' || normChain === 'optimistic-ethereum') platform = 'optimistic-ethereum';
+  else if (normChain === 'polygon' || normChain === 'polygon-pos') platform = 'polygon-pos';
+  else if (normChain === 'base') platform = 'base';
+
+  const url = `https://api.coingecko.com/api/v3/coins/${platform}/contract/${encodeURIComponent(address)}`;
+  try {
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) {
+      if (platform !== 'ethereum' && address.startsWith('0x')) {
+        return await getCoinGeckoMarketByContract(address, 'ethereum');
+      }
+      throw new Error(`CoinGecko contract market error ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      id?: string;
+      symbol?: string;
+      name?: string;
+      market_data?: {
+        current_price?: { usd?: unknown };
+        price_change_percentage_24h?: unknown;
+        total_volume?: { usd?: unknown };
+        market_cap?: { usd?: unknown };
+      };
     };
-  };
 
-  const marketData = data.market_data;
-  if (!marketData) return null;
+    const marketData = data.market_data;
+    if (!marketData) return null;
 
-  return {
-    source: 'coingecko-contract',
-    price: asNumber(marketData.current_price?.usd),
-    priceChange24h: asNumber(marketData.price_change_percentage_24h),
-    volume24h: asNumber(marketData.total_volume?.usd),
-    marketCap: asNumber(marketData.market_cap?.usd),
-  };
+    return {
+      source: `coingecko-contract-${platform}`,
+      price: asNumber(marketData.current_price?.usd),
+      priceChange24h: asNumber(marketData.price_change_percentage_24h),
+      volume24h: asNumber(marketData.total_volume?.usd),
+      marketCap: asNumber(marketData.market_cap?.usd),
+      geckoId: data.id,
+      symbol: data.symbol,
+      name: data.name,
+    };
+  } catch (err) {
+    if (platform !== 'ethereum' && address.startsWith('0x')) {
+      return await getCoinGeckoMarketByContract(address, 'ethereum');
+    }
+    throw err;
+  }
 }
 
 export const TOOLS = [
@@ -363,21 +389,38 @@ export async function executeTool(
         const { slug, meta } = await fetchFirstAvailableProtocolBySlug(inputSlug);
         const addressField = String(meta.address ?? '');
         let mint = addressField.startsWith('solana:') ? addressField.replace('solana:', '') : null;
+        let evmAddress = addressField.startsWith('0x') ? addressField : null;
+        if (!mint && !evmAddress && addressField.startsWith('0x')) {
+          evmAddress = addressField;
+        }
         let geckoId = String(meta.gecko_id ?? '').trim();
+        const primaryChain = String(meta.chain ?? (Array.isArray(meta.chains) ? meta.chains[0] : '')).toLowerCase();
 
         // 1. Check override mapping
         const override = PROTOCOL_TOKEN_OVERRIDES[inputSlug] ?? PROTOCOL_TOKEN_OVERRIDES[slug];
         if (override) {
-          if (override.mint) mint = override.mint;
+          if (override.mint) {
+            if (override.mint.startsWith('0x')) {
+              evmAddress = override.mint;
+            } else {
+              mint = override.mint;
+            }
+          }
           if (override.geckoId) geckoId = override.geckoId;
         }
 
         // 2. Chain native fallback for EVERY SINGLE protocol (Dynamic Heuristic Resolver)
         let isChainProxy = false;
         let proxySuffix = '';
-        if (!mint && !geckoId) {
+        if (!mint && !evmAddress && !geckoId) {
           const proxy = resolveDynamicProxyToken(meta);
-          if (proxy.mint) mint = proxy.mint;
+          if (proxy.mint) {
+            if (proxy.mint.startsWith('0x')) {
+              evmAddress = proxy.mint;
+            } else {
+              mint = proxy.mint;
+            }
+          }
           if (proxy.geckoId) geckoId = proxy.geckoId;
           isChainProxy = true;
           proxySuffix = proxy.nameSuffix;
@@ -406,7 +449,7 @@ export async function executeTool(
             fetchWithTimeout(`https://api.jup.ag/price/v2?ids=${mint}`),
             getRecentTransactions(mint, 5),
             getTokenMetadata(mint),
-            getCoinGeckoMarketByContract(mint),
+            getCoinGeckoMarketByContract(mint, primaryChain),
           ]);
 
           tokenPrice = priceResult.status === 'fulfilled' ? priceResult.value : { error: String(priceResult.reason) };
@@ -446,6 +489,30 @@ export async function executeTool(
 
           if (geckoContractResult.status === 'fulfilled' && geckoContractResult.value) {
             marketFallback = geckoContractResult.value;
+          }
+        } else if (evmAddress) {
+          try {
+            const geckoResult = await getCoinGeckoMarketByContract(evmAddress, primaryChain);
+            if (geckoResult) {
+              marketFallback = geckoResult;
+              tokenPrice = {
+                address: evmAddress,
+                symbol: geckoResult.symbol?.toUpperCase() || symbol || meta.symbol,
+                price: geckoResult.price ?? 0,
+                priceChange24h: geckoResult.priceChange24h ?? 0,
+                volume24h: geckoResult.volume24h,
+                marketCap: geckoResult.marketCap,
+                source: geckoResult.source,
+              };
+              if (geckoResult.geckoId) {
+                geckoId = geckoResult.geckoId;
+              }
+              if (geckoResult.symbol) {
+                symbol = geckoResult.symbol.toUpperCase();
+              }
+            }
+          } catch (err) {
+            console.error('[EVM Contract fetch failed]', err);
           }
         }
 
