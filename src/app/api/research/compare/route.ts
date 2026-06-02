@@ -16,20 +16,26 @@ function compactError(err: unknown): string {
   return raw.length > 240 ? `${raw.slice(0, 240)}...` : raw;
 }
 
+import { z } from 'zod';
+
+const CompareRequestSchema = z.object({
+  protocolA: z.string().min(1, 'Protocol A is required'),
+  protocolB: z.string().min(1, 'Protocol B is required'),
+  walletAddress: z.string().optional().nullable(),
+  chainType: z.nativeEnum(ChainType),
+});
+
 // POST /api/research/compare
 // Body: { protocolA: string, protocolB: string, chainType: ChainType, walletAddress?: string }
 export async function POST(req: NextRequest) {
   try {
-    const { protocolA, protocolB, walletAddress, chainType } = (await req.json()) as Partial<{
-      protocolA: string;
-      protocolB: string;
-      walletAddress: string;
-      chainType: ChainType;
-    }>;
-
-    if (!protocolA || typeof protocolA !== 'string' || !protocolB || typeof protocolB !== 'string') {
-      return Response.json({ error: 'Both protocol A and protocol B names are required' }, { status: 400 });
+    const body = await req.json();
+    const parsed = CompareRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json({ error: 'Invalid parameters', details: parsed.error.format() }, { status: 400 });
     }
+
+    const { protocolA, protocolB, walletAddress, chainType } = parsed.data;
 
     const normalizedA = normalizeProtocolSlug(protocolA);
     const normalizedB = normalizeProtocolSlug(protocolB);

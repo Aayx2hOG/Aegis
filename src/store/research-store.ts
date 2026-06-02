@@ -1,6 +1,5 @@
 import { atom } from 'jotai';
-import type { AgentState } from '@/shared/types/agent';
-import type { ResearchResponse } from '@/shared/types/research';
+import type { AgentState, ResearchResponse } from '@/shared/types';
 
 export const agentStateAtom = atom<AgentState>({
   status: 'idle',

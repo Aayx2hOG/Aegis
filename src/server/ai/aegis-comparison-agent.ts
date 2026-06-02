@@ -3,7 +3,7 @@ import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/re
 import { ChainType } from '@/lib/chain/types';
 import { TOOLS, executeTool } from './aegis-tools';
 import { COMPARISON_SYSTEM_PROMPT as COMP_PROMPT } from './aegis-prompts';
-import type { ResearchBrief } from '@/shared/types/research';
+import type { ResearchBrief } from '@/shared/types';
 
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY;

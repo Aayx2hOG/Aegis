@@ -4,7 +4,7 @@ import type {
     RiskBreakdown,
     ScenarioConfig,
     SimulationResult,
-} from '@/shared/types/war-room'
+} from '@/shared/types'
 import {
     EXPLOIT_LOSS_FACTOR,
     AGG_WEIGHTS,

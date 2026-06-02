@@ -1,4 +1,4 @@
-import type { ParsedTransaction } from '@/shared/types/protocol'
+import type { ParsedTransaction } from '@/shared/types'
 
 const BASE = 'https://api.helius.xyz/v0'
 const KEY = process.env.HELIUS_API_KEY!

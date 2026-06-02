@@ -1,5 +1,5 @@
 import { ChainType } from '@/lib/chain/types'
-import type { SolanaProtocol } from '@/shared/types/protocol'
+import type { SolanaProtocol } from '@/shared/types'
 import Redis from 'ioredis'
 
 const BASE = 'https://api.llama.fi'

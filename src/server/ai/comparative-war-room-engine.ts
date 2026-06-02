@@ -7,7 +7,7 @@ import type {
     ComparativeSimulationResult,
     RebalancingRecommendation,
     ArbitrageOpportunity,
-} from '@/shared/types/comparative-war-room';
+} from '@/shared/types';
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));

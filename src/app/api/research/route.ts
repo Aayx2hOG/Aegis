@@ -16,14 +16,26 @@ function compactError(err: unknown): string {
   return raw.length > 240 ? `${raw.slice(0, 240)}...` : raw;
 }
 
+import { z } from 'zod';
+
+const ResearchRequestSchema = z.object({
+  protocol: z.string().min(1, 'protocol name required'),
+  walletAddress: z.string().optional().nullable(),
+  chainType: z.nativeEnum(ChainType),
+});
+
 // POST /api/research
-// Body: { protocol: string }
+// Body: { protocol: string, chainType: ChainType, walletAddress?: string }
 export async function POST(req: NextRequest) {
   try {
-    const { protocol, walletAddress, chainType } = (await req.json()) as Partial<{ protocol: string; walletAddress: string; chainType: ChainType }>;
-    if (!protocol || typeof protocol !== 'string') {
-      return Response.json({ error: 'protocol name required' }, { status: 400 });
+    const body = await req.json();
+    const parsed = ResearchRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json({ error: 'Invalid parameters', details: parsed.error.format() }, { status: 400 });
     }
+
+    const { protocol, walletAddress, chainType } = parsed.data;
+
 
     const normalizedProtocol = normalizeProtocolSlug(protocol);
     const brief = await runResearchAgent(normalizedProtocol, chainType);

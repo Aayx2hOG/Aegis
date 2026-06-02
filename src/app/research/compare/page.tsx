@@ -9,8 +9,8 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useMultiChain } from '@/components/chain/chain-provider';
 import { useChainProtocols } from '@/hooks/use-defillama';
 import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
-import type { SolanaProtocol } from '@/shared/types/protocol';
-import type { ResearchBrief } from '@/shared/types/research';
+import type { SolanaProtocol } from '@/shared/types';
+import type { ResearchBrief } from '@/shared/types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 

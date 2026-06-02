@@ -10,7 +10,7 @@ import { useMultiChain } from '@/components/chain/chain-provider';
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
 import { useSolanaProtocols } from '@/hooks/use-defillama';
 import { fetchJson } from '@/lib/api/fetch-json';
-import type { SolanaProtocol } from '@/shared/types/protocol';
+import type { SolanaProtocol } from '@/shared/types';
 import { ChainType } from '@/lib/chain/types';
 
 import { useTransactionToast } from '@/components/use-transaction-toast';

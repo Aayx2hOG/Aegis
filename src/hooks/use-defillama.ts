@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ChainType } from '@/lib/chain/types';
-import type { SolanaProtocol } from '@/shared/types/protocol';
+import type { SolanaProtocol } from '@/shared/types';
 import { fetchJson } from '@/lib/api/fetch-json';
 
 export function useChainProtocols(chainType: ChainType) {

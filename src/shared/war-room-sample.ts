@@ -1,4 +1,4 @@
-import { PortfolioPosition } from './types/war-room'
+import { PortfolioPosition } from './types'
 
 // Create a smaller, safer sample basket from live positions
 // - scales down USD values

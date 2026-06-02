@@ -33,8 +33,8 @@ import {
     UI_DISCLAIMER,
 } from '@/shared/config/war-room-config'
 import { createSampleBasket } from '@/shared/war-room-sample'
-import type { PortfolioPosition, RiskBreakdown, ScenarioConfig, SimulationResult } from '@/shared/types/war-room'
-import type { SolanaProtocol } from '@/shared/types/protocol'
+import type { PortfolioPosition, RiskBreakdown, ScenarioConfig, SimulationResult } from '@/shared/types'
+import type { SolanaProtocol } from '@/shared/types'
 
 type ScenarioPreset = ScenarioConfig & {
     beginnerLabel: string

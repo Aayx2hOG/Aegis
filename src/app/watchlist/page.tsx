@@ -16,7 +16,7 @@ import { fetchJson } from '@/lib/api/fetch-json'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import MiniMetric from '@/components/ui/mini-metric'
 import { ChainEnvironment, ChainType } from '@/lib/chain/types'
-import type { SolanaProtocol } from '@/shared/types/protocol'
+import type { SolanaProtocol } from '@/shared/types'
 import { toast } from 'sonner'
 
 type AlertMetric = 'CHANGE_1D' | 'CHANGE_7D'

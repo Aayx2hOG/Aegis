@@ -3,7 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useAtom } from 'jotai';
 import { agentStateAtom } from '@/store/research-store';
-import type { ResearchBrief, ToolCallRecord } from '@/shared/types/research';
+import type { ResearchBrief, ToolCallRecord } from '@/shared/types';
 
 import { useWatchlist } from '@/hooks/use-watchlist';
 import { useChainProtocols } from '@/hooks/use-defillama';
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useMultiChain } from '@/components/chain/chain-provider';
 import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
-import type { SolanaProtocol } from '@/shared/types/protocol';
+import type { SolanaProtocol } from '@/shared/types';
 
 const RELEVANT_PROTOCOL_CATEGORIES = new Set([
   'AMM',
@@ -212,6 +212,7 @@ function ResearchContent() {
         status: 'done',
         currentTool: null,
         toolCalls: data.toolCalls.map((tc) => ({
+          tool: tc.tool,
           toolName: tc.tool,
           input: tc.input,
           output: tc.output,

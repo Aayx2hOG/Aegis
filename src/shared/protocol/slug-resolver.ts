@@ -1,4 +1,4 @@
-import type { SolanaProtocol } from '@/shared/types/protocol'
+import type { SolanaProtocol } from '@/shared/types'
 
 export const PROTOCOL_SLUG_ALIASES: Record<string, string[]> = {
   raydium: ['raydium-amm'],
