@@ -7,6 +7,8 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { WalletButton } from '@/components/solana/solana-provider'
 import { useCluster } from '@/components/cluster/cluster-data-access'
+import { useMultiChain } from '@/components/chain/chain-provider'
+import { ChainEnvironment } from '@/lib/chain/types'
 import { useSolanaProtocols } from '@/hooks/use-defillama'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import {
@@ -340,6 +342,7 @@ function WarRoomContent() {
     const wallet = useWallet()
     const { connection } = useConnection()
     const { cluster } = useCluster()
+    const { activeChain } = useMultiChain()
     const focusedProtocol = searchParams.get('protocol')?.trim().toLowerCase()
     const { data: solanaProtocols = [], isLoading: protocolsLoading } = useSolanaProtocols()
 
@@ -364,7 +367,15 @@ function WarRoomContent() {
         () => (result ? getTopRiskDrivers(result.riskBreakdown) : []),
         [result]
     )
-    const isTestNetworkWallet = isTestNetworkContext(cluster.network, cluster.endpoint)
+    const isTestNetworkWallet = useMemo(() => {
+        if (activeChain.name === 'solana-mainnet' || (activeChain.environment as any) === ChainEnvironment.Mainnet) {
+            return false
+        }
+        if (activeChain.type === 'solana') {
+            return isTestNetworkContext(cluster.network, cluster.endpoint)
+        }
+        return (activeChain.environment as any) !== ChainEnvironment.Mainnet
+    }, [activeChain, cluster])
 
     useEffect(() => {
         if (portfolioSource !== 'live' || livePositions.length === 0) return
@@ -508,7 +519,13 @@ function WarRoomContent() {
 
     return (
         <div className="min-h-screen text-zinc-100 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
-            <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 md:px-6 md:py-14">
+            {/* Background Decor */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
+                <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
+            </div>
+
+            <div className="relative mx-auto max-w-6xl space-y-8 px-4 py-10 md:px-6 md:py-14">
                 <header className="space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300/80">Aegis War Room</p>
                     <h1 className="text-4xl md:text-5xl font-black tracking-tight">Stress Test Your Solana Portfolio in 60 Seconds</h1>

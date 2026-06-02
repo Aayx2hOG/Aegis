@@ -46,9 +46,15 @@ export function DashboardFeature() {
   )
 
   return (
-    <div className="selection:bg-cyan-400/20">
+    <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.18),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.12),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
+      {/* Background Decor Blobs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
+      </div>
+
       <div className="relative mx-auto max-w-6xl space-y-8 px-4 py-8 md:space-y-10 md:px-6 md:py-10">
-        <section className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_60px_rgba(0,0,0,0.22)] md:p-8">
+        <section className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-md md:p-8">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-start">
             <div className="space-y-5">
               <Badge variant="accent" className="w-fit gap-2 px-3 py-1.5 uppercase tracking-[0.22em]">
@@ -67,8 +73,11 @@ export function DashboardFeature() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Button asChild className="bg-cyan-300 text-slate-950 hover:bg-cyan-200">
+                <Button asChild className="bg-cyan-300 text-slate-950 hover:bg-cyan-200 font-bold transition-all hover:shadow-[0_0_15px_rgba(34,211,238,0.3)]">
                   <Link href="/research">Launch Research</Link>
+                </Button>
+                <Button asChild className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 text-cyan-200 hover:from-cyan-500/30 hover:to-blue-500/30 hover:text-cyan-100 font-bold">
+                  <Link href="/research/compare">⚔️ Compare Protocols</Link>
                 </Button>
                 <Button
                   asChild
