@@ -3,6 +3,102 @@ import { getTokenPrice } from '@/server/api/birdeye';
 import { getRecentTransactions, getTokenMetadata } from '@/server/api/helius';
 import { getProtocolSlugCandidates, normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
+const PROTOCOL_TOKEN_OVERRIDES: Record<string, { mint?: string; geckoId?: string; symbol?: string; name?: string }> = {
+  'phantom-sol': {
+    mint: 'So11111111111111111111111111111111111111112', // Native wrapped SOL
+    geckoId: 'solana',
+    symbol: 'SOL',
+    name: 'Solana (Native Asset)',
+  },
+  'phantom': {
+    mint: 'So11111111111111111111111111111111111111112',
+    geckoId: 'solana',
+    symbol: 'SOL',
+    name: 'Solana (Native Asset)',
+  },
+  'marinade-native': {
+    mint: 'mSoLzZyvTTQAo2JuKyFnE3S2Hxs4dF6U8B9z8SPm1p8', // mSOL
+    geckoId: 'msol',
+    symbol: 'mSOL',
+    name: 'Marinade Staked SOL',
+  },
+  'jito-restaking': {
+    mint: 'J1toso1uCk36jzJCc817kJgScdQ82HJw45munbXmQn47', // JitoSOL
+    geckoId: 'jito-staked-sol',
+    symbol: 'JitoSOL',
+    name: 'Jito Staked SOL',
+  },
+};
+
+function resolveDynamicProxyToken(meta: Record<string, unknown>): { mint: string | null; geckoId: string | null; symbol: string; nameSuffix: string } {
+  const name = String(meta.name ?? '').toLowerCase();
+  const symbol = String(meta.symbol ?? '').toLowerCase();
+  const primaryChain = String(meta.chain ?? (Array.isArray(meta.chains) ? meta.chains[0] : '')).toLowerCase();
+
+  // 1. Heuristic check for common underlying assets in name/symbol
+  if (name.includes('sol') || symbol.includes('sol')) {
+    return {
+      mint: 'So11111111111111111111111111111111111111112',
+      geckoId: 'solana',
+      symbol: 'SOL',
+      nameSuffix: 'SOL Proxy',
+    };
+  }
+  
+  if (name.includes('eth') || symbol.includes('eth')) {
+    return {
+      mint: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+      geckoId: 'ethereum',
+      symbol: 'ETH',
+      nameSuffix: 'ETH Proxy',
+    };
+  }
+
+  if (name.includes('btc') || symbol.includes('btc') || name.includes('bitcoin')) {
+    return {
+      mint: null,
+      geckoId: 'bitcoin',
+      symbol: 'BTC',
+      nameSuffix: 'BTC Proxy',
+    };
+  }
+
+  if (name.includes('usd') || symbol.includes('usd') || name.includes('stable')) {
+    return {
+      mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+      geckoId: 'usd-coin',
+      symbol: 'USDC',
+      nameSuffix: 'Stablecoin Proxy',
+    };
+  }
+
+  // 2. Fallback based purely on the host blockchain
+  if (primaryChain === 'solana') {
+    return {
+      mint: 'So11111111111111111111111111111111111111112',
+      geckoId: 'solana',
+      symbol: 'SOL',
+      nameSuffix: 'SOL Proxy',
+    };
+  }
+
+  if (primaryChain === 'ethereum' || primaryChain === 'arbitrum' || primaryChain === 'optimism' || primaryChain === 'base') {
+    return {
+      mint: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+      geckoId: 'ethereum',
+      symbol: 'ETH',
+      nameSuffix: 'ETH Proxy',
+    };
+  }
+
+  return {
+    mint: null,
+    geckoId: 'ethereum',
+    symbol: 'ETH',
+    nameSuffix: 'ETH Proxy',
+  };
+}
+
 function asNumber(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -266,7 +362,37 @@ export async function executeTool(
         const inputSlug = normalizeProtocolSlug(String(input.slug ?? ''));
         const { slug, meta } = await fetchFirstAvailableProtocolBySlug(inputSlug);
         const addressField = String(meta.address ?? '');
-        const mint = addressField.startsWith('solana:') ? addressField.replace('solana:', '') : null;
+        let mint = addressField.startsWith('solana:') ? addressField.replace('solana:', '') : null;
+        let geckoId = String(meta.gecko_id ?? '').trim();
+
+        // 1. Check override mapping
+        const override = PROTOCOL_TOKEN_OVERRIDES[inputSlug] ?? PROTOCOL_TOKEN_OVERRIDES[slug];
+        if (override) {
+          if (override.mint) mint = override.mint;
+          if (override.geckoId) geckoId = override.geckoId;
+        }
+
+        // 2. Chain native fallback for EVERY SINGLE protocol (Dynamic Heuristic Resolver)
+        let isChainProxy = false;
+        let proxySuffix = '';
+        if (!mint && !geckoId) {
+          const proxy = resolveDynamicProxyToken(meta);
+          if (proxy.mint) mint = proxy.mint;
+          if (proxy.geckoId) geckoId = proxy.geckoId;
+          isChainProxy = true;
+          proxySuffix = proxy.nameSuffix;
+        }
+
+        let symbol = meta.symbol;
+        let nameField = meta.name;
+        if (override) {
+          if (override.symbol) symbol = override.symbol;
+          if (override.name) nameField = override.name;
+        } else if (isChainProxy) {
+          const proxy = resolveDynamicProxyToken(meta);
+          symbol = proxy.symbol;
+          nameField = `${String(meta.name)} (${proxySuffix})`;
+        }
 
         let tokenPrice: unknown = null;
         let recentTransactions: unknown = null;
@@ -323,7 +449,6 @@ export async function executeTool(
           }
         }
 
-        const geckoId = String(meta.gecko_id ?? '').trim();
         if (geckoId) {
           const gecko = await Promise.allSettled([getCoinGeckoMarket(geckoId)]);
           if (gecko[0].status === 'fulfilled' && gecko[0].value) {
@@ -404,15 +529,15 @@ export async function executeTool(
 
         return {
           slug,
-          name: meta.name,
-          symbol: meta.symbol,
+          name: nameField ?? meta.name,
+          symbol: symbol ?? meta.symbol,
           description: meta.description,
           twitter: meta.twitter,
           url: meta.url,
           logo: meta.logo,
           address: meta.address,
           mint,
-          geckoId: meta.gecko_id,
+          geckoId: geckoId || meta.gecko_id,
           tokenPrice,
           marketFallback,
           recentTransactions,

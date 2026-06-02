@@ -240,6 +240,12 @@ function ResearchContent() {
         {/* Header */}
         <header className="relative space-y-4 text-center md:space-y-5">
           <Link
+            href="/research/compare"
+            className="mx-auto flex w-fit items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-cyan-200 shadow-xl transition-all hover:from-cyan-500/30 hover:to-blue-500/30 hover:text-cyan-100 md:absolute md:left-0 md:top-0"
+          >
+            ⚔️ Protocol Battleground
+          </Link>
+          <Link
             href="/watchlist"
             className="mx-auto flex w-fit items-center gap-2 rounded-xl bg-zinc-900/60 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 shadow-xl transition-all hover:bg-zinc-800/80 hover:text-cyan-100 md:absolute md:right-0 md:top-0"
           >
