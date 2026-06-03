@@ -3,16 +3,16 @@ import type { SolanaProtocol } from '@/shared/types'
 import Redis from 'ioredis'
 
 const BASE = 'https://api.llama.fi'
-const REDIS_COMMAND_TIMEOUT_MS = 600
+const REDIS_COMMAND_TIMEOUT_MS = process.env.NODE_ENV === 'development' ? 5000 : 600
 const redisOptions = {
   maxRetriesPerRequest: 1,
   lazyConnect: true,
-  connectTimeout: 1000,
+  connectTimeout: process.env.NODE_ENV === 'development' ? 5000 : 1000,
   enableOfflineQueue: false,
 }
 const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, redisOptions) : null
-const PROTOCOLS_CACHE_KEY = 'defillama:protocols'
-const PROTOCOLS_TTL = 60 // seconds
+const PROTOCOLS_CACHE_KEY_PREFIX = 'defillama:protocols:'
+const PROTOCOLS_TTL = 900 // 15 minutes (900 seconds)
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
@@ -32,20 +32,20 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   })
 }
 
-async function tryGetCachedProtocols(): Promise<string | null> {
+async function tryGetCachedProtocols(chainType: ChainType): Promise<string | null> {
   if (!redis) return null
   try {
-    return await withTimeout(redis.get(PROTOCOLS_CACHE_KEY), REDIS_COMMAND_TIMEOUT_MS)
+    return await withTimeout(redis.get(`${PROTOCOLS_CACHE_KEY_PREFIX}${chainType}`), REDIS_COMMAND_TIMEOUT_MS)
   } catch {
     return null
   }
 }
 
-async function trySetCachedProtocols(protocols: SolanaProtocol[]): Promise<void> {
+async function trySetCachedProtocols(chainType: ChainType, protocols: SolanaProtocol[]): Promise<void> {
   if (!redis) return
   try {
     await withTimeout(
-      redis.set(PROTOCOLS_CACHE_KEY, JSON.stringify(protocols), 'EX', PROTOCOLS_TTL),
+      redis.set(`${PROTOCOLS_CACHE_KEY_PREFIX}${chainType}`, JSON.stringify(protocols), 'EX', PROTOCOLS_TTL),
       REDIS_COMMAND_TIMEOUT_MS
     )
   } catch {
@@ -53,10 +53,10 @@ async function trySetCachedProtocols(protocols: SolanaProtocol[]): Promise<void>
   }
 }
 
-async function tryDeleteCorruptCache(): Promise<void> {
+async function tryDeleteCorruptCache(chainType: ChainType): Promise<void> {
   if (!redis) return
   try {
-    await withTimeout(redis.del(PROTOCOLS_CACHE_KEY), REDIS_COMMAND_TIMEOUT_MS)
+    await withTimeout(redis.del(`${PROTOCOLS_CACHE_KEY_PREFIX}${chainType}`), REDIS_COMMAND_TIMEOUT_MS)
   } catch {
     // Best-effort cleanup only.
   }
@@ -87,14 +87,14 @@ function matchesChain(protocolChains: string[] | undefined, chainType: ChainType
 
 export async function getProtocolsByChain(chainType: ChainType): Promise<SolanaProtocol[]> {
   // Try cache first
-  const cached = await tryGetCachedProtocols()
-  let all: SolanaProtocol[]
+  const cached = await tryGetCachedProtocols(chainType)
+  let protocols: SolanaProtocol[]
   if (cached) {
     try {
-      all = JSON.parse(cached) as SolanaProtocol[]
+      protocols = JSON.parse(cached) as SolanaProtocol[]
     } catch {
-      await tryDeleteCorruptCache()
-      all = []
+      await tryDeleteCorruptCache(chainType)
+      protocols = []
     }
   } else {
     // external fetch with timeout so the server doesn't hang
@@ -103,14 +103,15 @@ export async function getProtocolsByChain(chainType: ChainType): Promise<SolanaP
     try {
       const res = await fetch(`${BASE}/protocols`, { signal: controller.signal })
       if (!res.ok) throw new Error(`DeFiLlama error: ${res.status}`)
-      all = await res.json()
+      const all = await res.json() as SolanaProtocol[]
+      protocols = all.filter((protocol) => matchesChain(protocol.chains, chainType))
     } finally {
       clearTimeout(timeout)
     }
     // Cache the result for PROTOCOLS_TTL seconds
-    await trySetCachedProtocols(all)
+    await trySetCachedProtocols(chainType, protocols)
   }
-  return all.filter((protocol) => matchesChain(protocol.chains, chainType))
+  return protocols
 }
 
 export async function getSolanaProtocols(): Promise<SolanaProtocol[]> {

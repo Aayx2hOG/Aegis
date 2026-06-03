@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { Shield, Activity, Info } from 'lucide-react'
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
@@ -123,7 +124,48 @@ const TOKEN_PROFILES: Record<string, TokenProfile> = {
     },
 }
 
-// Comparative chains view removed for simplicity.
+const COMPARATIVE_CHAINS: ComparativeChain[] = [
+    {
+        name: 'solana',
+        label: 'Solana',
+        baseRisk: 42,
+        marketSensitivity: 0.42,
+        liquiditySensitivity: 0.34,
+        exploitSensitivity: 0.26,
+        bridgeSensitivity: 0.12,
+        posture: 'balanced',
+    },
+    {
+        name: 'ethereum',
+        label: 'Ethereum',
+        baseRisk: 34,
+        marketSensitivity: 0.34,
+        liquiditySensitivity: 0.18,
+        exploitSensitivity: 0.18,
+        bridgeSensitivity: 0.08,
+        posture: 'best',
+    },
+    {
+        name: 'arbitrum',
+        label: 'Arbitrum',
+        baseRisk: 38,
+        marketSensitivity: 0.36,
+        liquiditySensitivity: 0.24,
+        exploitSensitivity: 0.22,
+        bridgeSensitivity: 0.22,
+        posture: 'balanced',
+    },
+    {
+        name: 'base',
+        label: 'Base',
+        baseRisk: 31,
+        marketSensitivity: 0.3,
+        liquiditySensitivity: 0.2,
+        exploitSensitivity: 0.2,
+        bridgeSensitivity: 0.14,
+        posture: 'best',
+    },
+]
 
 function selectLiveProtocolBasket(protocols: SolanaProtocol[], focusedProtocol?: string, limit = 4): SolanaProtocol[] {
     const normalizedFocus = normalizeProtocolSlug(focusedProtocol ?? '')
@@ -181,13 +223,7 @@ function buildPositionFromProtocol(protocol: SolanaProtocol, index: number): Por
     }
 }
 
-function scalePositions(positions: PortfolioPosition[], multipliers: number[], suffix: string): PortfolioPosition[] {
-    return positions.map((position, index) => ({
-        ...position,
-        id: `${position.id}-${suffix}`,
-        usdValue: Math.max(1_000, Math.round(position.usdValue * (multipliers[index] ?? 1))),
-    }))
-}
+
 
 function buildPositionsForProtocol(protocols: SolanaProtocol[], focusedProtocol?: string): PortfolioPosition[] {
     const basket = selectLiveProtocolBasket(protocols, focusedProtocol, 4)
@@ -254,11 +290,7 @@ function formatPercent(value: number): string {
     return `${value.toFixed(1)}%`
 }
 
-function getVolatilityLabel(volatility: number): 'Low' | 'Medium' | 'High' {
-    if (volatility < 35) return 'Low'
-    if (volatility < 70) return 'Medium'
-    return 'High'
-}
+
 
 function getRiskBand(score: number): { label: 'Low' | 'Medium' | 'High'; color: string } {
     if (score < 34) return { label: 'Low', color: 'text-emerald-300' }
@@ -344,7 +376,7 @@ function WarRoomContent() {
     const { cluster } = useCluster()
     const { activeChain } = useMultiChain()
     const focusedProtocol = searchParams.get('protocol')?.trim().toLowerCase()
-    const { data: solanaProtocols = [], isLoading: protocolsLoading } = useSolanaProtocols()
+    const { data: solanaProtocols = [] } = useSolanaProtocols()
 
     const [positions, setPositions] = useState<PortfolioPosition[]>([])
     const [selectedScenarioIdx, setSelectedScenarioIdx] = useState(0)
@@ -353,7 +385,8 @@ function WarRoomContent() {
     const [error, setError] = useState<string | null>(null)
     const [importingWallet, setImportingWallet] = useState(false)
     const [importStatus, setImportStatus] = useState<string | null>(null)
-    const [portfolioSource, setPortfolioSource] = useState<'live' | 'wallet' | 'custom'>('custom')
+    const [portfolioSource, setPortfolioSource] = useState<'live' | 'wallet' | 'custom'>('live')
+    const [selectedChainName, setSelectedChainName] = useState<string | null>(null)
 
     const livePositions = useMemo(
         () => buildPositionsForProtocol(solanaProtocols, focusedProtocol),
@@ -368,13 +401,13 @@ function WarRoomContent() {
         [result]
     )
     const isTestNetworkWallet = useMemo(() => {
-        if (activeChain.name === 'solana-mainnet' || (activeChain.environment as any) === ChainEnvironment.Mainnet) {
+        if (activeChain.name === 'solana-mainnet' || activeChain.environment === ChainEnvironment.Mainnet) {
             return false
         }
         if (activeChain.type === 'solana') {
             return isTestNetworkContext(cluster.network, cluster.endpoint)
         }
-        return (activeChain.environment as any) !== ChainEnvironment.Mainnet
+        return true
     }, [activeChain, cluster])
 
     useEffect(() => {
@@ -383,7 +416,61 @@ function WarRoomContent() {
         setResult(null)
     }, [livePositions, portfolioSource])
 
-    // Comparative chain scoring removed for simplicity.
+    const comparativeChains = useMemo(() => {
+        return COMPARATIVE_CHAINS.map((chain) => {
+            const chainFocusBoost = focusedProtocol ? (chain.name === 'solana' ? 8 : chain.name === 'ethereum' ? 2 : 4) : 0
+            const spreadPenalty = selectedScenario.type === 'smart-contract-incident' ? chain.exploitSensitivity * 18 : 0
+            const bridgePenalty = chain.bridgeSensitivity * (selectedScenario.liquidityDropPct * 0.35 + selectedScenario.protocolExploitSeverity * 0.2)
+            const score = clamp(
+                chain.baseRisk +
+                selectedScenario.marketShockPct * chain.marketSensitivity +
+                selectedScenario.liquidityDropPct * chain.liquiditySensitivity +
+                selectedScenario.protocolExploitSeverity * chain.exploitSensitivity +
+                bridgePenalty +
+                chainFocusBoost +
+                spreadPenalty,
+                0,
+                100
+            )
+
+            return {
+                ...chain,
+                score,
+                postureLabel: getPostureLabel(score),
+                recommendation:
+                    score >= 70
+                        ? 'Keep position size light and hedge duration.'
+                        : score >= 48
+                            ? 'Monitor closely and prefer stable collateral.'
+                            : 'This chain is a viable deployment venue.'
+            }
+        }).sort((a, b) => a.score - b.score)
+    }, [focusedProtocol, selectedScenario])
+
+    const activeSelectedChainName = selectedChainName ?? comparativeChains[0]?.name ?? 'solana'
+
+    const selectedChain = useMemo(() => {
+        return comparativeChains.find(c => c.name === activeSelectedChainName)
+    }, [comparativeChains, activeSelectedChainName])
+
+    const selectedChainBreakdown = useMemo(() => {
+        if (!selectedChain) return null
+        const chainFocusBoost = focusedProtocol ? (selectedChain.name === 'solana' ? 8 : selectedChain.name === 'ethereum' ? 2 : 4) : 0
+        const marketPenalty = selectedScenario.marketShockPct * selectedChain.marketSensitivity
+        const liquidityPenalty = selectedScenario.liquidityDropPct * selectedChain.liquiditySensitivity
+        const exploitPenalty = selectedScenario.protocolExploitSeverity * selectedChain.exploitSensitivity
+        const spreadPenalty = selectedScenario.type === 'smart-contract-incident' ? selectedChain.exploitSensitivity * 18 : 0
+        const bridgePenalty = selectedChain.bridgeSensitivity * (selectedScenario.liquidityDropPct * 0.35 + selectedScenario.protocolExploitSeverity * 0.2)
+        
+        return {
+            baseRisk: selectedChain.baseRisk,
+            marketPenalty: Math.round(marketPenalty * 10) / 10,
+            liquidityPenalty: Math.round(liquidityPenalty * 10) / 10,
+            exploitPenalty: Math.round((exploitPenalty + spreadPenalty) * 10) / 10,
+            bridgePenalty: Math.round(bridgePenalty * 10) / 10,
+            focusPenalty: chainFocusBoost
+        }
+    }, [selectedChain, focusedProtocol, selectedScenario])
 
     async function runSimulation() {
         setLoading(true)
@@ -570,7 +657,173 @@ function WarRoomContent() {
                     </div>
                 </section>
 
-                {/* Comparative War-Room removed for a simpler UI */}
+                <section className="rounded-2xl bg-zinc-900/40 p-6 border border-zinc-800/80 backdrop-blur-md space-y-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/60 pb-4">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <Activity className="h-4 w-4 text-cyan-400" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200">Comparative War-Room</p>
+                            </div>
+                            <h2 className="text-xl font-bold mt-1 text-white">Chain-by-Chain Deployment Security Analysis</h2>
+                        </div>
+                        <div className="rounded-full bg-zinc-950/70 border border-zinc-800/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                            {focusedProtocol ? `Focus Protocol: ${focusedProtocol}` : 'Global Portfolio view'}
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        {comparativeChains.map((chain) => {
+                            const isSelected = chain.name === activeSelectedChainName;
+                            const score = chain.score;
+                            const label = chain.postureLabel;
+
+                            const theme = label === 'Best' 
+                                ? { text: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', bar: 'bg-emerald-400 shadow-[0_0_8px_#34d399]' }
+                                : label === 'Balanced'
+                                ? { text: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/20', bar: 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' }
+                                : { text: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-500/20', bar: 'bg-rose-400 shadow-[0_0_8px_#f87171]' };
+
+                            return (
+                                <div
+                                    key={chain.name}
+                                    onClick={() => setSelectedChainName(chain.name)}
+                                    className={`relative overflow-hidden rounded-xl border p-4 backdrop-blur-sm transition-all duration-300 cursor-pointer select-none ${
+                                        isSelected
+                                            ? 'border-cyan-400/40 bg-cyan-950/15 shadow-md shadow-cyan-950/40 translate-y-[-2px] ring-1 ring-cyan-400/20'
+                                            : 'border-zinc-800/60 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-900/30'
+                                    }`}
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <p className="text-sm font-bold text-white capitalize">{chain.label}</p>
+                                            <p className="text-[10px] text-zinc-500 mt-0.5">Deployment posture</p>
+                                        </div>
+                                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${theme.bg} ${theme.text} ${theme.border} border`}>
+                                            {label}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
+                                            <span>Risk Level</span>
+                                            <span className="font-semibold text-zinc-200">{score.toFixed(0)}/100</span>
+                                        </div>
+                                        <div className="h-1.5 rounded-full bg-zinc-800/60 overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-500 ${theme.bar}`} style={{ width: `${score}%` }} />
+                                        </div>
+                                    </div>
+
+                                    <p className="mt-3 text-[11px] text-zinc-400 leading-relaxed min-h-[32px]">{chain.recommendation}</p>
+                                    
+                                    {isSelected && (
+                                        <div className="absolute right-0 bottom-0 w-2 h-2 bg-cyan-400 rounded-tl-md" />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {selectedChain && selectedChainBreakdown && (
+                        <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/30 p-5 space-y-4 animate-in fade-in duration-300">
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/40 pb-3">
+                                <div className="flex items-center gap-2">
+                                    <Shield className="h-4 w-4 text-cyan-400" />
+                                    <h3 className="text-sm font-bold text-white capitalize">{selectedChain.label} Detailed Risk Factor Attribution</h3>
+                                </div>
+                                <span className="text-xs text-zinc-400">
+                                    Total Risk Score: <span className="font-bold text-white">{selectedChain.score.toFixed(0)}</span>
+                                </span>
+                            </div>
+
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                <div className="space-y-4 md:col-span-2">
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <BreakdownBar 
+                                            label="Base Infrastructure Risk" 
+                                            value={selectedChainBreakdown.baseRisk} 
+                                            max={100}
+                                            tooltip="Inherent security, validator sets, and consensus maturity."
+                                        />
+                                        <BreakdownBar 
+                                            label="Market Volatility Impact" 
+                                            value={selectedChainBreakdown.marketPenalty} 
+                                            max={42} 
+                                            tooltip="Chain's historical price fluctuations coupled with current scenario price drops."
+                                        />
+                                        <BreakdownBar 
+                                            label="Liquidity Shock Penalty" 
+                                            value={selectedChainBreakdown.liquidityPenalty} 
+                                            max={34} 
+                                            tooltip="Risk of capital flight and slippage penalties on this network during liquidations."
+                                        />
+                                        <BreakdownBar 
+                                            label="Exploit & Smart Contract Risk" 
+                                            value={selectedChainBreakdown.exploitPenalty} 
+                                            max={45} 
+                                            tooltip="Susceptibility to smart contract issues, exploit history, or systemic vulnerability."
+                                        />
+                                        <BreakdownBar 
+                                            label="Cross-Chain Bridge Vulnerability" 
+                                            value={selectedChainBreakdown.bridgePenalty} 
+                                            max={22} 
+                                            tooltip="Dependence on cross-chain assets and exposure to bridge exploits/freezes."
+                                        />
+                                        <BreakdownBar 
+                                            label="Focused Protocol Concentration" 
+                                            value={selectedChainBreakdown.focusPenalty} 
+                                            max={10} 
+                                            tooltip="Additional risk weight based on your current asset exposure on this specific network."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg bg-zinc-900/40 p-4 border border-zinc-800/40 space-y-3">
+                                    <div className="flex items-center gap-2 text-xs font-bold text-cyan-300">
+                                        <Info className="h-3.5 w-3.5" />
+                                        <span>Aegis Deployment Playbook</span>
+                                    </div>
+                                    <p className="text-xs text-zinc-300 leading-relaxed">
+                                        Under the <span className="font-semibold text-white">{selectedScenario.title}</span> scenario, {selectedChain.label} exhibits a risk factor of <span className="font-semibold text-white">{selectedChain.score.toFixed(0)}</span>.
+                                    </p>
+                                    <div className="text-[11px] text-zinc-400 space-y-2 pt-1 border-t border-zinc-800/60">
+                                        {selectedChain.name === 'solana' && (
+                                            <>
+                                                <p className="font-semibold text-zinc-300">Solana Recommendations:</p>
+                                                <p>• Highly responsive for fast exits and de-risking.</p>
+                                                <p>• Watch out for network congestion during panic events.</p>
+                                                <p>• Prefer LSTs (like JitoSOL) or direct SOL over exotic pools.</p>
+                                            </>
+                                        )}
+                                        {selectedChain.name === 'ethereum' && (
+                                            <>
+                                                <p className="font-semibold text-zinc-300">Ethereum Recommendations:</p>
+                                                <p>• Extremely secure settlement Layer 1; lowest exploit vulnerability.</p>
+                                                <p>• High gas fees might lock smaller portfolios during selloffs.</p>
+                                                <p>• Suitable for parking large stable balances.</p>
+                                            </>
+                                        )}
+                                        {selectedChain.name === 'arbitrum' && (
+                                            <>
+                                                <p className="font-semibold text-zinc-300">Arbitrum Recommendations:</p>
+                                                <p>• Highly optimized L2 rollup, low fees and high throughput.</p>
+                                                <p>• Monitor bridge exit times and sequencer liveness.</p>
+                                                <p>• Keep liquidity in main blue-chip pools.</p>
+                                            </>
+                                        )}
+                                        {selectedChain.name === 'base' && (
+                                            <>
+                                                <p className="font-semibold text-zinc-300">Base Recommendations:</p>
+                                                <p>• Excellent transaction speed and ecosystem expansion.</p>
+                                                <p>• Ensure secondary exit paths are pre-configured.</p>
+                                                <p>• Watch centralization indicators and sequencer status.</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </section>
 
                 <section className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     <div className="lg:col-span-3 rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
@@ -589,6 +842,15 @@ function WarRoomContent() {
                                 )}
                             </div>
                         </div>
+
+                        {portfolioSource === 'live' && (
+                            <div className="text-xs text-zinc-400 leading-normal bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-800/40 flex items-start gap-2">
+                                <Info className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+                                <div>
+                                    <strong>Simulated Live Basket:</strong> The total value is derived by scaling down the real-world TVL of top Solana protocols and capping each at <strong>$220,000</strong> to avoid displaying unrealistic balances. You can type in your own custom amounts below.
+                                </div>
+                            </div>
+                        )}
 
                         <div className="flex flex-wrap items-center gap-2">
                             <WalletButton />
@@ -645,27 +907,37 @@ function WarRoomContent() {
 
                         {/* Templates removed for simplicity */}
 
-                        <div className="space-y-3">
-                            {positions.map((position) => (
-                                <div key={position.id} className="grid grid-cols-1 items-center gap-2 rounded-xl bg-zinc-900/65 p-3 md:grid-cols-7">
-                                    <div className="md:col-span-3">
-                                        <p className="font-semibold text-sm">{position.label}</p>
-                                        <p className="text-xs text-zinc-400 uppercase tracking-wide">{position.protocol} • {position.kind}</p>
+                        {positions.length === 0 ? (
+                            <div className="text-center py-8 px-4 rounded-xl border border-dashed border-zinc-800 bg-zinc-950/20">
+                                <Info className="h-8 w-8 mx-auto text-zinc-400 mb-2" />
+                                <p className="text-xs font-semibold text-zinc-300">No holdings loaded</p>
+                                <p className="text-[11px] text-zinc-500 mt-1 max-w-xs mx-auto">
+                                    Click "Load Live Market Basket" or connect a wallet and import your balances to get started.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {positions.map((position) => (
+                                    <div key={position.id} className="grid grid-cols-1 items-center gap-2 rounded-xl bg-zinc-900/65 p-3 md:grid-cols-7">
+                                        <div className="md:col-span-3">
+                                            <p className="font-semibold text-sm">{position.label}</p>
+                                            <p className="text-xs text-zinc-400 uppercase tracking-wide">{position.protocol} • {position.kind}</p>
+                                        </div>
+                                        <div className="md:col-span-2 text-xs text-zinc-400">Volatility {position.volatility}%</div>
+                                        <div className="md:col-span-2">
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step={1000}
+                                                value={position.usdValue}
+                                                onChange={(e) => updatePositionValue(position.id, Number(e.target.value))}
+                                                className="w-full rounded-md bg-zinc-950 px-2 py-1.5 text-sm font-medium ring-1 ring-zinc-800/60"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="md:col-span-2 text-xs text-zinc-400">Volatility {position.volatility}%</div>
-                                    <div className="md:col-span-2">
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            step={1000}
-                                            value={position.usdValue}
-                                            onChange={(e) => updatePositionValue(position.id, Number(e.target.value))}
-                                            className="w-full rounded-md bg-zinc-950 px-2 py-1.5 text-sm font-medium ring-1 ring-zinc-800/60"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="lg:col-span-2 rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md space-y-4">
@@ -689,10 +961,10 @@ function WarRoomContent() {
 
                         <button
                             onClick={runSimulation}
-                            disabled={loading}
-                            className="w-full rounded-xl bg-cyan-300 py-3 font-black tracking-wide text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-60"
+                            disabled={loading || positions.length === 0 || totalValue === 0}
+                            className="w-full rounded-xl bg-cyan-300 py-3 font-black tracking-wide text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Running Simulation...' : 'Show My Risk Outcome'}
+                            {loading ? 'Running Simulation...' : (positions.length === 0 || totalValue === 0) ? 'Add Holdings to Simulate' : 'Show My Risk Outcome'}
                         </button>
 
                         {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -827,6 +1099,32 @@ function MetricCard({
             <p className="text-xs uppercase tracking-widest text-zinc-500">{label}</p>
             <p className={`text-2xl font-black mt-2 ${accent ?? 'text-zinc-100'}`}>{value}</p>
             <p className="mt-2 text-xs text-zinc-400">{helper}</p>
+        </div>
+    )
+}
+
+function BreakdownBar({
+    label,
+    value,
+    max,
+    tooltip,
+}: {
+    label: string
+    value: number
+    max: number
+    tooltip: string
+}) {
+    const percentage = Math.min(100, Math.max(0, (value / max) * 100))
+    return (
+        <div className="rounded-lg bg-zinc-950/50 border border-zinc-900/60 p-3 space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-zinc-300">{label}</span>
+                <span className="font-bold text-zinc-100">{value}</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-zinc-900/60 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-300 rounded-full" style={{ width: `${percentage}%` }} />
+            </div>
+            <p className="text-[10px] text-zinc-500 leading-tight">{tooltip}</p>
         </div>
     )
 }
