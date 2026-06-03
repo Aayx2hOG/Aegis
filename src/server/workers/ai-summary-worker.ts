@@ -3,6 +3,7 @@ import { Worker } from 'bullmq'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
 import { enqueueNotification } from '@/server/queue/notification-queue'
+import { updateEventAndPublishSummary } from '@/server/db/redis'
 
 const redisUrl = process.env.REDIS_URL
 if (!redisUrl) {
@@ -26,7 +27,7 @@ const worker = new Worker(
         const brief = await runResearchAgent(protocolSlug)
         const summary = typeof brief.brief === 'string' ? brief.brief : null
 
-        await prisma!.alertEvent.update({ where: { id: eventId }, data: { summary, summaryGeneratedAt: new Date() } })
+        await updateEventAndPublishSummary(eventId, summary)
 
         // Enqueue notification job (notification worker will deliver)
         try {

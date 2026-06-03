@@ -3,6 +3,7 @@ import type { Queue } from 'bullmq'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
 import { enqueueNotification } from '@/server/queue/notification-queue'
+import { updateEventAndPublishSummary } from '@/server/db/redis'
 
 const redisUrl = process.env.REDIS_URL
 const QUEUE_NAME = 'ai-summary'
@@ -63,7 +64,7 @@ export async function enqueueSummary(eventId: string, protocolSlug: string) {
         if (!prisma) throw new Error('DATABASE_URL is not configured.')
         const brief = await runResearchAgent(protocolSlug)
         const summary = typeof brief.brief === 'string' ? brief.brief : null
-        await prisma.$executeRaw`UPDATE "AlertEvent" SET "summary" = ${summary}, "summaryGeneratedAt" = ${new Date()} WHERE id = ${eventId}`
+        await updateEventAndPublishSummary(eventId, summary)
         // Trigger notifications inline when no queue is configured
         try {
             await enqueueNotification(eventId)

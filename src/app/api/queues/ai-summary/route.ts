@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
 import deliverNotificationsForEvent from '@/server/notifications/delivery'
+import { updateEventAndPublishSummary } from '@/server/db/redis'
 
 const WEBHOOK_SECRET = process.env.UPSTASH_WEBHOOK_SECRET
 
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
             const brief = await runResearchAgent(protocolSlug)
             const summary = typeof brief.brief === 'string' ? brief.brief : null
 
-            await prisma.alertEvent.update({ where: { id: eventId }, data: { summary, summaryGeneratedAt: new Date() } })
+            await updateEventAndPublishSummary(eventId, summary)
 
             // If Upstash is configured, enqueue a notification message so a serverless notification handler can deliver it.
             const UPSTASH_URL = process.env.UPSTASH_REST_URL

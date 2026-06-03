@@ -672,6 +672,21 @@ export default function WatchlistPage() {
     const [alertStorageMode, setAlertStorageMode] = useState<'database' | 'local' | 'loading'>('loading')
     const [showAllAlertRules, setShowAllAlertRules] = useState(false)
 
+    const findMarketProtocol = useMemo(() => {
+        return (protocolSlug: string): SolanaProtocol | undefined => {
+            const normalizedTarget = normalizeProtocolSlug(protocolSlug)
+
+            // 1. Search in protocolsByChainType across all chains
+            const flatProtocols = Object.values(protocolsByChainType).flat().filter((p): p is SolanaProtocol => Boolean(p))
+            const match = resolveProtocolFromList(normalizedTarget, flatProtocols)
+            if (match) return match
+
+            // 2. Fallback to searching in watchlistMarketRows
+            const rowMatch = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizedTarget || (row.market && normalizeProtocolSlug(row.market.slug) === normalizedTarget))
+            return rowMatch?.market
+        }
+    }, [protocolsByChainType, watchlistMarketRows])
+
     const availableAlertProtocolSlugs = useMemo(
         () => Array.from(new Set(watchlistMarketRows.map((row) => row.slug))),
         [watchlistMarketRows]
@@ -899,7 +914,7 @@ export default function WatchlistPage() {
     }
 
     function openTestRuleDialog(rule: AlertRuleItem) {
-        const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(rule.protocolSlug))?.market
+        const market = findMarketProtocol(rule.protocolSlug)
         const liveValue = getLocalCurrentValueForRule(rule, market)
         setSelectedTestRule(rule)
         setTestRuleValue((liveValue ?? rule.threshold).toFixed(2))
@@ -929,7 +944,7 @@ export default function WatchlistPage() {
             return
         }
 
-        const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(rule.protocolSlug))?.market
+        const market = findMarketProtocol(rule.protocolSlug)
         const liveValue = getLocalCurrentValueForRule(rule, market)
         const triggered = isLocalAlertTriggered(rule, currentValue)
         const summary = buildLocalAlertSummary(rule, currentValue)
@@ -968,9 +983,7 @@ export default function WatchlistPage() {
                 store.rules
                     .filter((rule) => rule.enabled)
                     .forEach((rule) => {
-                        const market = selectedAlertMarketRow?.slug && normalizeProtocolSlug(selectedAlertMarketRow.slug) === normalizeProtocolSlug(rule.protocolSlug)
-                            ? selectedAlertMarketRow.market
-                            : watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(rule.protocolSlug))?.market
+                        const market = findMarketProtocol(rule.protocolSlug)
 
                         const currentValue = getLocalCurrentValueForRule(rule, market)
                         if (currentValue == null) {
@@ -1206,6 +1219,56 @@ export default function WatchlistPage() {
             cancelled = true
         }
     }, [walletAddress, alertWalletAddress])
+
+    useEffect(() => {
+        if (!alertWalletAddress) return;
+
+        const eventSource = new EventSource(`/api/alerts/stream?walletAddress=${encodeURIComponent(alertWalletAddress)}`);
+
+        eventSource.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data) as {
+                    type: 'EVENT_CREATED' | 'SUMMARY_COMPLETED';
+                    event: AlertEventItem;
+                };
+
+                if (payload.type === 'EVENT_CREATED') {
+                    setEvents((prev) => {
+                        const items = normalizeAlertEvents(prev);
+                        if (items.some((e) => e.id === payload.event.id)) return prev;
+                        return [payload.event, ...items];
+                    });
+                    toast.error(`⚠️ Alert Triggered: ${payload.event.protocolSlug} breached threshold!`, {
+                        description: `${payload.event.metric} is now ${payload.event.currentValue.toFixed(2)}%`,
+                        duration: 8000,
+                    });
+                } else if (payload.type === 'SUMMARY_COMPLETED') {
+                    setEvents((prev) =>
+                        normalizeAlertEvents(prev).map((e) =>
+                            e.id === payload.event.id
+                                ? { ...e, summary: payload.event.summary, summaryGeneratedAt: payload.event.summaryGeneratedAt }
+                                : e
+                        )
+                    );
+                    setPollingEventId((current) => current === payload.event.id ? null : current);
+                    toast.success(`🤖 AI Brief generated for ${payload.event.protocolSlug}!`, {
+                        description: payload.event.summary ? `${payload.event.summary.slice(0, 100)}...` : undefined,
+                        duration: 6000,
+                    });
+                }
+            } catch (err) {
+                console.error('[SSE Client] Error parsing event:', err);
+            }
+        };
+
+        eventSource.onerror = (err) => {
+            console.error('[SSE Client] Connection error:', err);
+        };
+
+        return () => {
+            eventSource.close();
+        };
+    }, [alertWalletAddress]);
 
     const chainViews = useMemo(() => {
         const chainsWithWatchlists = allChains.filter((chain) => (watchlistsByChain[chain.name]?.length ?? 0) > 0)
@@ -1771,29 +1834,8 @@ export default function WatchlistPage() {
                                                                     const body = await res.json()
                                                                     if (res.status === 202) {
                                                                         toast.success('Regeneration queued — will update shortly')
-                                                                        // start polling this event until summary appears
-                                                                        setPollingEventId(event.id);
-                                                                        (async function poll() {
-                                                                            const start = Date.now()
-                                                                            while (Date.now() - start < 60000) {
-                                                                                await new Promise((r) => setTimeout(r, 3000))
-                                                                                try {
-                                                                                    const r = await fetch(`/api/alerts/events/${event.id}`)
-                                                                                    if (!r.ok) continue
-                                                                                    const b = await r.json()
-                                                                                    const remoteEvent = b.event as AlertEventItem
-                                                                                    if (remoteEvent?.summary) {
-                                                                                        setEvents((prev) => prev.map((e) => (e.id === remoteEvent.id ? { ...e, summary: remoteEvent.summary, summaryGeneratedAt: remoteEvent.summaryGeneratedAt } : e)))
-                                                                                        toast.success('Summary available')
-                                                                                        setPollingEventId(null)
-                                                                                        break
-                                                                                    }
-                                                                                } catch {
-                                                                                    // ignore and continue polling
-                                                                                }
-                                                                            }
-                                                                            setPollingEventId(null)
-                                                                        })()
+                                                                        // Set polling ID to show local spinner; SSE will push the update
+                                                                        setPollingEventId(event.id)
                                                                     } else if (!res.ok) {
                                                                         toast.error(body?.error ?? 'Failed to regenerate summary')
                                                                         return
@@ -1950,7 +1992,7 @@ export default function WatchlistPage() {
                             <p className="text-xs text-zinc-500">
                                 Current live value for reference:{' '}
                                 {(() => {
-                                    const market = watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(selectedTestRule.protocolSlug))?.market
+                                    const market = findMarketProtocol(selectedTestRule.protocolSlug)
                                     const liveValue = getLocalCurrentValueForRule(selectedTestRule, market)
                                     return liveValue == null ? 'unavailable' : `${liveValue.toFixed(2)}%`
                                 })()}

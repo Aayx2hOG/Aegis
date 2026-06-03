@@ -44,7 +44,7 @@ function resolveDynamicProxyToken(meta: Record<string, unknown>): { mint: string
       nameSuffix: 'SOL Proxy',
     };
   }
-  
+
   if (name.includes('eth') || symbol.includes('eth')) {
     return {
       mint: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
@@ -625,8 +625,27 @@ export async function executeTool(
         const currentTvl = (await tvlRes.json()) as number;
         const resolvedMeta = (await metaRes.json()) as Record<string, unknown>;
         const derived = deriveTvlChanges(resolvedMeta);
-        const change1d = asNumber(resolvedMeta.change_1d) ?? asNumber(meta.change_1d) ?? derived.change1d;
-        const change7d = asNumber(resolvedMeta.change_7d) ?? asNumber(meta.change_7d) ?? derived.change7d;
+
+        let liveChange1d: number | null = null;
+        let liveChange7d: number | null = null;
+        let liveSource = '';
+        try {
+          const listRes = await fetchWithTimeout('https://api.llama.fi/protocols');
+          if (listRes.ok) {
+            const list = await listRes.json() as Array<{ slug: string; change_1d: number | null; change_7d: number | null }>;
+            const match = list.find(p => p.slug.toLowerCase() === slug.toLowerCase() || p.slug.toLowerCase() === inputSlug.toLowerCase());
+            if (match) {
+              liveChange1d = asNumber(match.change_1d);
+              liveChange7d = asNumber(match.change_7d);
+              liveSource = 'defillama.rolling_list';
+            }
+          }
+        } catch (err) {
+          console.error('[get_protocol_tvl] Failed to query live rolling changes list:', err);
+        }
+
+        const change1d = liveChange1d ?? asNumber(resolvedMeta.change_1d) ?? asNumber(meta.change_1d) ?? derived.change1d;
+        const change7d = liveChange7d ?? asNumber(resolvedMeta.change_7d) ?? asNumber(meta.change_7d) ?? derived.change7d;
 
         return {
           slug,
@@ -634,14 +653,12 @@ export async function executeTool(
           tvl: currentTvl,
           change1d,
           change7d,
-          changeSource:
-            asNumber(resolvedMeta.change_1d) != null || asNumber(meta.change_1d) != null
-              ? 'defillama.change_1d'
-              : derived.source,
-          change7dSource:
-            asNumber(resolvedMeta.change_7d) != null || asNumber(meta.change_7d) != null
-              ? 'defillama.change_7d'
-              : derived.source,
+          changeSource: liveSource || (asNumber(resolvedMeta.change_1d) != null || asNumber(meta.change_1d) != null
+            ? 'defillama.change_1d'
+            : derived.source),
+          change7dSource: liveSource || (asNumber(resolvedMeta.change_7d) != null || asNumber(meta.change_7d) != null
+            ? 'defillama.change_7d'
+            : derived.source),
           chains: ((resolvedMeta.chains as string[]) ?? (meta.chains as string[]))?.slice(0, 3),
           category: resolvedMeta.category ?? meta.category,
         };

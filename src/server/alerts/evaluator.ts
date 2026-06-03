@@ -3,6 +3,7 @@ import { prisma } from '@/server/db/prisma'
 import { getSolanaProtocols } from '@/server/api/defillama'
 import { enqueueSummary } from '@/server/queue/summary-queue'
 import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
+import { publishAlertEvent } from '@/server/db/redis'
 
 const EVENT_DEDUP_MS = 1000 * 60 * 60 * 6
 
@@ -116,6 +117,25 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
         currentValue,
       },
     })
+
+    // Publish the created event to Redis Pub/Sub
+    try {
+      await publishAlertEvent('EVENT_CREATED', {
+        id: createdEvent.id,
+        ruleId: createdEvent.ruleId,
+        walletAddress: createdEvent.walletAddress,
+        protocolSlug: createdEvent.protocolSlug,
+        metric: createdEvent.metric,
+        threshold: createdEvent.threshold,
+        direction: createdEvent.direction,
+        currentValue: createdEvent.currentValue,
+        triggeredAt: createdEvent.triggeredAt,
+        summary: createdEvent.summary,
+        summaryGeneratedAt: createdEvent.summaryGeneratedAt,
+      })
+    } catch (err) {
+      console.error('[evaluateAlertsForWallet] failed to publish event to Redis:', err)
+    }
 
     // Email delivery is disabled. Record that delivery was not attempted.
     const emailMessage = 'Email delivery disabled.'
