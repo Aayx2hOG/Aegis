@@ -5,7 +5,7 @@ import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 import { normalizeNotificationConfig } from '@/server/notifications/config'
 
 function isChannelType(value: string): value is NotificationChannelType {
-    return value === NotificationChannelType.DISCORD || value === NotificationChannelType.WEBHOOK
+    return value === NotificationChannelType.DISCORD || value === NotificationChannelType.TELEGRAM
 }
 
 export async function GET(req: NextRequest) {

@@ -3,7 +3,9 @@ import net from 'node:net'
 import { NotificationChannelType } from '@prisma/client'
 
 export type ChannelConfig = {
-    url: string
+    url?: string
+    botToken?: string
+    chatId?: string
     method?: string
     headers?: Record<string, string>
     secret?: string
@@ -75,38 +77,28 @@ export function validateNotificationUrl(rawUrl: unknown, type: NotificationChann
 export function normalizeNotificationConfig(config: unknown, type: NotificationChannelType): ChannelConfig {
     const candidate = config && typeof config === 'object' ? (config as Record<string, unknown>) : {}
 
-    const url = validateNotificationUrl(candidate.url, type)
+    if (type === NotificationChannelType.TELEGRAM) {
+        const botToken = typeof candidate.botToken === 'string' ? candidate.botToken.trim() : ''
+        const chatId = typeof candidate.chatId === 'string' ? candidate.chatId.trim() : ''
 
-    let method: string | undefined
-    if (candidate.method != null) {
-        if (typeof candidate.method !== 'string') throw new Error('Invalid HTTP method')
-        method = candidate.method.toUpperCase()
-        const allowed = new Set(['POST', 'PUT', 'PATCH'])
-        if (!allowed.has(method)) throw new Error('Unsupported HTTP method')
-    }
-
-    let headers: Record<string, string> | undefined
-    if (candidate.headers != null) {
-        if (typeof candidate.headers !== 'object' || Array.isArray(candidate.headers)) throw new Error('Invalid headers')
-        headers = {}
-        for (const [k, v] of Object.entries(candidate.headers as Record<string, unknown>)) {
-            if (typeof v !== 'string') throw new Error('Header values must be strings')
-            headers[k] = v
+        if (!botToken) {
+            throw new Error('Telegram Bot Token is required')
         }
+        if (!/^\d+:[A-Za-z0-9_-]+$/.test(botToken)) {
+            throw new Error('Invalid Telegram Bot Token format')
+        }
+
+        if (!chatId) {
+            throw new Error('Telegram Chat ID is required')
+        }
+        if (!/^-?\d+$/.test(chatId)) {
+            throw new Error('Invalid Telegram Chat ID format')
+        }
+
+        return { botToken, chatId }
     }
 
-    let secret: string | undefined
-    if (candidate.secret != null) {
-        if (typeof candidate.secret !== 'string' || candidate.secret.length === 0) throw new Error('Invalid secret')
-        secret = candidate.secret
-    }
-
-    let signatureHeader: string | undefined
-    if (candidate.signatureHeader != null) {
-        if (typeof candidate.signatureHeader !== 'string' || candidate.signatureHeader.trim().length === 0) throw new Error('Invalid signatureHeader')
-        signatureHeader = candidate.signatureHeader.trim()
-    }
-
-    return { url, method, headers, secret, signatureHeader }
+    const url = validateNotificationUrl(candidate.url, type)
+    return { url }
 }
 

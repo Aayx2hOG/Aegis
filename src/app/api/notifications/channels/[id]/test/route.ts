@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
-import { sendGenericWebhook } from '@/server/notifications/adapters/webhook'
+import { sendTelegramMessage } from '@/server/notifications/adapters/telegram'
 import { normalizeNotificationConfig } from '@/server/notifications/config'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -28,9 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
 
         if (channel.type === 'DISCORD') {
-            await sendDiscordWebhook(cfg.url, message)
-        } else {
-            await sendGenericWebhook(cfg, { test: true, message })
+            await sendDiscordWebhook(cfg.url!, message)
+        } else if (channel.type === 'TELEGRAM') {
+            await sendTelegramMessage(cfg.botToken!, cfg.chatId!, message)
         }
 
         const log = await prisma.notificationLog.create({ data: { eventId: `test-${Date.now()}`, channelId: channel.id, status: 'SENT', sentAt: new Date() } })

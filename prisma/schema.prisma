@@ -115,7 +115,7 @@ model ProtocolSnapshot {
 
 enum NotificationChannelType {
     DISCORD
-    WEBHOOK
+    TELEGRAM
 }
 
 enum NotificationStatus {

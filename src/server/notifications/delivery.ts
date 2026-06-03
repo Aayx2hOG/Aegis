@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/server/db/prisma'
 import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
-import { sendGenericWebhook } from '@/server/notifications/adapters/webhook'
+import { sendTelegramMessage } from '@/server/notifications/adapters/telegram'
 import { normalizeNotificationConfig } from '@/server/notifications/config'
 
 type DeliverResult = {
@@ -87,18 +87,9 @@ export async function deliverNotificationsForEvent(eventId: string, concurrency 
 
                 try {
                     if (ch.type === 'DISCORD') {
-                        await sendDiscordWebhook(cfg.url, event.summary ?? `Alert: ${event.protocolSlug}`)
-                    } else {
-                        await sendGenericWebhook(cfg, {
-                            eventId: event.id,
-                            protocol: event.protocolSlug,
-                            metric: event.metric,
-                            threshold: event.threshold,
-                            direction: event.direction,
-                            currentValue: event.currentValue,
-                            triggeredAt: event.triggeredAt,
-                            summary: event.summary ?? null,
-                        })
+                        await sendDiscordWebhook(cfg.url!, event.summary ?? `Alert: ${event.protocolSlug}`)
+                    } else if (ch.type === 'TELEGRAM') {
+                        await sendTelegramMessage(cfg.botToken!, cfg.chatId!, event.summary ?? `Alert: ${event.protocolSlug}`)
                     }
 
                     await db.notificationLog.update({ where: { id: log.id }, data: { status: 'SENT', sentAt: new Date() } })

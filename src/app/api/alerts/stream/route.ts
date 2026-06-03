@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();
   const customOptions = {
     maxRetriesPerRequest: null,
-    enableOfflineQueue: false,
+    enableOfflineQueue: true,
   };
   const subscriber = new Redis(redisUrl, customOptions);
 
