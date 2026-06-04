@@ -4,6 +4,8 @@ import { getSolanaProtocols } from '@/server/api/defillama'
 import { enqueueSummary } from '@/server/queue/summary-queue'
 import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import { publishAlertEvent } from '@/server/db/redis'
+import { executeTool } from '@/server/ai/aegis-tools'
+import type { SolanaProtocol } from '@/shared/types'
 
 const EVENT_DEDUP_MS = 1000 * 60 * 60 * 6
 
@@ -11,13 +13,65 @@ function isTriggered(currentValue: number, threshold: number, direction: AlertDi
   return direction === AlertDirection.BELOW ? currentValue <= threshold : currentValue >= threshold
 }
 
-function getMetricValue(
-  metric: AlertMetric,
-  change1d: number | null | undefined,
-  change7d: number | null | undefined,
-): number | null {
-  if (metric === AlertMetric.CHANGE_1D) return typeof change1d === 'number' ? change1d : null
-  if (metric === AlertMetric.CHANGE_7D) return typeof change7d === 'number' ? change7d : null
+function formatMetricValue(metric: AlertMetric, value: number): string {
+  if (metric === AlertMetric.TVL_USD) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact' }).format(value)
+  }
+  if (metric === AlertMetric.PRICE_USD) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(value)
+  }
+  return `${value.toFixed(2)}%`
+}
+
+async function resolveCurrentValue(
+  rule: { protocolSlug: string; metric: AlertMetric },
+  market?: SolanaProtocol,
+): Promise<number | null> {
+  if (rule.metric === AlertMetric.PRICE_USD) {
+    try {
+      const snapshot = (await executeTool('get_protocol_snapshot', { slug: rule.protocolSlug })) as {
+        tokenPrice?: { price?: number }
+      }
+      return snapshot?.tokenPrice?.price ?? null
+    } catch (err) {
+      console.error(`[resolveCurrentValue] Failed to fetch price for ${rule.protocolSlug}:`, err)
+      return null
+    }
+  }
+
+  // TVL_USD or CHANGE_1D or CHANGE_7D
+  if (market) {
+    if (rule.metric === AlertMetric.TVL_USD) {
+      return typeof market.tvl === 'number' ? market.tvl : null
+    }
+    if (rule.metric === AlertMetric.CHANGE_1D) {
+      return typeof market.change_1d === 'number' ? market.change_1d : null
+    }
+    if (rule.metric === AlertMetric.CHANGE_7D) {
+      return typeof market.change_7d === 'number' ? market.change_7d : null
+    }
+  }
+
+  // Fallback for uncached or non-Solana protocols
+  try {
+    const tvlData = (await executeTool('get_protocol_tvl', { slug: rule.protocolSlug })) as {
+      tvl?: number
+      change1d?: number
+      change7d?: number
+    }
+    if (rule.metric === AlertMetric.TVL_USD) {
+      return typeof tvlData?.tvl === 'number' ? tvlData.tvl : null
+    }
+    if (rule.metric === AlertMetric.CHANGE_1D) {
+      return typeof tvlData?.change1d === 'number' ? tvlData.change1d : null
+    }
+    if (rule.metric === AlertMetric.CHANGE_7D) {
+      return typeof tvlData?.change7d === 'number' ? tvlData.change7d : null
+    }
+  } catch (err) {
+    console.error(`[resolveCurrentValue] Fallback TVL fetch failed for ${rule.protocolSlug}:`, err)
+  }
+
   return null
 }
 
@@ -51,7 +105,7 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
 
   for (const rule of rules) {
     const market = resolveProtocolFromList(rule.protocolSlug, protocols)
-    const currentValue = getMetricValue(rule.metric, market?.change_1d, market?.change_7d)
+    const currentValue = await resolveCurrentValue(rule, market)
 
     if (currentValue == null) {
       skipped++
@@ -68,6 +122,10 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
       continue
     }
 
+    const formattedVal = formatMetricValue(rule.metric, currentValue)
+    const formattedThreshold = formatMetricValue(rule.metric, rule.threshold)
+    const relation = rule.direction === AlertDirection.BELOW ? 'below or equal to' : 'above or equal to'
+
     if (!isTriggered(currentValue, rule.threshold, rule.direction)) {
       skipped++
       results.push({
@@ -78,7 +136,7 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
         direction: rule.direction,
         status: 'skipped',
         currentValue,
-        reason: 'Live value did not meet the rule condition.',
+        reason: `Live value ${formattedVal} did not meet the rule condition (must be ${relation} ${formattedThreshold}).`,
       })
       continue
     }
@@ -163,7 +221,7 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
       direction: rule.direction,
       status: 'triggered',
       currentValue,
-      reason: `Rule condition met and alert event created. ${emailMessage}`,
+      reason: `Rule condition met (live value ${formattedVal} is ${relation} ${formattedThreshold}) and alert event created. ${emailMessage}`,
     })
   }
 

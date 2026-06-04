@@ -5,7 +5,12 @@ import { prisma } from '@/server/db/prisma';
 import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
 function isAlertMetric(value: string): value is AlertMetric {
-    return value === AlertMetric.CHANGE_1D || value === AlertMetric.CHANGE_7D;
+    return (
+        value === AlertMetric.CHANGE_1D ||
+        value === AlertMetric.CHANGE_7D ||
+        value === AlertMetric.TVL_USD ||
+        value === AlertMetric.PRICE_USD
+    );
 }
 
 function isAlertDirection(value: string): value is AlertDirection {

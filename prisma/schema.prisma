@@ -9,6 +9,8 @@ datasource db {
 enum AlertMetric {
     CHANGE_1D
     CHANGE_7D
+    TVL_USD
+    PRICE_USD
 }
 
 enum AlertDirection {

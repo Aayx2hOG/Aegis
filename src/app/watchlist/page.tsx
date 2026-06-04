@@ -19,7 +19,7 @@ import { ChainEnvironment, ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/shared/types'
 import { toast } from 'sonner'
 
-type AlertMetric = 'CHANGE_1D' | 'CHANGE_7D'
+type AlertMetric = 'CHANGE_1D' | 'CHANGE_7D' | 'TVL_USD' | 'PRICE_USD'
 type AlertDirection = 'BELOW' | 'ABOVE'
 
 interface ResearchHistoryItem {
@@ -197,13 +197,36 @@ function writeLocalAlertStore(walletAddress: string, store: LocalAlertStore) {
     }
 }
 
+function formatAlertValue(metric: AlertMetric, value: number): string {
+    if (metric === 'TVL_USD') {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            notation: 'compact',
+            maximumFractionDigits: 1,
+        }).format(value)
+    }
+    if (metric === 'PRICE_USD') {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 2,
+        }).format(value)
+    }
+    return `${value.toFixed(2)}%`
+}
+
 function buildLocalAlertSummary(rule: AlertRuleItem, currentValue: number) {
     const metricLabel = ALERT_METRIC_LABEL[rule.metric]
     const relationLabel = currentValue === rule.threshold ? 'equal to' : currentValue < rule.threshold ? 'below' : 'above'
-    return `${rule.protocolSlug} ${metricLabel} is ${currentValue.toFixed(2)}%, which is ${relationLabel} ${rule.threshold.toFixed(2)}%.`
+    const formattedVal = formatAlertValue(rule.metric, currentValue)
+    const formattedThreshold = formatAlertValue(rule.metric, rule.threshold)
+    return `${rule.protocolSlug} ${metricLabel} is ${formattedVal}, which is ${relationLabel} ${formattedThreshold}.`
 }
 
-function getLocalCurrentValueForRule(rule: AlertRuleItem, market?: SolanaProtocol) {
+function getLocalCurrentValueForRule(rule: AlertRuleItem, market?: SolanaProtocol, price?: number | null) {
+    if (rule.metric === 'TVL_USD') return market?.tvl ?? null
+    if (rule.metric === 'PRICE_USD') return price ?? null
     if (!market) return null
     return rule.metric === 'CHANGE_7D' ? market.change_7d ?? null : market.change_1d ?? null
 }
@@ -290,6 +313,8 @@ function riskState(protocol?: SolanaProtocol): { label: string; tone: string; is
 const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
     CHANGE_1D: '24h change',
     CHANGE_7D: '7d change',
+    TVL_USD: 'TVL',
+    PRICE_USD: 'Token Price',
 }
 
 const CHAIN_LABELS: Record<ChainType, string> = {
@@ -698,11 +723,17 @@ export default function WatchlistPage() {
     )
 
     const selectedAlertCurrentValue = useMemo(() => {
-        if (!selectedAlertMarketRow?.market) return null
+        if (!selectedAlertMarketRow) return null
+        if (alertMetric === 'TVL_USD') {
+            return selectedAlertMarketRow.market?.tvl ?? null
+        }
+        if (alertMetric === 'PRICE_USD') {
+            return priceBySlug[selectedAlertMarketRow.slug]?.priceUsd ?? null
+        }
         return alertMetric === 'CHANGE_7D'
-            ? selectedAlertMarketRow.market.change_7d ?? null
-            : selectedAlertMarketRow.market.change_1d ?? null
-    }, [alertMetric, selectedAlertMarketRow])
+            ? selectedAlertMarketRow.market?.change_7d ?? null
+            : selectedAlertMarketRow.market?.change_1d ?? null
+    }, [alertMetric, selectedAlertMarketRow, priceBySlug])
     const visibleAlertRules = useMemo(
         () => (showAllAlertRules ? rules : rules.slice(0, 3)),
         [rules, showAllAlertRules]
@@ -915,9 +946,10 @@ export default function WatchlistPage() {
 
     function openTestRuleDialog(rule: AlertRuleItem) {
         const market = findMarketProtocol(rule.protocolSlug)
-        const liveValue = getLocalCurrentValueForRule(rule, market)
+        const price = priceBySlug[rule.protocolSlug]?.priceUsd ?? null
+        const liveValue = getLocalCurrentValueForRule(rule, market, price)
         setSelectedTestRule(rule)
-        setTestRuleValue((liveValue ?? rule.threshold).toFixed(2))
+        setTestRuleValue((liveValue ?? rule.threshold).toString())
         setTestRuleOpen(true)
     }
 
@@ -945,9 +977,12 @@ export default function WatchlistPage() {
         }
 
         const market = findMarketProtocol(rule.protocolSlug)
-        const liveValue = getLocalCurrentValueForRule(rule, market)
+        const price = priceBySlug[rule.protocolSlug]?.priceUsd ?? null
+        const liveValue = getLocalCurrentValueForRule(rule, market, price)
         const triggered = isLocalAlertTriggered(rule, currentValue)
         const summary = buildLocalAlertSummary(rule, currentValue)
+        const formattedCurrent = formatAlertValue(rule.metric, currentValue)
+        const formattedLive = liveValue == null ? 'No live market value was available.' : `Live value was ${formatAlertValue(rule.metric, liveValue)}.`
         const testResult: AlertTestResultItem = {
             id: createLocalAlertId('test'),
             ruleId: rule.id,
@@ -958,12 +993,15 @@ export default function WatchlistPage() {
             currentValue,
             triggered,
             createdAt: new Date().toISOString(),
-            summary: `Tested against ${currentValue.toFixed(2)}%. ${liveValue == null ? 'No live market value was available.' : `Live value was ${liveValue.toFixed(2)}%.`} ${summary}`,
+            summary: `Tested against ${formattedCurrent}. ${formattedLive} ${summary}`,
         }
 
         setTestResults((prev) => [testResult, ...prev.filter((existing) => existing.ruleId !== rule.id)])
 
-        toast.success(triggered ? `Preview: ${rule.protocolSlug} would trigger at ${currentValue.toFixed(2)}%.` : `Preview: ${rule.protocolSlug} would not trigger at ${currentValue.toFixed(2)}%.`)
+        toast.success(triggered 
+            ? `Test PASSED: ${rule.protocolSlug} rule passed at ${formattedCurrent}.` 
+            : `Test FAILED: ${rule.protocolSlug} rule failed at ${formattedCurrent}.`
+        )
     }
 
     async function runAlertEvaluation(forceLocal = false) {
@@ -984,8 +1022,8 @@ export default function WatchlistPage() {
                     .filter((rule) => rule.enabled)
                     .forEach((rule) => {
                         const market = findMarketProtocol(rule.protocolSlug)
-
-                        const currentValue = getLocalCurrentValueForRule(rule, market)
+                        const price = priceBySlug[rule.protocolSlug]?.priceUsd ?? null
+                        const currentValue = getLocalCurrentValueForRule(rule, market, price)
                         if (currentValue == null) {
                             skippedEvents++
                             results.push({
@@ -1052,7 +1090,7 @@ export default function WatchlistPage() {
                 }
 
                 setEvaluationResults(results)
-                toast.success(`Alert check complete: ${triggeredEvents.length} triggered, ${skippedEvents} skipped.`)
+                toast.success(`Alert check complete: ${triggeredEvents.length} passed, ${skippedEvents} failed.`)
                 return
             }
 
@@ -1075,7 +1113,7 @@ export default function WatchlistPage() {
             setEvaluationResults(body?.results ?? [])
             const triggeredCount = body?.triggered ?? 0
             const skippedCount = body?.skipped ?? 0
-            toast.success(`Alert check complete: ${triggeredCount} triggered, ${skippedCount} skipped.`)
+            toast.success(`Alert check complete: ${triggeredCount} passed, ${skippedCount} failed.`)
             await reloadAlerts()
         } catch (err) {
             setAlertStorageMode('local')
@@ -1634,7 +1672,7 @@ export default function WatchlistPage() {
                                         </div>
                                         <p className="mt-1 text-[11px] text-zinc-500">Choose a protocol from your current watchlist.</p>
                                         <p className="mt-2 text-[11px] text-zinc-400">
-                                            Live {ALERT_METRIC_LABEL[alertMetric]}: {selectedAlertCurrentValue == null ? 'not available' : `${selectedAlertCurrentValue.toFixed(2)}%`}
+                                            Live {ALERT_METRIC_LABEL[alertMetric]}: {selectedAlertCurrentValue == null ? 'not available' : formatAlertValue(alertMetric, selectedAlertCurrentValue)}
                                         </p>
                                     </div>
 
@@ -1642,12 +1680,20 @@ export default function WatchlistPage() {
                                         <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Metric</label>
                                         <select
                                             value={alertMetric}
-                                            onChange={(event) => setAlertMetric(event.target.value as AlertMetric)}
+                                            onChange={(event) => {
+                                                const nextMetric = event.target.value as AlertMetric
+                                                setAlertMetric(nextMetric)
+                                                if (nextMetric === 'TVL_USD') setAlertThreshold('10000000')
+                                                else if (nextMetric === 'PRICE_USD') setAlertThreshold('1.00')
+                                                else setAlertThreshold('10')
+                                            }}
                                             className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
                                             disabled={!alertWalletAddress || creatingAlert}
                                         >
                                             <option value="CHANGE_1D">24h change</option>
                                             <option value="CHANGE_7D">7d change</option>
+                                            <option value="TVL_USD">TVL ($)</option>
+                                            <option value="PRICE_USD">Token Price ($)</option>
                                         </select>
                                     </div>
 
@@ -1665,17 +1711,25 @@ export default function WatchlistPage() {
                                     </div>
 
                                     <div>
-                                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Threshold %</label>
+                                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                                            {alertMetric === 'CHANGE_1D' || alertMetric === 'CHANGE_7D' ? 'Threshold %' : 'Threshold ($)'}
+                                        </label>
                                         <input
                                             type="number"
-                                            step="0.1"
+                                            step={alertMetric === 'PRICE_USD' ? '0.0001' : alertMetric === 'TVL_USD' ? '1000' : '0.1'}
                                             value={alertThreshold}
                                             onChange={(event) => setAlertThreshold(event.target.value)}
-                                            placeholder="10"
+                                            placeholder={alertMetric === 'PRICE_USD' ? '1.50' : alertMetric === 'TVL_USD' ? '10000000' : '10'}
                                             className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
                                             disabled={!alertWalletAddress || creatingAlert}
                                         />
-                                        <p className="mt-1 text-[11px] text-zinc-500">Use the live value above if you want this rule to fire on the next check.</p>
+                                        <p className="mt-1 text-[11px] text-zinc-500">
+                                            {alertMetric === 'TVL_USD'
+                                                ? 'Enter absolute TVL in USD (e.g. 50000000 for $50M).'
+                                                : alertMetric === 'PRICE_USD'
+                                                ? 'Enter target token price in USD (e.g. 1.25).'
+                                                : 'Use the live value above if you want this rule to fire on the next check.'}
+                                        </p>
                                     </div>
 
                                     <div className="flex items-end">
@@ -1706,7 +1760,7 @@ export default function WatchlistPage() {
                                                     <div>
                                                         <p className="font-semibold text-zinc-100">{rule.protocolSlug}</p>
                                                         <p className="text-[11px] text-zinc-400">
-                                                            {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '≤' : '≥'} {rule.threshold.toFixed(2)}%
+                                                            {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '≤' : '≥'} {formatAlertValue(rule.metric, rule.threshold)}
                                                         </p>
                                                     </div>
                                                     <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${rule.enabled ? 'bg-emerald-500/15 text-emerald-200' : 'bg-zinc-800 text-zinc-400'}`}>
@@ -1766,7 +1820,7 @@ export default function WatchlistPage() {
                                 ) : (
                                     <div className="mt-3 space-y-2">
                                         {evaluationResults.map((result) => {
-                                            const condition = `${ALERT_METRIC_LABEL[result.metric]} ${result.direction === 'BELOW' ? '≤' : '≥'} ${result.threshold.toFixed(2)}%`
+                                            const condition = `${ALERT_METRIC_LABEL[result.metric]} ${result.direction === 'BELOW' ? '≤' : '≥'} ${formatAlertValue(result.metric, result.threshold)}`
                                             const statusLabel = result.status === 'triggered' ? 'PASSED' : 'FAILED'
                                             const tone = result.status === 'triggered'
                                                 ? 'bg-emerald-500/10 text-emerald-100'
@@ -1781,7 +1835,7 @@ export default function WatchlistPage() {
                                                         <span className="text-[10px] uppercase tracking-wide text-zinc-400">{result.status === 'triggered' ? 'Triggered' : 'Skipped'}</span>
                                                     </div>
                                                     <p className="mt-1 text-xs text-zinc-300">
-                                                        {result.currentValue == null ? result.reason : `${result.reason} Current value: ${result.currentValue.toFixed(2)}%.`}
+                                                        {result.currentValue == null ? result.reason : `${result.reason} Current value: ${formatAlertValue(result.metric, result.currentValue)}.`}
                                                     </p>
                                                 </div>
                                             )
@@ -1976,14 +2030,14 @@ export default function WatchlistPage() {
                             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-200">
                                 <p className="font-semibold text-zinc-100">{selectedTestRule.protocolSlug}</p>
                                 <p className="mt-1 text-zinc-400">
-                                    {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'} {selectedTestRule.threshold.toFixed(2)}%
+                                    {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'} {formatAlertValue(selectedTestRule.metric, selectedTestRule.threshold)}
                                 </p>
                             </div>
                             <label className="grid gap-2 text-sm text-zinc-300">
                                 Test value
                                 <input
                                     type="number"
-                                    step="0.01"
+                                    step={selectedTestRule.metric === 'PRICE_USD' ? '0.0001' : selectedTestRule.metric === 'TVL_USD' ? '1000' : '0.1'}
                                     value={testRuleValue}
                                     onChange={(event) => setTestRuleValue(event.target.value)}
                                     className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none transition focus:border-cyan-400/60"
@@ -1993,14 +2047,26 @@ export default function WatchlistPage() {
                                 Current live value for reference:{' '}
                                 {(() => {
                                     const market = findMarketProtocol(selectedTestRule.protocolSlug)
-                                    const liveValue = getLocalCurrentValueForRule(selectedTestRule, market)
-                                    return liveValue == null ? 'unavailable' : `${liveValue.toFixed(2)}%`
+                                    const price = priceBySlug[selectedTestRule.protocolSlug]?.priceUsd ?? null
+                                    const liveValue = getLocalCurrentValueForRule(selectedTestRule, market, price)
+                                    return liveValue == null ? 'unavailable' : formatAlertValue(selectedTestRule.metric, liveValue)
                                 })()}
                             </p>
                             {testResults[0]?.ruleId === selectedTestRule.id ? (
-                                <div className={`rounded-2xl px-4 py-3 text-sm ${testResults[0].triggered ? 'bg-emerald-500/10 text-emerald-100' : 'bg-amber-500/10 text-amber-100'}`}>
-                                    <p className="font-semibold">Latest manual result</p>
-                                    <p className="mt-1">{testResults[0].summary}</p>
+                                <div className={`rounded-2xl border p-4 text-sm space-y-2 backdrop-blur-md ${testResults[0].triggered 
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' 
+                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-200'
+                                }`}>
+                                    <div className="flex items-center justify-between">
+                                        <p className="font-bold uppercase tracking-wider text-[10px]">Latest manual result</p>
+                                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${testResults[0].triggered
+                                            ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-500/30'
+                                            : 'bg-rose-500/20 text-rose-100 border border-rose-500/30'
+                                        }`}>
+                                            {testResults[0].triggered ? '🟢 PASSED (Alert Fires)' : '🔴 FAILED (No Alert)'}
+                                        </span>
+                                    </div>
+                                    <p className="text-zinc-300 text-xs leading-relaxed">{testResults[0].summary}</p>
                                 </div>
                             ) : null}
                         </div>
