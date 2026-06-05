@@ -27,29 +27,28 @@ export async function enqueueNotification(eventId: string) {
     // If Upstash configured, enqueue via REST API
     if (UPSTASH_URL && UPSTASH_TOKEN) {
         try {
-            const url = `${UPSTASH_URL.replace(/\/$/, '')}/queues/notifications/messages`
             const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
             const destinationUrl = `${appUrl}/api/queues/notifications`
             const webhookSecret = process.env.UPSTASH_WEBHOOK_SECRET
 
-            const messagePayload: any = {
-                url: destinationUrl,
-                body: { eventId }
+            const baseUrl = UPSTASH_URL.replace(/\/$/, '')
+            const baseWithoutV2 = baseUrl.endsWith('/v2') ? baseUrl.slice(0, -3) : baseUrl
+            const url = `${baseWithoutV2}/v2/publish/${destinationUrl}`
+
+            const headers: Record<string, string> = {
+                'Authorization': `Bearer ${UPSTASH_TOKEN}`,
+                'Content-Type': 'application/json',
+                'Upstash-Queue': 'notifications',
             }
 
             if (webhookSecret) {
-                messagePayload.headers = {
-                    'Authorization': `Bearer ${webhookSecret}`
-                }
+                headers['Upstash-Forward-Authorization'] = `Bearer ${webhookSecret}`
             }
 
             const res = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${UPSTASH_TOKEN}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ messages: [messagePayload] }),
+                headers,
+                body: JSON.stringify({ messages: [{ body: { eventId } }] }),
             })
 
             if (!res.ok) {

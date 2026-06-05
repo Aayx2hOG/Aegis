@@ -30,29 +30,28 @@ export async function enqueueSummary(eventId: string, protocolSlug: string) {
     // If Upstash is configured, prefer enqueueing via Upstash REST API (serverless-friendly)
     if (UPSTASH_URL && UPSTASH_TOKEN) {
         try {
-            const url = `${UPSTASH_URL.replace(/\/$/, '')}/queues/ai-summary/messages`
             const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
             const destinationUrl = `${appUrl}/api/queues/ai-summary`
             const webhookSecret = process.env.UPSTASH_WEBHOOK_SECRET
 
-            const messagePayload: any = {
-                url: destinationUrl,
-                body: { eventId, protocolSlug }
+            const baseUrl = UPSTASH_URL.replace(/\/$/, '')
+            const baseWithoutV2 = baseUrl.endsWith('/v2') ? baseUrl.slice(0, -3) : baseUrl
+            const url = `${baseWithoutV2}/v2/publish/${destinationUrl}`
+
+            const headers: Record<string, string> = {
+                'Authorization': `Bearer ${UPSTASH_TOKEN}`,
+                'Content-Type': 'application/json',
+                'Upstash-Queue': 'ai-summary',
             }
 
             if (webhookSecret) {
-                messagePayload.headers = {
-                    'Authorization': `Bearer ${webhookSecret}`
-                }
+                headers['Upstash-Forward-Authorization'] = `Bearer ${webhookSecret}`
             }
 
             const res = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${UPSTASH_TOKEN}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ messages: [messagePayload] }),
+                headers,
+                body: JSON.stringify({ messages: [{ body: { eventId, protocolSlug } }] }),
             })
 
             if (!res.ok) {

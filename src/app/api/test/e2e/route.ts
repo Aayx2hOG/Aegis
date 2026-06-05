@@ -65,30 +65,31 @@ export async function POST(req: NextRequest) {
         const TTL_MS = Number(process.env.TEST_ARTIFACT_TTL_MS ?? String(1000 * 60 * 60 * 24))
         if (UPSTASH_URL && UPSTASH_TOKEN) {
             try {
-                const url = `${UPSTASH_URL.replace(/\/$/, '')}/queues/test-cleanup/messages`
                 const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
                 const destinationUrl = `${appUrl}/api/queues/test-cleanup`
                 const webhookSecret = process.env.UPSTASH_WEBHOOK_SECRET
 
-                const messagePayload: any = {
-                    url: destinationUrl,
-                    body: { artifactId: event.id },
-                    delay: TTL_MS
+                const baseUrl = UPSTASH_URL.replace(/\/$/, '')
+                const baseWithoutV2 = baseUrl.endsWith('/v2') ? baseUrl.slice(0, -3) : baseUrl
+                const url = `${baseWithoutV2}/v2/publish/${destinationUrl}`
+
+                const delaySeconds = Math.floor(TTL_MS / 1000)
+
+                const headers: Record<string, string> = {
+                    'Authorization': `Bearer ${UPSTASH_TOKEN}`,
+                    'Content-Type': 'application/json',
+                    'Upstash-Queue': 'test-cleanup',
+                    'Upstash-Delay': `${delaySeconds}s`,
                 }
 
                 if (webhookSecret) {
-                    messagePayload.headers = {
-                        'Authorization': `Bearer ${webhookSecret}`
-                    }
+                    headers['Upstash-Forward-Authorization'] = `Bearer ${webhookSecret}`
                 }
 
                 await fetch(url, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${UPSTASH_TOKEN}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ messages: [messagePayload] }),
+                    headers,
+                    body: JSON.stringify({ messages: [{ body: { artifactId: event.id } }] }),
                 })
             } catch (err) {
                 console.error('[test-e2e] failed to enqueue delayed cleanup message', err)
