@@ -48,6 +48,7 @@ async function handleCron(req: NextRequest) {
                     totalRules: summary.totalRules,
                     triggered: summary.triggered,
                     skipped: summary.skipped,
+                    results: summary.results,
                 })
             } catch (err) {
                 console.error(`[cron-evaluate] failed for wallet ${walletAddress}:`, err)
