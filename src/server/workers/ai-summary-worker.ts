@@ -11,7 +11,7 @@ if (!redisUrl) {
     process.exit(1)
 }
 
-const connection = new Redis(redisUrl)
+const connection = new Redis(redisUrl, { maxRetriesPerRequest: null })
 
 if (!prisma) {
     console.error('[ai-summary-worker] DATABASE_URL is not configured; worker cannot run')

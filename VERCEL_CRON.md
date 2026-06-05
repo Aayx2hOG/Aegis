@@ -32,4 +32,16 @@ Which to choose
 - If you want fully serverless automation without scheduled platform features, use Upstash delayed messages.
 - If you prefer a simple UI-driven approach, configure a Vercel Cron job to call `/api/test/cleanup` daily.
 
+## 3) Vercel Cron for Automated Alert Evaluation
+
+To trigger the alert system automatically in a serverless Vercel deployment:
+
+1. In the Vercel dashboard, navigate to **Settings** → **Cron Jobs** → **Add Cron Job**.
+2. Set the details:
+   - **URL**: `https://<your-deploy>/api/alerts/cron`
+   - **Method**: `POST` (or `GET`)
+   - **Schedule**: `*/5 * * * *` (e.g. every 5 minutes, depending on how frequently you want to check metrics)
+3. Ensure you have the `ALERT_CRON_SECRET` environment variable configured in Vercel to secure the endpoint. The cron job will automatically use it for authorization when executed from the Vercel dashboard (using `Authorization: Bearer <CRON_SECRET>`).
+
+
 *** End of file

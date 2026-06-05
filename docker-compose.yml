@@ -40,3 +40,14 @@ services:
     command: bash -lc "bun install && bun run worker:notifications"
     depends_on:
       - redis
+
+  worker_scheduler:
+    image: oven/bun:edge
+    working_dir: /app
+    volumes:
+      - ./:/app:cached
+    env_file:
+      - .env
+    command: bash -lc "bun install && bun run worker:scheduler"
+    depends_on:
+      - redis
