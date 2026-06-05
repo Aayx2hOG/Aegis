@@ -66,11 +66,13 @@ function migrateLegacyWatchlist(chainType: ChainType, environment: string, walle
   if (typeof window === 'undefined') return [];
 
   const currentKey = getWatchlistCacheKey(walletAddress, chainType, environment);
-  const current = loadWatchlistByKey(currentKey);
-  if (current.length > 0) return current;
+  const stored = window.localStorage.getItem(currentKey);
+  if (stored !== null) {
+    return loadWatchlistByKey(currentKey);
+  }
 
   const legacyKeys = [
-    walletAddress ? `watchlist-cache:${environment}:${walletAddress}` : null,
+    (walletAddress && chainType === ChainType.Solana) ? `watchlist-cache:${environment}:${walletAddress}` : null,
     walletAddress ? `watchlist-cache:${chainType}:${walletAddress}` : null,
     walletAddress ? `watchlist-cache:${environment}-${chainType}:${walletAddress}` : null,
     walletAddress ? `watchlist-cache:${chainType}-${environment}:${walletAddress}` : null,
@@ -84,6 +86,7 @@ function migrateLegacyWatchlist(chainType: ChainType, environment: string, walle
     return legacy;
   }
 
+  saveWatchlistByKey(currentKey, []);
   return [];
 }
 

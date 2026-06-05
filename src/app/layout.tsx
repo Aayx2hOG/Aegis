@@ -18,6 +18,7 @@ const links: { label: string; path: string }[] = [
 ]
 
 const utilityLinks: { label: string; path: string }[] = [
+  { label: 'Alerts', path: '/alerts' },
   { label: 'Notifications', path: '/settings/notifications' },
 ]
 

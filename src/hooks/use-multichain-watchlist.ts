@@ -80,12 +80,14 @@ function migrateLegacyWatchlist(chainType: ChainType, environment: string, walle
     if (typeof window === 'undefined') return [];
 
     const currentKey = getWatchlistCacheKey(chainType, environment, walletAddress);
-    const current = loadWatchlistByKey(currentKey);
-    if (current.length > 0) return current;
+    const stored = window.localStorage.getItem(currentKey);
+    if (stored !== null) {
+        return loadWatchlistByKey(currentKey);
+    }
 
     const legacyKeys = [
         walletAddress ? `watchlist-cache:${chainType}:${walletAddress}` : null,
-        walletAddress ? `watchlist-cache:${environment}:${walletAddress}` : null,
+        (walletAddress && chainType === ChainType.Solana) ? `watchlist-cache:${environment}:${walletAddress}` : null,
         walletAddress ? `watchlist-cache:${chainType}-${environment}:${walletAddress}` : null,
         walletAddress ? `watchlist-cache:${environment}-${chainType}:${walletAddress}` : null,
     ].filter((key): key is string => Boolean(key));
@@ -98,6 +100,7 @@ function migrateLegacyWatchlist(chainType: ChainType, environment: string, walle
         return legacy;
     }
 
+    saveWatchlistByKey(currentKey, []);
     return [];
 }
 
@@ -114,8 +117,7 @@ export function useWatchlist(
     return useQuery({
         queryKey: [cacheKey],
         queryFn: () => loadWatchlistByKey(cacheKey),
-        staleTime: Infinity,
-        gcTime: Infinity,
+        staleTime: 0,
     });
 }
 
@@ -148,8 +150,7 @@ export function useMultiChainWatchlist(walletAddress?: string) {
 
             return result;
         },
-        staleTime: Infinity,
-        gcTime: Infinity,
+        staleTime: 0,
     });
 
     useEffect(() => {
@@ -182,8 +183,7 @@ export function useMultiChainWatchlistByChain(walletAddress?: string) {
 
             return result;
         },
-        staleTime: Infinity,
-        gcTime: Infinity,
+        staleTime: 0,
     });
 
     useEffect(() => {

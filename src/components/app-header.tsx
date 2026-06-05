@@ -83,7 +83,6 @@ export function AppHeader({
           <div className="relative">
             {showUtilities && (
               <div className="absolute right-0 top-full z-50 mt-2 min-w-48 rounded-xl border border-white/10 bg-[#060b13]/98 p-2 shadow-2xl shadow-black/40 backdrop-blur-md">
-                <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">Tools</p>
                 <div className="flex flex-col gap-1">
                   {utilityLinks.map(({ label, path }) => (
                     <Link
