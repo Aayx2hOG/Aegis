@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
                         'Authorization': `Bearer ${UPSTASH_TOKEN}`,
                         'Content-Type': 'application/json',
                         'Upstash-Queue': 'notifications',
+                        'Upstash-Forward-Content-Type': 'application/json',
                     }
 
                     if (webhookSecret) {

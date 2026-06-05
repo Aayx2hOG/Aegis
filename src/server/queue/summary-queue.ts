@@ -42,6 +42,7 @@ export async function enqueueSummary(eventId: string, protocolSlug: string) {
                 'Authorization': `Bearer ${UPSTASH_TOKEN}`,
                 'Content-Type': 'application/json',
                 'Upstash-Queue': 'ai-summary',
+                'Upstash-Forward-Content-Type': 'application/json',
             }
 
             if (webhookSecret) {

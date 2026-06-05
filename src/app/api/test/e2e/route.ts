@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
                     'Content-Type': 'application/json',
                     'Upstash-Queue': 'test-cleanup',
                     'Upstash-Delay': `${delaySeconds}s`,
+                    'Upstash-Forward-Content-Type': 'application/json',
                 }
 
                 if (webhookSecret) {

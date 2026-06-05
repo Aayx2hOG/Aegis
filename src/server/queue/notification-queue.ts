@@ -39,6 +39,7 @@ export async function enqueueNotification(eventId: string) {
                 'Authorization': `Bearer ${UPSTASH_TOKEN}`,
                 'Content-Type': 'application/json',
                 'Upstash-Queue': 'notifications',
+                'Upstash-Forward-Content-Type': 'application/json',
             }
 
             if (webhookSecret) {
