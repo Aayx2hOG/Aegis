@@ -31,13 +31,28 @@ export async function enqueueSummary(eventId: string, protocolSlug: string) {
     if (UPSTASH_URL && UPSTASH_TOKEN) {
         try {
             const url = `${UPSTASH_URL.replace(/\/$/, '')}/queues/ai-summary/messages`
+            const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+            const destinationUrl = `${appUrl}/api/queues/ai-summary`
+            const webhookSecret = process.env.UPSTASH_WEBHOOK_SECRET
+
+            const messagePayload: any = {
+                url: destinationUrl,
+                body: { eventId, protocolSlug }
+            }
+
+            if (webhookSecret) {
+                messagePayload.headers = {
+                    'Authorization': `Bearer ${webhookSecret}`
+                }
+            }
+
             const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${UPSTASH_TOKEN}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ messages: [{ body: { eventId, protocolSlug } }] }),
+                body: JSON.stringify({ messages: [messagePayload] }),
             })
 
             if (!res.ok) {

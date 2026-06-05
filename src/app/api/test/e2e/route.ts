@@ -66,14 +66,29 @@ export async function POST(req: NextRequest) {
         if (UPSTASH_URL && UPSTASH_TOKEN) {
             try {
                 const url = `${UPSTASH_URL.replace(/\/$/, '')}/queues/test-cleanup/messages`
-                // Many Upstash queue endpoints accept a per-message delay; include it here (milliseconds)
+                const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+                const destinationUrl = `${appUrl}/api/queues/test-cleanup`
+                const webhookSecret = process.env.UPSTASH_WEBHOOK_SECRET
+
+                const messagePayload: any = {
+                    url: destinationUrl,
+                    body: { artifactId: event.id },
+                    delay: TTL_MS
+                }
+
+                if (webhookSecret) {
+                    messagePayload.headers = {
+                        'Authorization': `Bearer ${webhookSecret}`
+                    }
+                }
+
                 await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${UPSTASH_TOKEN}`,
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ messages: [{ body: { artifactId: event.id }, delay: TTL_MS }] }),
+                    body: JSON.stringify({ messages: [messagePayload] }),
                 })
             } catch (err) {
                 console.error('[test-e2e] failed to enqueue delayed cleanup message', err)

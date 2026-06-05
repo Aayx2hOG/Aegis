@@ -28,13 +28,28 @@ export async function enqueueNotification(eventId: string) {
     if (UPSTASH_URL && UPSTASH_TOKEN) {
         try {
             const url = `${UPSTASH_URL.replace(/\/$/, '')}/queues/notifications/messages`
+            const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+            const destinationUrl = `${appUrl}/api/queues/notifications`
+            const webhookSecret = process.env.UPSTASH_WEBHOOK_SECRET
+
+            const messagePayload: any = {
+                url: destinationUrl,
+                body: { eventId }
+            }
+
+            if (webhookSecret) {
+                messagePayload.headers = {
+                    'Authorization': `Bearer ${webhookSecret}`
+                }
+            }
+
             const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${UPSTASH_TOKEN}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ messages: [{ body: { eventId } }] }),
+                body: JSON.stringify({ messages: [messagePayload] }),
             })
 
             if (!res.ok) {
