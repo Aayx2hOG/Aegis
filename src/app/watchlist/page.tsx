@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Activity, ChevronDown, ExternalLink, Layers3, Plus, Play, ShieldAlert, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Activity, ExternalLink, Layers3, ShieldAlert, Trash2 } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain, removeFromWatchlist } from '@/hooks/use-multichain-watchlist'
@@ -19,62 +19,7 @@ import { ChainEnvironment, ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/shared/types'
 import { toast } from 'sonner'
 
-type AlertMetric = 'CHANGE_1D' | 'CHANGE_7D' | 'TVL_USD' | 'PRICE_USD'
-type AlertDirection = 'BELOW' | 'ABOVE'
 
-interface ResearchHistoryItem {
-    id: string
-    protocolSlug: string
-    briefMarkdown: string
-    createdAt: string
-}
-
-interface AlertRuleItem {
-    id: string
-    protocolSlug: string
-    metric: AlertMetric
-    threshold: number
-    direction: AlertDirection
-    enabled: boolean
-    createdAt: string
-}
-
-interface AlertEventItem {
-    ruleId?: string
-    id: string
-    protocolSlug: string
-    metric: AlertMetric
-    threshold: number
-    direction: AlertDirection
-    currentValue: number
-    triggeredAt: string
-    summary?: string
-    summaryGeneratedAt?: string
-}
-
-interface AlertTestResultItem {
-    id: string
-    ruleId: string
-    protocolSlug: string
-    metric: AlertMetric
-    threshold: number
-    direction: AlertDirection
-    currentValue: number
-    triggered: boolean
-    createdAt: string
-    summary: string
-}
-
-interface AlertEvaluationResultItem {
-    ruleId: string
-    protocolSlug: string
-    metric: AlertMetric
-    threshold: number
-    direction: AlertDirection
-    status: 'triggered' | 'skipped'
-    currentValue: number | null
-    reason: string
-}
 
 type CoinGeckoResponse = {
     market_data?: {
@@ -151,109 +96,8 @@ interface AnomalySnapshot {
     dominantChainShare: number
 }
 
-type LocalAlertStore = {
-    rules: AlertRuleItem[]
-    events: AlertEventItem[]
-    updatedAt: string
-}
 
-const LOCAL_ALERT_STORAGE_PREFIX = 'aegis-alerts:'
 
-function getLocalAlertStorageKey(walletAddress: string) {
-    return `${LOCAL_ALERT_STORAGE_PREFIX}${walletAddress}`
-}
-
-function createLocalAlertId(prefix: string) {
-    return `${prefix}-${crypto.randomUUID()}`
-}
-
-function readLocalAlertStore(walletAddress: string): LocalAlertStore {
-    if (typeof window === 'undefined') {
-        return { rules: [], events: [], updatedAt: new Date().toISOString() }
-    }
-
-    try {
-        const raw = window.localStorage.getItem(getLocalAlertStorageKey(walletAddress))
-        if (!raw) return { rules: [], events: [], updatedAt: new Date().toISOString() }
-
-        const parsed = JSON.parse(raw) as Partial<LocalAlertStore>
-        return {
-            rules: Array.isArray(parsed.rules) ? (parsed.rules as AlertRuleItem[]) : [],
-            events: Array.isArray(parsed.events) ? (parsed.events as AlertEventItem[]) : [],
-            updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
-        }
-    } catch {
-        return { rules: [], events: [], updatedAt: new Date().toISOString() }
-    }
-}
-
-function writeLocalAlertStore(walletAddress: string, store: LocalAlertStore) {
-    if (typeof window === 'undefined') return
-
-    try {
-        window.localStorage.setItem(getLocalAlertStorageKey(walletAddress), JSON.stringify(store))
-    } catch {
-        console.error('Failed to save local alerts')
-    }
-}
-
-function formatAlertValue(metric: AlertMetric, value: number): string {
-    if (metric === 'TVL_USD') {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            notation: 'compact',
-            maximumFractionDigits: 1,
-        }).format(value)
-    }
-    if (metric === 'PRICE_USD') {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 2,
-        }).format(value)
-    }
-    return `${value.toFixed(2)}%`
-}
-
-function buildLocalAlertSummary(rule: AlertRuleItem, currentValue: number) {
-    const metricLabel = ALERT_METRIC_LABEL[rule.metric]
-    const relationLabel = currentValue === rule.threshold ? 'equal to' : currentValue < rule.threshold ? 'below' : 'above'
-    const formattedVal = formatAlertValue(rule.metric, currentValue)
-    const formattedThreshold = formatAlertValue(rule.metric, rule.threshold)
-    return `${rule.protocolSlug} ${metricLabel} is ${formattedVal}, which is ${relationLabel} ${formattedThreshold}.`
-}
-
-function getLocalCurrentValueForRule(rule: AlertRuleItem, market?: SolanaProtocol, price?: number | null) {
-    if (rule.metric === 'TVL_USD') return market?.tvl ?? null
-    if (rule.metric === 'PRICE_USD') return price ?? null
-    if (!market) return null
-    return rule.metric === 'CHANGE_7D' ? market.change_7d ?? null : market.change_1d ?? null
-}
-
-function isLocalAlertTriggered(rule: AlertRuleItem, currentValue: number) {
-    return rule.direction === 'BELOW' ? currentValue <= rule.threshold : currentValue >= rule.threshold
-}
-
-function getAlertEventKey(event: AlertEventItem) {
-    return event.ruleId ?? `${event.protocolSlug}:${event.metric}:${event.direction}:${event.threshold.toFixed(4)}`
-}
-
-function normalizeAlertEvents(events: AlertEventItem[]) {
-    const deduped = new Map<string, AlertEventItem>()
-
-    events
-        .slice()
-        .sort((left, right) => new Date(right.triggeredAt).getTime() - new Date(left.triggeredAt).getTime())
-        .forEach((event) => {
-            const key = getAlertEventKey(event)
-            if (!deduped.has(key)) {
-                deduped.set(key, event)
-            }
-        })
-
-    return Array.from(deduped.values())
-}
 
 function formatPct(value: number | null | undefined): string {
     if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A'
@@ -310,12 +154,7 @@ function riskState(protocol?: SolanaProtocol): { label: string; tone: string; is
     return { label: 'Stable', tone: 'bg-emerald-500/20 text-emerald-200', isRisk: false }
 }
 
-const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
-    CHANGE_1D: '24h change',
-    CHANGE_7D: '7d change',
-    TVL_USD: 'TVL',
-    PRICE_USD: 'Token Price',
-}
+
 
 const CHAIN_LABELS: Record<ChainType, string> = {
     [ChainType.Solana]: 'Solana',
@@ -769,47 +608,39 @@ export default function WatchlistPage() {
     const hasTestNetworkData = chainViews.some(({ chain }) => isTestNetwork(chain.environment))
 
     return (
-        <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
-            <div className="fixed inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
-                <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
-            </div>
-
-            <div className="relative mx-auto max-w-6xl space-y-10 px-4 py-10 md:space-y-12 md:px-6 md:py-14">
-                <header className="space-y-5">
-                    <Link
-                        href="/research"
-                        className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-500 transition-colors hover:text-cyan-200"
-                    >
-                        <ArrowLeft className="h-3 w-3 transition-transform group-hover:-translate-x-1" />
-                        Back to Research
-                    </Link>
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="space-y-4">
-                            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
-                                <Layers3 className="h-3.5 w-3.5" />
-                                Multichain Watchlist
-                            </div>
-                            <h1 className="text-4xl font-black tracking-tight text-white md:text-6xl">
-                                Track protocols across <span className="text-cyan-200">multiple chains</span>
-                            </h1>
-                            <p className="max-w-3xl text-zinc-300">
-                                Keep one watchlist per chain, compare protocol momentum side-by-side, and jump into research or war-room simulations from the same surface.
-                            </p>
-                        </div>
-
-                        <div className="grid w-full grid-cols-3 gap-2 rounded-2xl bg-zinc-900/45 p-3 backdrop-blur-xl sm:gap-3 sm:p-4">
-                            <StatPill label="Chains" value={String(chainViews.length || 1)} />
-                            <StatPill label="Protocols" value={String(totalProtocols)} />
-                            <StatPill label="Flags" value={String(riskyProtocols)} tone={riskyProtocols > 0 ? 'text-rose-200' : 'text-emerald-200'} />
-                        </div>
+        <div className="mx-auto max-w-6xl space-y-8 py-6">
+            <header className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <Link href="/research">
+                            <Button variant="outline" size="sm" className="flex items-center gap-1.5 font-bold">
+                                <ArrowLeft className="h-3.5 w-3.5" /> Back to Research
+                            </Button>
+                        </Link>
+                        <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
+                            <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Multichain Watchlist
+                        </Badge>
                     </div>
-                    {hasTestNetworkData && (
-                        <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                            You are viewing a test network. USD numbers here are learning estimates based on market feeds, not real money in your wallet.
-                        </div>
-                    )}
-                </header>
+                    <div className="grid grid-cols-3 gap-2 rounded-2xl bg-zinc-900/45 p-3 backdrop-blur-xl sm:gap-3 sm:p-4 shrink-0">
+                        <StatPill label="Chains" value={String(chainViews.length || 1)} />
+                        <StatPill label="Protocols" value={String(totalProtocols)} />
+                        <StatPill label="Flags" value={String(riskyProtocols)} tone={riskyProtocols > 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
+                        Track protocols across <span className="text-cyan-200">multiple chains</span>
+                    </h1>
+                    <p className="max-w-3xl text-zinc-400 text-sm leading-relaxed">
+                        Keep one watchlist per chain, compare protocol momentum side-by-side, and jump into research or war-room simulations from the same surface.
+                    </p>
+                </div>
+                {hasTestNetworkData && (
+                    <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                        You are viewing a test network. USD numbers here are learning estimates based on market feeds, not real money in your wallet.
+                    </div>
+                )}
+            </header>
                 <section id="live-basket" className="scroll-mt-24 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                     <Card className="border-cyan-300/10 bg-zinc-950/55 shadow-2xl shadow-cyan-950/15 backdrop-blur-xl">
                         <CardHeader className="space-y-3 pb-3">
@@ -857,14 +688,14 @@ export default function WatchlistPage() {
                                                     <h3 className="text-base font-black text-white">{alert.title}</h3>
                                                     <p className="max-w-3xl text-sm leading-6 text-zinc-300">{alert.detail}</p>
                                                 </div>
-                                                <button
+                                                <Button
                                                     type="button"
                                                     onClick={() => handleAnomalyAction(alert)}
-                                                    className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-cyan-300 px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-950 transition hover:bg-cyan-200"
+                                                    className="shrink-0 bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-bold"
                                                 >
                                                     {alert.actionLabel}
                                                     <ArrowRight className="h-3.5 w-3.5" />
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     ))}
@@ -946,19 +777,25 @@ export default function WatchlistPage() {
                                                 </div>
 
                                                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                                                    <Link href={`/research?q=${slug}`} className="inline-flex items-center gap-1 rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700">
-                                                        Research <ExternalLink className="h-3 w-3" />
-                                                    </Link>
-                                                    <Link href={`/war-room?protocol=${slug}`} className="inline-flex items-center gap-1 rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-100 transition-all hover:bg-cyan-300/30">
-                                                        War room <ShieldAlert className="h-3 w-3" />
-                                                    </Link>
-                                                    <button
+                                                    <Button asChild variant="outline" size="sm" className="bg-zinc-800 text-zinc-200 border-white/5 hover:bg-zinc-700">
+                                                        <Link href={`/research?q=${slug}`}>
+                                                            Research <ExternalLink className="h-3 w-3 ml-1" />
+                                                        </Link>
+                                                    </Button>
+                                                    <Button asChild variant="outline" size="sm" className="bg-cyan-300/10 hover:bg-cyan-300/20 text-cyan-300 border-cyan-300/20">
+                                                        <Link href={`/war-room?protocol=${slug}`}>
+                                                            War room <ShieldAlert className="h-3 w-3 ml-1" />
+                                                        </Link>
+                                                    </Button>
+                                                    <Button
                                                         type="button"
+                                                        variant="outline"
+                                                        size="sm"
                                                         onClick={() => handleRemove(chain.type, chain.environment, slug)}
-                                                        className="inline-flex items-center gap-1 rounded-lg bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200 transition-all hover:bg-rose-500/20 cursor-pointer"
+                                                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 border-rose-500/20 cursor-pointer"
                                                     >
                                                         Remove <Trash2 className="h-3 w-3" />
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         )
@@ -1019,7 +856,6 @@ export default function WatchlistPage() {
                     </div>
                 ) : null}
             </div>
-        </div>
     )
 }
 

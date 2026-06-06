@@ -10,6 +10,9 @@ import type {
     ChainScenarioConfig,
     ComparativeSimulationResult,
 } from '@/shared/types'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 
 const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
     {
@@ -17,8 +20,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'token',
         symbol: 'SOL',
         protocol: 'wallet',
-        balance: 100,
-        usdValue: 15000,
+        balance: 1,
+        usdValue: 150,
         volatility: 72,
         liquidityScore: 94,
     },
@@ -27,8 +30,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'yield',
         symbol: 'JITOSOL',
         protocol: 'jito',
-        balance: 50,
-        usdValue: 8250,
+        balance: 1,
+        usdValue: 165,
         volatility: 58,
         liquidityScore: 79,
     },
@@ -37,8 +40,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'token',
         symbol: 'ETH',
         protocol: 'wallet',
-        balance: 5,
-        usdValue: 17500,
+        balance: 1,
+        usdValue: 3500,
         volatility: 64,
         liquidityScore: 95,
     },
@@ -47,8 +50,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'yield',
         symbol: 'rETH',
         protocol: 'rocketpool',
-        balance: 4,
-        usdValue: 14800,
+        balance: 1,
+        usdValue: 3700,
         volatility: 55,
         liquidityScore: 82,
     },
@@ -58,7 +61,7 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         symbol: 'ETH-USDC LP',
         protocol: 'uniswap',
         balance: 1,
-        usdValue: 20000,
+        usdValue: 2000,
         volatility: 45,
         liquidityScore: 75,
     },
@@ -67,8 +70,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'lending',
         symbol: 'USDC',
         protocol: 'aerodrome',
-        balance: 12000,
-        usdValue: 12000,
+        balance: 1000,
+        usdValue: 1000,
         volatility: 5,
         liquidityScore: 90,
         collateralFactor: 0.85,
@@ -78,8 +81,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'token',
         symbol: 'OP',
         protocol: 'wallet',
-        balance: 3000,
-        usdValue: 7500,
+        balance: 100,
+        usdValue: 250,
         volatility: 85,
         liquidityScore: 70,
     }
@@ -257,24 +260,25 @@ function WarRoomContent() {
     }
 
     return (
-        <div className="min-h-screen text-zinc-100 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
-            {/* Background Decor */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
-                <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
-            </div>
-
-            <div className="relative mx-auto max-w-6xl space-y-8 px-4 py-10 md:px-6 md:py-14">
-                <header className="space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300/80">Aegis War Room</p>
-                    <h1 className="text-4xl md:text-5xl font-black tracking-tight">Stress Test Your Cross-Chain Portfolio in 60 Seconds</h1>
-                    <p className="text-zinc-300 max-w-3xl">
+        <div className="mx-auto max-w-6xl space-y-8 py-6">
+            <header className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
+                        Aegis War Room
+                    </Badge>
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white">
+                        Stress Test Your <span className="text-cyan-200">Cross-Chain Portfolio</span>
+                    </h1>
+                    <p className="text-zinc-400 text-sm max-w-3xl leading-relaxed">
                         Configure your assets across multiple chains, pick a systemic market shock, and analyze risk posture, rebalancing paths, and arbitrage opportunities.
                     </p>
-                    <div className="rounded-md bg-yellow-900/10 border border-yellow-800/20 p-3 text-xs text-yellow-200">
+                    <div className="rounded-md bg-yellow-900/10 border border-yellow-800/20 p-3 text-xs text-yellow-200 mt-2">
                         {UI_DISCLAIMER}
                     </div>
-                </header>
+                </div>
+            </header>
 
                 <div className="space-y-8 animate-in fade-in duration-500">
                     <section className="rounded-2xl bg-zinc-900/45 p-5 backdrop-blur-md">
@@ -326,12 +330,12 @@ function WarRoomContent() {
                                             </div>
                                             <div className="sm:col-span-3">
                                                 <label className="text-[9px] uppercase tracking-wider text-zinc-500 block mb-0.5">USD Value</label>
-                                                <input
+                                                <Input
                                                     type="number"
                                                     min={0}
                                                     value={pos.usdValue}
                                                     onChange={(e) => updateMultichainPositionField(idx, 'usdValue', Number(e.target.value))}
-                                                    className="w-full rounded-md bg-zinc-950 px-2 py-1 text-xs font-medium ring-1 ring-zinc-800/60"
+                                                    className="h-8 text-xs text-white"
                                                 />
                                                 <span className="text-[9px] text-zinc-400 mt-1 block font-mono truncate">
                                                     {formatCurrency(pos.usdValue)} ({new Intl.NumberFormat('en-US', { notation: 'compact', style: 'currency', currency: 'USD' }).format(pos.usdValue)})
@@ -339,41 +343,43 @@ function WarRoomContent() {
                                             </div>
                                             <div className="sm:col-span-2">
                                                 <label className="text-[9px] uppercase tracking-wider text-zinc-500 block mb-0.5">Vol %</label>
-                                                <input
+                                                <Input
                                                     type="number"
                                                     min={0}
                                                     max={150}
                                                     value={pos.volatility}
                                                     onChange={(e) => updateMultichainPositionField(idx, 'volatility', Number(e.target.value))}
-                                                    className="w-full rounded-md bg-zinc-950 px-2 py-1 text-xs font-medium ring-1 ring-zinc-800/60"
+                                                    className="h-8 text-xs text-white"
                                                 />
                                             </div>
                                             <div className="sm:col-span-2">
                                                 <label className="text-[9px] uppercase tracking-wider text-zinc-500 block mb-0.5">Liq Score</label>
-                                                <input
+                                                <Input
                                                     type="number"
                                                     min={0}
                                                     max={100}
                                                     value={pos.liquidityScore}
                                                     onChange={(e) => updateMultichainPositionField(idx, 'liquidityScore', Number(e.target.value))}
-                                                    className="w-full rounded-md bg-zinc-950 px-2 py-1 text-xs font-medium ring-1 ring-zinc-800/60"
+                                                    className="h-8 text-xs text-white"
                                                 />
                                             </div>
                                             <div className="sm:col-span-1 text-right">
-                                                <button
+                                                <Button
                                                     type="button"
+                                                    variant="ghost"
+                                                    size="sm"
                                                     onClick={() => removeMultichainPosition(idx)}
-                                                    className="text-rose-400 hover:text-rose-300 text-xs font-bold px-2 py-1 rounded hover:bg-rose-500/10"
+                                                    className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 h-7 w-7 p-0 rounded-full"
                                                 >
                                                     ✕
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             )}
 
-                            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4 space-y-3">
+                            <div className="rounded-xl border border-white/5 bg-zinc-950/40 p-4 space-y-3">
                                 <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300">Add Custom Holding</h3>
                                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
                                     <div>
@@ -381,31 +387,31 @@ function WarRoomContent() {
                                         <select
                                             value={newPosForm.chain}
                                             onChange={(e) => setNewPosForm({ ...newPosForm, chain: e.target.value as ChainType })}
-                                            className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2 py-1.5 text-xs text-white"
+                                            className="flex h-9 w-full rounded-md border border-white/5 bg-transparent dark:bg-input/30 px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white"
                                         >
                                             {Object.values(ChainType).map((c) => (
-                                                <option key={c} value={c}>{c}</option>
+                                                <option key={c} value={c} className="bg-zinc-950 text-white">{c}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div>
                                         <label className="text-[9px] uppercase tracking-wider text-zinc-500 block mb-1">Symbol</label>
-                                        <input
+                                        <Input
                                             type="text"
                                             placeholder="SOL, ETH"
                                             value={newPosForm.symbol}
                                             onChange={(e) => setNewPosForm({ ...newPosForm, symbol: e.target.value.toUpperCase() })}
-                                            className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2 py-1.5 text-xs text-white uppercase"
+                                            className="h-9 text-xs uppercase"
                                         />
                                     </div>
                                     <div>
                                         <label className="text-[9px] uppercase tracking-wider text-zinc-500 block mb-1">Protocol</label>
-                                        <input
+                                        <Input
                                             type="text"
                                             placeholder="jito, aave"
                                             value={newPosForm.protocol}
                                             onChange={(e) => setNewPosForm({ ...newPosForm, protocol: e.target.value.toLowerCase() })}
-                                            className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2 py-1.5 text-xs text-white"
+                                            className="h-9 text-xs"
                                         />
                                     </div>
                                     <div>
@@ -413,24 +419,24 @@ function WarRoomContent() {
                                         <select
                                             value={newPosForm.kind}
                                             onChange={(e) => setNewPosForm({ ...newPosForm, kind: e.target.value as ChainPortfolioPosition['kind'] })}
-                                            className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2 py-1.5 text-xs text-white"
+                                            className="flex h-9 w-full rounded-md border border-white/5 bg-transparent dark:bg-input/30 px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white"
                                         >
-                                            <option value="token">token</option>
-                                            <option value="lp">lp</option>
-                                            <option value="lending">lending</option>
-                                            <option value="yield">yield</option>
-                                            <option value="other">other</option>
+                                            <option value="token" className="bg-zinc-950 text-white">token</option>
+                                            <option value="lp" className="bg-zinc-950 text-white">lp</option>
+                                            <option value="lending" className="bg-zinc-950 text-white">lending</option>
+                                            <option value="yield" className="bg-zinc-950 text-white">yield</option>
+                                            <option value="other" className="bg-zinc-950 text-white">other</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label className="text-[9px] uppercase tracking-wider text-zinc-500 block mb-1">USD Value</label>
-                                        <input
+                                        <Input
                                             type="number"
                                             min={0}
                                             placeholder="1000"
                                             value={newPosForm.usdValue || ''}
                                             onChange={(e) => setNewPosForm({ ...newPosForm, usdValue: Number(e.target.value) })}
-                                            className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2 py-1.5 text-xs text-white"
+                                            className="h-9 text-xs"
                                         />
                                         {newPosForm.usdValue > 0 && (
                                             <span className="text-[10px] text-zinc-400 mt-1 block font-mono">
@@ -440,24 +446,27 @@ function WarRoomContent() {
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center pt-2">
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => {
                                             setMultichainPositions(DEFAULT_MULTICHAIN_POSITIONS)
                                             setMultichainResult(null)
                                             setMultichainImportStatus('Reset portfolio to demo layout.')
                                         }}
-                                        className="rounded-lg border border-zinc-700/60 bg-zinc-900/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500"
+                                        className="text-zinc-300 border-white/5 bg-zinc-900/40 hover:bg-zinc-800"
                                     >
                                         Reset to Demo Portfolio
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="button"
+                                        size="sm"
                                         onClick={addMultichainPosition}
-                                        className="rounded-lg bg-cyan-300 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-950 hover:bg-cyan-200"
+                                        className="bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-bold"
                                     >
                                         Add Position
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                             {multichainImportStatus && (
@@ -510,13 +519,13 @@ function WarRoomContent() {
                                 })}
                             </div>
 
-                            <button
+                            <Button
                                 onClick={runMultichainSimulation}
                                 disabled={multichainLoading || multichainPositions.length === 0}
-                                className="w-full rounded-xl bg-cyan-300 py-3.5 font-black tracking-wide text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-60 disabled:cursor-not-allowed animate-all"
+                                className="w-full h-11 bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-black uppercase tracking-wider text-xs shadow-lg shadow-cyan-500/10 cursor-pointer"
                             >
                                 {multichainLoading ? 'Running Simulation...' : 'Run Comparative Simulation'}
-                            </button>
+                            </Button>
                             {multichainError && <p className="text-red-400 text-sm">{multichainError}</p>}
                         </div>
                     </section>
@@ -706,7 +715,6 @@ function WarRoomContent() {
                     )}
                 </div>
             </div>
-        </div>
     )
 }
 

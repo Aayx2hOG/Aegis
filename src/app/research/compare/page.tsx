@@ -14,6 +14,11 @@ import type { ResearchBrief } from '@/shared/types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 const EXCLUDED_CATEGORIES = new Set(['CEX', 'CeFi', 'Centralized Exchange', 'Indexes', 'Portfolio Tracker', 'Risk Curators', 'Wallet']);
 
 function formatProtocolName(name: string): string {
@@ -23,6 +28,57 @@ function formatProtocolName(name: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+// Reusable Spotlight Card (Aceternity UI Style)
+function SpotlightCard({
+  children,
+  className = '',
+  spotlightColor = 'rgba(34, 211, 238, 0.12)',
+  borderColor = 'rgba(34, 211, 238, 0.45)',
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { spotlightColor?: string; borderColor?: string }) {
+  const [coords, setCoords] = useState({ x: 0, y: 0 })
+  const [isHovered, setIsHovered] = useState(false)
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setCoords({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    })
+  }
+
+  return (
+    <div
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`relative overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/40 p-6 shadow-2xl transition-all duration-500 hover:border-white/10 ${className}`}
+      {...props}
+    >
+      {/* Spotlight Backing */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(350px circle at ${coords.x}px ${coords.y}px, ${spotlightColor}, transparent 80%)`,
+        }}
+      />
+      {/* Glowing Border Overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none rounded-3xl transition-opacity duration-300"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          border: '1px solid transparent',
+          backgroundImage: `linear-gradient(to bottom, transparent, transparent), radial-gradient(140px circle at ${coords.x}px ${coords.y}px, ${borderColor}, transparent 80%)`,
+          backgroundOrigin: 'border-box',
+          backgroundClip: 'padding-box, border-box',
+        }}
+      />
+      <div className="relative z-10">{children}</div>
+    </div>
+  )
 }
 
 export default function ComparePage() {
@@ -110,7 +166,7 @@ function SearchableDropdown({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-12 rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 text-sm text-zinc-100 flex items-center justify-between outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full h-11 rounded-lg border border-white/5 bg-zinc-950/80 px-4 text-sm text-zinc-100 flex items-center justify-between outline-none transition-all hover:bg-zinc-950 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="truncate">
           {selectedOption ? (
@@ -129,16 +185,16 @@ function SearchableDropdown({
 
       {/* Popover Dropdown */}
       {isOpen && (
-        <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-zinc-850 bg-[#070b12] p-2 shadow-2xl backdrop-blur-md max-h-72 flex flex-col">
+        <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-white/5 bg-[#070b12] p-2 shadow-2xl backdrop-blur-md max-h-72 flex flex-col">
           {/* Search Box */}
           <div className="relative mb-2 shrink-0">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
-            <input
+            <Search className="absolute left-3 top-3 h-4 w-4 text-zinc-500 z-10" />
+            <Input
               type="search"
               placeholder="Search protocols..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-10 w-full rounded-lg border border-zinc-800 bg-zinc-950 pl-9 pr-4 text-xs text-zinc-100 outline-none transition focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/10"
+              className="pl-9 text-xs h-9"
               autoFocus
             />
           </div>
@@ -377,266 +433,339 @@ function CompareContent() {
   }
 
   return (
-    <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.18),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.12),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
-      {/* Background Glow */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
-        <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
-      </div>
-
-      <div className="relative mx-auto max-w-5xl space-y-8 px-4 py-10 md:space-y-10 md:px-6 md:py-14">
-        {/* Navigation back */}
-        <header className="relative space-y-4 text-center md:space-y-5">
-          <Link
-            href="/research"
-            className="mr-auto flex w-fit items-center gap-2 rounded-xl bg-zinc-900/60 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 shadow-xl transition-all hover:bg-zinc-800/80 hover:text-cyan-100 md:absolute md:left-0 md:top-0"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Research
-          </Link>
-          <div className="mb-2 inline-block rounded-full bg-gradient-to-r from-cyan-400/20 to-blue-500/20 border border-cyan-400/30 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
-            <Swords className="w-3.5 h-3.5 inline mr-1.5" />
-            Arena Battleground
+    <div className="mx-auto max-w-5xl space-y-8 py-6">
+      {/* Navigation back & Header */}
+      <header className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Link href="/research">
+              <Button variant="outline" size="sm" className="flex items-center gap-1.5 font-bold">
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Research
+              </Button>
+            </Link>
+            <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
+              <Swords className="w-3.5 h-3.5 inline mr-1.5" /> Arena Battleground
+            </Badge>
           </div>
+        </div>
+        <div className="space-y-2">
           <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
             Protocol <span className="text-cyan-200">Battleground</span>
           </h1>
-          <p className="mx-auto max-w-2xl text-zinc-300">
+          <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">
             Conduct side-by-side AI comparative analysis and quantitative metric audits for any two live DeFi protocols.
           </p>
-        </header>
+        </div>
+      </header>
 
-        {/* Protocol Selector Arena */}
-        <section className="relative z-40 rounded-3xl border border-zinc-800/70 bg-zinc-900/40 p-6 shadow-xl backdrop-blur-xl md:p-8">
-          <div className="grid gap-6 md:grid-cols-[1fr_auto_1fr] items-start">
-            {/* Protocol A Selector */}
-            <SearchableDropdown
-              value={protocolA}
-              onChange={setProtocolA}
-              options={supportedProtocols}
-              disabled={loading}
-              label="DeFi Protocol A"
-            />
+      {/* Protocol Selector Arena */}
+      <section className="relative z-40 rounded-3xl border border-white/5 bg-zinc-900/40 p-6 shadow-xl backdrop-blur-xl md:p-8">
+        <div className="grid gap-6 md:grid-cols-[1fr_auto_1fr] items-start">
+          {/* Protocol A Selector */}
+          <SearchableDropdown
+            value={protocolA}
+            onChange={setProtocolA}
+            options={supportedProtocols}
+            disabled={loading}
+            label="DeFi Protocol A"
+          />
 
-            {/* Battle Icon */}
-            <div className="flex justify-center pt-6">
-              <div className="w-12 h-12 rounded-full border border-cyan-500/30 bg-cyan-950/20 flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.2)] animate-pulse">
-                <Swords className="w-5 h-5" />
-              </div>
+          {/* Battle Icon */}
+          <div className="flex justify-center pt-6">
+            <div className="w-12 h-12 rounded-full border border-cyan-500/30 bg-cyan-950/20 flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.2)] animate-pulse">
+              <Swords className="w-5 h-5" />
             </div>
-
-            {/* Protocol B Selector */}
-            <SearchableDropdown
-              value={protocolB}
-              onChange={setProtocolB}
-              options={supportedProtocols}
-              disabled={loading}
-              label="DeFi Protocol B"
-            />
           </div>
 
-          <div className="mt-8 flex justify-center">
-            <button
-              onClick={() => void runComparison(protocolA, protocolB)}
-              disabled={loading || protocolsLoading || !protocolA || !protocolB || protocolA === protocolB}
-              className="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-zinc-950 font-black uppercase tracking-wider text-xs shadow-lg shadow-cyan-400/20 transition-all hover:scale-[1.02] hover:shadow-cyan-400/35 active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2"
+          {/* Protocol B Selector */}
+          <SearchableDropdown
+            value={protocolB}
+            onChange={setProtocolB}
+            options={supportedProtocols}
+            disabled={loading}
+            label="DeFi Protocol B"
+          />
+        </div>
+
+        <div className="mt-8 flex justify-center">
+          <Button
+            onClick={() => void runComparison(protocolA, protocolB)}
+            disabled={loading || protocolsLoading || !protocolA || !protocolB || protocolA === protocolB}
+            className="px-8 py-5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-350 hover:to-blue-450 text-zinc-950 font-black uppercase tracking-wider text-xs shadow-lg shadow-cyan-400/20 transition-all hover:scale-[1.02] hover:shadow-cyan-400/35 active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2 cursor-pointer"
+          >
+            <Zap className="w-4 h-4 fill-zinc-950" /> Initiate Head-to-Head Battle
+          </Button>
+        </div>
+      </section>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-3xl bg-zinc-900/35 backdrop-blur-md duration-500 border border-white/5">
+          <div className="h-1 bg-zinc-800 w-full">
+            <div className="h-full bg-cyan-400 animate-progress-fast shadow-[0_0_10px_#22d3ee]" />
+          </div>
+          <div className="p-12 flex flex-col items-center justify-center space-y-6">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-4 border-zinc-800" />
+              <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-cyan-400 animate-spin" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
+              <p className="text-zinc-500 text-sm">Synthesizing comparative vectors across Solana protocol networks...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Alert */}
+      {error && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-start gap-3">
+          <span className="mt-0.5">⚠️</span>
+          <p className="flex-1 font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Results Panel */}
+      {brief && metrics && !loading && (
+        <div className="animate-in fade-in duration-700 space-y-8">
+          {/* Quick Stats side-by-side card comparisons */}
+          <section className="grid gap-6 md:grid-cols-2">
+            {/* Protocol A Card */}
+            <SpotlightCard
+              spotlightColor="rgba(34, 211, 238, 0.12)"
+              borderColor="rgba(34, 211, 238, 0.4)"
+              className="relative overflow-hidden border border-cyan-400/20 bg-cyan-950/5 p-6 shadow-xl"
             >
-              <Zap className="w-4 h-4 fill-zinc-950" /> Initiate Head-to-Head Battle
-            </button>
-          </div>
-        </section>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-3xl bg-zinc-900/35 backdrop-blur-md duration-500 border border-white/5">
-            <div className="h-1 bg-zinc-800 w-full">
-              <div className="h-full bg-cyan-400 animate-progress-fast shadow-[0_0_10px_#22d3ee]" />
-            </div>
-            <div className="p-12 flex flex-col items-center justify-center space-y-6">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-4 border-zinc-800" />
-                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-cyan-400 animate-spin" />
-              </div>
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
-                <p className="text-zinc-500 text-sm">Synthesizing comparative vectors across Solana protocol networks...</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error Alert */}
-        {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-start gap-3">
-            <span className="mt-0.5">⚠️</span>
-            <p className="flex-1 font-medium">{error}</p>
-          </div>
-        )}
-
-        {/* Results Panel */}
-        {brief && metrics && !loading && (
-          <div className="animate-in fade-in duration-700 space-y-8">
-            {/* Quick Stats side-by-side card comparisons */}
-            <section className="grid gap-6 md:grid-cols-2">
-              {/* Protocol A Card */}
-              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-950/5 p-6 shadow-xl relative overflow-hidden backdrop-blur-sm">
-                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-cyan-500/5 blur-2xl pointer-events-none" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded">PROTOCOL A</span>
-                <h2 className="text-2xl font-black text-white mt-2 capitalize">{metrics.nameA}</h2>
-                <p className="text-xs text-zinc-500 uppercase mt-1">{metrics.categoryA}</p>
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">TVL</span>
-                    <span className="text-lg font-black text-white">{usd(metrics.tvlA)}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">Token Price</span>
-                    <span className="text-lg font-black text-cyan-300">{usd(metrics.priceA)}</span>
-                  </div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded">PROTOCOL A</span>
+              <h2 className="text-3xl font-black text-white mt-2 capitalize tracking-tight">{metrics.nameA}</h2>
+              <p className="text-xs text-zinc-500 uppercase mt-1">{metrics.categoryA}</p>
+              <div className="grid grid-cols-2 gap-4 mt-6">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">TVL</span>
+                  <span className="text-xl font-black text-white">{usd(metrics.tvlA)}</span>
                 </div>
-                <div className="mt-6 flex gap-2">
-                  <Link
-                    href={`/war-room?protocol=${encodeURIComponent(protocolA.toLowerCase())}`}
-                    className="px-4 py-2 bg-cyan-300/10 hover:bg-cyan-300/20 text-cyan-300 border border-cyan-300/20 text-xs font-bold rounded-lg transition-all flex items-center justify-center flex-1"
-                  >
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">Token Price</span>
+                  <span className="text-xl font-black text-cyan-300">{usd(metrics.priceA)}</span>
+                </div>
+              </div>
+              <div className="mt-6 flex gap-2">
+                <Button asChild variant="outline" className="text-cyan-300 border-cyan-300/20 hover:border-cyan-300/40 hover:bg-cyan-300/10 flex-1 h-11 rounded-xl font-bold cursor-pointer">
+                  <Link href={`/war-room?protocol=${encodeURIComponent(protocolA.toLowerCase())}`}>
                     Stress Test A
                   </Link>
+                </Button>
+              </div>
+            </SpotlightCard>
+
+            {/* Protocol B Card */}
+            <SpotlightCard
+              spotlightColor="rgba(59, 130, 246, 0.12)"
+              borderColor="rgba(59, 130, 246, 0.4)"
+              className="relative overflow-hidden border border-blue-400/20 bg-blue-950/5 p-6 shadow-xl"
+            >
+              <span className="text-[9px] font-black uppercase tracking-widest text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">PROTOCOL B</span>
+              <h2 className="text-3xl font-black text-white mt-2 capitalize tracking-tight">{metrics.nameB}</h2>
+              <p className="text-xs text-zinc-500 uppercase mt-1">{metrics.categoryB}</p>
+              <div className="grid grid-cols-2 gap-4 mt-6">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">TVL</span>
+                  <span className="text-xl font-black text-white">{usd(metrics.tvlB)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">Token Price</span>
+                  <span className="text-xl font-black text-blue-300">{usd(metrics.priceB)}</span>
                 </div>
               </div>
-
-              {/* Protocol B Card */}
-              <div className="rounded-2xl border border-blue-400/20 bg-blue-950/5 p-6 shadow-xl relative overflow-hidden backdrop-blur-sm">
-                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-blue-500/5 blur-2xl pointer-events-none" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">PROTOCOL B</span>
-                <h2 className="text-2xl font-black text-white mt-2 capitalize">{metrics.nameB}</h2>
-                <p className="text-xs text-zinc-500 uppercase mt-1">{metrics.categoryB}</p>
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">TVL</span>
-                    <span className="text-lg font-black text-white">{usd(metrics.tvlB)}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">Token Price</span>
-                    <span className="text-lg font-black text-blue-300">{usd(metrics.priceB)}</span>
-                  </div>
-                </div>
-                <div className="mt-6 flex gap-2">
-                  <Link
-                    href={`/war-room?protocol=${encodeURIComponent(protocolB.toLowerCase())}`}
-                    className="px-4 py-2 bg-blue-300/10 hover:bg-blue-300/20 text-blue-300 border border-blue-300/20 text-xs font-bold rounded-lg transition-all flex items-center justify-center flex-1"
-                  >
+              <div className="mt-6 flex gap-2">
+                <Button asChild variant="outline" className="text-blue-300 border-blue-300/20 hover:border-blue-300/40 hover:bg-blue-300/10 flex-1 h-11 rounded-xl font-bold cursor-pointer">
+                  <Link href={`/war-room?protocol=${encodeURIComponent(protocolB.toLowerCase())}`}>
                     Stress Test B
                   </Link>
-                </div>
+                </Button>
               </div>
-            </section>
+            </SpotlightCard>
+          </section>
 
-            {/* Comparative Highlights Table */}
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6 shadow-xl backdrop-blur-md">
-              <h3 className="text-base font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-300" />
-                Comparative Metric Matrix
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-800 bg-zinc-900/30 text-zinc-500 uppercase text-[10px] font-black tracking-widest">
-                      <th className="px-4 py-3">Metric Dimension</th>
-                      <th className="px-4 py-3">{metrics.nameA}</th>
-                      <th className="px-4 py-3">{metrics.nameB}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-900">
-                    <tr>
-                      <td className="px-4 py-4 font-bold text-zinc-400">Total Value Locked (TVL)</td>
-                      <td className={`px-4 py-4 font-semibold ${Number(metrics.tvlA) > Number(metrics.tvlB) ? 'text-emerald-400 font-bold border-l-2 border-l-emerald-500/50' : 'text-zinc-200'}`}>{usd(metrics.tvlA)}</td>
-                      <td className={`px-4 py-4 font-semibold ${Number(metrics.tvlB) > Number(metrics.tvlA) ? 'text-emerald-400 font-bold border-l-2 border-l-emerald-500/50' : 'text-zinc-200'}`}>{usd(metrics.tvlB)}</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-4 font-bold text-zinc-400">24h TVL Momentum</td>
-                      <td className={`px-4 py-4 font-semibold ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-emerald-400 font-bold border-l-2 border-l-emerald-500/50' : 'text-zinc-200'}`}>{pct(metrics.change1dA)}</td>
-                      <td className={`px-4 py-4 font-semibold ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-emerald-400 font-bold border-l-2 border-l-emerald-500/50' : 'text-zinc-200'}`}>{pct(metrics.change1dB)}</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-4 font-bold text-zinc-400">7d TVL Momentum</td>
-                      <td className={`px-4 py-4 font-semibold ${Number(metrics.change7dA) > Number(metrics.change7dB) ? 'text-emerald-400 font-bold border-l-2 border-l-emerald-500/50' : 'text-zinc-200'}`}>{pct(metrics.change7dA)}</td>
-                      <td className={`px-4 py-4 font-semibold ${Number(metrics.change7dB) > Number(metrics.change7dA) ? 'text-emerald-400 font-bold border-l-2 border-l-emerald-500/50' : 'text-zinc-200'}`}>{pct(metrics.change7dB)}</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-4 font-bold text-zinc-400">Governance Token Price</td>
-                      <td className="px-4 py-4 font-semibold text-zinc-200">{usd(metrics.priceA)}</td>
-                      <td className="px-4 py-4 font-semibold text-zinc-200">{usd(metrics.priceB)}</td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-4 font-bold text-zinc-400">Market Capitalization</td>
-                      <td className="px-4 py-4 font-semibold text-zinc-200">{usd(metrics.mcapA)}</td>
-                      <td className="px-4 py-4 font-semibold text-zinc-200">{usd(metrics.mcapB)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            {/* Analyst Thinking Trace */}
-            <details className="group">
-              <summary className="flex list-none cursor-pointer items-center gap-2 text-zinc-500 transition-colors hover:text-zinc-300">
-                <div className="w-5 h-5 flex items-center justify-center rounded-md bg-zinc-800 group-open:rotate-180 transition-transform">
-                  <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest">Analyst Thinking Trace ({brief.toolCalls.length} Steps)</span>
-              </summary>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {brief.toolCalls.map((tc, i) => (
-                  <div key={i} className="p-4 rounded-xl bg-zinc-900/55 flex flex-col gap-2 border border-white/5">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-cyan-300 uppercase bg-cyan-500/10 px-1.5 py-0.5 rounded">STEP {i + 1}</span>
-                      <span className="text-[10px] font-mono text-zinc-600">{tc.durationMs}ms</span>
+          {/* Interactive Visual Comparison Gauges */}
+          <SpotlightCard spotlightColor="rgba(255, 255, 255, 0.04)" borderColor="rgba(255, 255, 255, 0.15)">
+            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+              Dynamic Strength Metrics
+            </h3>
+            
+            <div className="space-y-6">
+              {/* TVL Compare Row */}
+              {(() => {
+                const tvlA = Number(metrics.tvlA) || 0;
+                const tvlB = Number(metrics.tvlB) || 0;
+                const total = tvlA + tvlB;
+                const pctA = total > 0 ? (tvlA / total) * 100 : 50;
+                const pctB = total > 0 ? (tvlB / total) * 100 : 50;
+                return (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className={`font-bold flex items-center gap-1.5 ${tvlA > tvlB ? 'text-cyan-300' : 'text-zinc-400'}`}>
+                        {tvlA > tvlB && '🏆'} {usd(metrics.tvlA)}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Total Value Locked</span>
+                      <span className={`font-bold flex items-center gap-1.5 ${tvlB > tvlA ? 'text-blue-300' : 'text-zinc-400'}`}>
+                        {usd(metrics.tvlB)} {tvlB > tvlA && '🏆'}
+                      </span>
                     </div>
-                    <div className="font-mono text-xs font-bold text-zinc-300">{tc.tool}</div>
-                    <div className="text-[10px] text-zinc-500 truncate italic">input: {JSON.stringify(tc.input)}</div>
-                    {tc.error && <div className="text-[10px] text-red-500 mt-1 uppercase font-bold">Error: {tc.error}</div>}
+                    <div className="h-2.5 w-full bg-zinc-950 border border-white/5 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)] transition-all duration-500" style={{ width: `${pctA}%` }} />
+                      <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-all duration-500" style={{ width: `${pctB}%` }} />
+                    </div>
                   </div>
-                ))}
-              </div>
-            </details>
+                );
+              })()}
 
-            {/* Comparative AI Report (Battle Card) */}
-            <article className="glass-card relative overflow-hidden rounded-3xl bg-zinc-900/50 shadow-2xl border border-white/5">
-              <div className="absolute top-6 right-6">
-                <button
-                  onClick={copyBriefMarkdown}
-                  className="rounded-lg bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 text-xs font-bold text-zinc-200 transition-all"
-                >
-                  Copy Markdown
-                </button>
-              </div>
+              {/* Mcap Compare Row */}
+              {(() => {
+                const mcapA = Number(metrics.mcapA) || 0;
+                const mcapB = Number(metrics.mcapB) || 0;
+                const total = mcapA + mcapB;
+                const pctA = total > 0 ? (mcapA / total) * 100 : 50;
+                const pctB = total > 0 ? (mcapB / total) * 100 : 50;
+                return (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className={`font-bold flex items-center gap-1.5 ${mcapA > mcapB ? 'text-cyan-300' : 'text-zinc-400'}`}>
+                        {mcapA > mcapB && '🏆'} {usd(metrics.mcapA)}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Market Capitalization</span>
+                      <span className={`font-bold flex items-center gap-1.5 ${mcapB > mcapA ? 'text-blue-300' : 'text-zinc-400'}`}>
+                        {usd(metrics.mcapB)} {mcapB > mcapA && '🏆'}
+                      </span>
+                    </div>
+                    <div className="h-2.5 w-full bg-zinc-950 border border-white/5 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)] transition-all duration-500" style={{ width: `${pctA}%` }} />
+                      <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-all duration-500" style={{ width: `${pctB}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
 
-              <div className="p-6 md:p-10 mt-6">
-                <MarkdownBrief content={brief.brief} />
-              </div>
-            </article>
-
-            {/* Footer tip */}
-            <div className="text-center pb-20">
-              <p className="text-zinc-600 text-xs">Reports are generated in real-time by the Aegis Comparative AI agent. Verify critical allocations independently.</p>
+              {/* 24h Change Compare Row */}
+              {(() => {
+                const cA = Math.abs(Number(metrics.change1dA) || 0);
+                const cB = Math.abs(Number(metrics.change1dB) || 0);
+                const total = cA + cB;
+                const pctA = total > 0 ? (cA / total) * 100 : 50;
+                const pctB = total > 0 ? (cB / total) * 100 : 50;
+                return (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-cyan-300' : 'text-zinc-400'}`}>
+                        {Number(metrics.change1dA) > Number(metrics.change1dB) && '🏆'} {pct(metrics.change1dA)}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">24h TVL Momentum</span>
+                      <span className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-blue-300' : 'text-zinc-400'}`}>
+                        {pct(metrics.change1dB)} {Number(metrics.change1dB) > Number(metrics.change1dA) && '🏆'}
+                      </span>
+                    </div>
+                    <div className="h-2.5 w-full bg-zinc-950 border border-white/5 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)] transition-all duration-500" style={{ width: `${pctA}%` }} />
+                      <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-all duration-500" style={{ width: `${pctB}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-          </div>
-        )}
-      </div>
+          </SpotlightCard>
 
-      <style jsx global>{`
-        .glass-card {
-           backdrop-filter: blur(20px);
-        }
-        @keyframes progress-fast {
-          0% { width: 0%; left: 0; }
-          40% { width: 70%; left: 0; }
-          100% { width: 0%; left: 100%; }
-        }
-        .animate-progress-fast {
-          animation: progress-fast 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-          position: absolute;
-        }
-      `}</style>
+          {/* Comparative Highlights Table */}
+          <section className="rounded-3xl border border-white/5 bg-zinc-950/35 p-6 shadow-xl backdrop-blur-md">
+            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-300" />
+              Comparative Metric Matrix
+            </h3>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-white/5">
+                  <TableHead className="text-zinc-500 uppercase text-[10px] font-black tracking-widest">Metric Dimension</TableHead>
+                  <TableHead className="text-zinc-500 uppercase text-[10px] font-black tracking-widest">{metrics.nameA}</TableHead>
+                  <TableHead className="text-zinc-500 uppercase text-[10px] font-black tracking-widest">{metrics.nameB}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow className="border-white/5 hover:bg-white/5">
+                  <TableCell className="font-bold text-zinc-400">Total Value Locked (TVL)</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.tvlA) > Number(metrics.tvlB) ? 'text-cyan-300 font-bold border-l-2 border-l-cyan-400' : 'text-zinc-200'}`}>{usd(metrics.tvlA)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.tvlB) > Number(metrics.tvlA) ? 'text-blue-300 font-bold border-l-2 border-l-blue-400' : 'text-zinc-200'}`}>{usd(metrics.tvlB)}</TableCell>
+                </TableRow>
+                <TableRow className="border-white/5 hover:bg-white/5">
+                  <TableCell className="font-bold text-zinc-400">24h TVL Momentum</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-cyan-300 font-bold border-l-2 border-l-cyan-400' : 'text-zinc-200'}`}>{pct(metrics.change1dA)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-blue-300 font-bold border-l-2 border-l-blue-400' : 'text-zinc-200'}`}>{pct(metrics.change1dB)}</TableCell>
+                </TableRow>
+                <TableRow className="border-white/5 hover:bg-white/5">
+                  <TableCell className="font-bold text-zinc-400">7d TVL Momentum</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change7dA) > Number(metrics.change7dB) ? 'text-cyan-300 font-bold border-l-2 border-l-cyan-400' : 'text-zinc-200'}`}>{pct(metrics.change7dA)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change7dB) > Number(metrics.change7dA) ? 'text-blue-300 font-bold border-l-2 border-l-blue-400' : 'text-zinc-200'}`}>{pct(metrics.change7dB)}</TableCell>
+                </TableRow>
+                <TableRow className="border-white/5 hover:bg-white/5">
+                  <TableCell className="font-bold text-zinc-400">Governance Token Price</TableCell>
+                  <TableCell className="font-semibold text-zinc-200">{usd(metrics.priceA)}</TableCell>
+                  <TableCell className="font-semibold text-zinc-200">{usd(metrics.priceB)}</TableCell>
+                </TableRow>
+                <TableRow className="border-white/5 hover:bg-white/5">
+                  <TableCell className="font-bold text-zinc-400">Market Capitalization</TableCell>
+                  <TableCell className="font-semibold text-zinc-200">{usd(metrics.mcapA)}</TableCell>
+                  <TableCell className="font-semibold text-zinc-200">{usd(metrics.mcapB)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </section>
+
+          {/* Analyst Thinking Trace */}
+          <details className="group">
+            <summary className="flex list-none cursor-pointer items-center gap-2 text-zinc-500 transition-colors hover:text-zinc-300">
+              <div className="w-5 h-5 flex items-center justify-center rounded-md bg-zinc-800 group-open:rotate-180 transition-transform">
+                <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest">Analyst Thinking Trace ({brief.toolCalls.length} Steps)</span>
+            </summary>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {brief.toolCalls.map((tc, i) => (
+                <div key={i} className="p-4 rounded-xl bg-zinc-900/55 flex flex-col gap-2 border border-white/5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-cyan-300 uppercase bg-cyan-500/10 px-1.5 py-0.5 rounded">STEP {i + 1}</span>
+                    <span className="text-[10px] font-mono text-zinc-600">{tc.durationMs}ms</span>
+                  </div>
+                  <div className="font-mono text-xs font-bold text-zinc-300">{tc.tool}</div>
+                  <div className="text-[10px] text-zinc-500 truncate italic">input: {JSON.stringify(tc.input)}</div>
+                  {tc.error && <div className="text-[10px] text-red-500 mt-1 uppercase font-bold">Error: {tc.error}</div>}
+                </div>
+              ))}
+            </div>
+          </details>
+
+          {/* Comparative AI Report (Battle Card) */}
+          <article className="glass-card relative overflow-hidden rounded-3xl bg-zinc-900/50 shadow-2xl border border-white/5">
+            <div className="absolute top-6 right-6">
+              <Button
+                onClick={copyBriefMarkdown}
+                variant="outline"
+                size="sm"
+                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-white/5"
+              >
+                Copy Markdown
+              </Button>
+            </div>
+
+            <div className="p-6 md:p-10 mt-6">
+              <MarkdownBrief content={brief.brief} />
+            </div>
+          </article>
+
+          {/* Footer tip */}
+          <div className="text-center pb-20">
+            <p className="text-zinc-600 text-xs">Reports are generated in real-time by the Aegis Comparative AI agent. Verify critical allocations independently.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,9 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useMultiChain } from '@/components/chain/chain-provider';
 import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 import type { SolanaProtocol } from '@/shared/types';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 const RELEVANT_PROTOCOL_CATEGORIES = new Set([
   'AMM',
@@ -77,13 +80,13 @@ function buildSupportedProtocolCatalog(protocols: SolanaProtocol[]) {
   return Array.from(deduped.values())
     .map((protocol) => {
       // DeFiLlama may use different keys for TVL (tvl, tvlUsd, etc.). Normalize.
-      const anyP = protocol as any
-      const tvlNum: number | null = typeof anyP.tvl === 'number' ? anyP.tvl : typeof anyP.tvlUsd === 'number' ? anyP.tvlUsd : null
+      const raw = protocol as { tvl?: number; tvlUsd?: number; category?: string }
+      const tvlNum: number | null = typeof raw.tvl === 'number' ? raw.tvl : typeof raw.tvlUsd === 'number' ? raw.tvlUsd : null
       return { protocol, tvlNum }
     })
-    .filter(({ protocol, tvlNum }) => tvlNum != null && tvlNum > 0)
+    .filter(({ tvlNum }) => tvlNum != null && tvlNum > 0)
     .filter(({ protocol }) => {
-      const category = (protocol as any).category?.trim() ?? 'Uncategorized'
+      const category = (protocol as { category?: string }).category?.trim() ?? 'Uncategorized'
       if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false
       if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true
       return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized'
@@ -92,7 +95,7 @@ function buildSupportedProtocolCatalog(protocols: SolanaProtocol[]) {
     .map(({ protocol, tvlNum }) => ({
       slug: normalizeProtocolSlug(protocol.slug),
       label: protocol.name || formatProtocolName(protocol.slug),
-      category: (protocol as any).category ?? 'Uncategorized',
+      category: (protocol as { category?: string }).category ?? 'Uncategorized',
       tvl: typeof tvlNum === 'number' ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(tvlNum) : 'N/A',
     }))
 }
@@ -185,7 +188,7 @@ function ResearchContent() {
       setStatusMsg(messages[i]);
     }, 3500);
     return () => clearInterval(interval);
-  }, [loading]);
+  }, [loading, activeChain.displayName]);
 
   async function runResearch(protocol: string) {
     const normalizedProtocol = normalizeProtocolSlug(protocol);
@@ -230,266 +233,267 @@ function ResearchContent() {
   }
 
   return (
-    <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
-      {/* Background Decor */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
-        <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
-      </div>
-
-      <div className="relative mx-auto max-w-5xl space-y-8 px-4 py-10 md:space-y-10 md:px-6 md:py-14">
-        {/* Header */}
-        <header className="relative space-y-4 text-center md:space-y-5">
-          <Link
-            href="/research/compare"
-            className="mx-auto flex w-fit items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-cyan-200 shadow-xl transition-all hover:from-cyan-500/30 hover:to-blue-500/30 hover:text-cyan-100 md:absolute md:left-0 md:top-0"
-          >
-            ⚔️ Protocol Battleground
-          </Link>
-          <Link
-            href="/watchlist"
-            className="mx-auto flex w-fit items-center gap-2 rounded-xl bg-zinc-900/60 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 shadow-xl transition-all hover:bg-zinc-800/80 hover:text-cyan-100 md:absolute md:right-0 md:top-0"
-          >
-            My Watchlist <Star className="w-3 h-3 group-hover:scale-125 transition-transform" />
-          </Link>
-          <div className="mb-2 inline-block rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
-            Aegis Intelligence
+    <div className="mx-auto max-w-5xl space-y-8 py-6">
+      {/* Header */}
+      <header className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
+              Aegis Research Analyst
+            </Badge>
           </div>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="bg-gradient-to-r from-cyan-500/15 to-blue-500/15 border-cyan-400/30 hover:from-cyan-500/25 hover:to-blue-500/25 text-cyan-200 hover:text-cyan-100 font-bold">
+              <Link href="/research/compare">
+                ⚔️ Protocol Battleground
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/watchlist" className="flex items-center gap-1.5 font-bold">
+                My Watchlist <Star className="w-3.5 h-3.5 fill-current" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-2">
           <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
             {activeChain.displayName} <span className="text-cyan-200">Research</span>
           </h1>
-          <p className="mx-auto max-w-2xl text-zinc-300">
+          <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">
             Autonomous AI analyst generating deep-dive reports for the selected chain using live protocol and market data.
           </p>
-        </header>
+        </div>
+      </header>
 
-        {/* Results */}
-        {brief && !loading && (
-          <div className="animate-in space-y-8 fade-in duration-700">
-            {/* Thinking Trace */}
-            <details className="group">
-              <summary className="flex list-none cursor-pointer items-center gap-2 text-zinc-500 transition-colors hover:text-zinc-300">
-                <div className="w-5 h-5 flex items-center justify-center rounded-md bg-zinc-800 group-open:rotate-180 transition-transform">
-                  <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                </div>
-                <span className="text-xs font-bold uppercase tracking-widest">Analyst Thinking Trace ({brief.toolCalls.length} Steps)</span>
-              </summary>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {brief.toolCalls.map((tc: ToolCallRecord, i: number) => (
-                  <div key={i} className="p-4 rounded-xl bg-zinc-900/55 flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-primary uppercase bg-primary/10 px-1.5 py-0.5 rounded">STEP {i + 1}</span>
-                      <span className="text-[10px] font-mono text-zinc-600">{tc.durationMs}ms</span>
-                    </div>
-                    <div className="font-mono text-xs font-bold text-zinc-300">{tc.tool}</div>
-                    <div className="text-[10px] text-zinc-500 truncate italic">input: {JSON.stringify(tc.input)}</div>
-                    {tc.error && <div className="text-[10px] text-red-500 mt-1 uppercase font-bold">Error: {tc.error}</div>}
-                  </div>
-                ))}
+      {/* Results */}
+      {brief && !loading && (
+        <div className="animate-in space-y-8 fade-in duration-700">
+          {/* Thinking Trace */}
+          <details className="group">
+            <summary className="flex list-none cursor-pointer items-center gap-2 text-zinc-500 transition-colors hover:text-zinc-300">
+              <div className="w-5 h-5 flex items-center justify-center rounded-md bg-zinc-800 group-open:rotate-180 transition-transform">
+                <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
               </div>
-            </details>
+              <span className="text-xs font-bold uppercase tracking-widest">Analyst Thinking Trace ({brief.toolCalls.length} Steps)</span>
+            </summary>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {brief.toolCalls.map((tc: ToolCallRecord, i: number) => (
+                <div key={i} className="p-4 rounded-xl bg-zinc-900/55 flex flex-col gap-2 border border-white/5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-cyan-300 uppercase bg-cyan-500/10 px-1.5 py-0.5 rounded">STEP {i + 1}</span>
+                    <span className="text-[10px] font-mono text-zinc-600">{tc.durationMs}ms</span>
+                  </div>
+                  <div className="font-mono text-xs font-bold text-zinc-300">{tc.tool}</div>
+                  <div className="text-[10px] text-zinc-500 truncate italic">input: {JSON.stringify(tc.input)}</div>
+                  {tc.error && <div className="text-[10px] text-red-500 mt-1 uppercase font-bold">Error: {tc.error}</div>}
+                </div>
+              ))}
+            </div>
+          </details>
 
-            {/* Main Brief */}
-            <article className="glass-card relative overflow-hidden rounded-3xl bg-zinc-900/50 shadow-2xl">
-              {/* Watchlist Actions */}
-              <div className="absolute top-6 right-6 flex gap-2">
-                {brief?.protocol && (
-                  <Link
-                    href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}
-                    className="px-4 py-2 bg-cyan-300/20 text-cyan-100 text-xs font-bold rounded-lg hover:bg-cyan-300/30 transition-all"
-                  >
+          {/* Main Brief */}
+          <article className="glass-card relative overflow-hidden rounded-3xl bg-zinc-900/40 border border-white/5 shadow-2xl">
+            {/* Watchlist Actions */}
+            <div className="absolute top-6 right-6 flex gap-2">
+              {brief?.protocol && (
+                <Button asChild size="sm" className="bg-cyan-300 text-slate-950 hover:bg-cyan-200 font-bold shadow-lg shadow-cyan-500/10">
+                  <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>
                     Run War Room
                   </Link>
-                )}
-                <button
-                  onClick={() => {
-                    const slug = brief.protocol.toLowerCase();
-                    toggle(slug);
-                    if (!isWatched(slug)) {
-                      toast.success(`${slug} added to watchlist.`);
-                    }
-                  }}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${isWatched(brief.protocol.toLowerCase())
-                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-primary text-zinc-950 hover:bg-primary/90 shadow-lg shadow-primary/20'
-                    }`}
-                >
-                  {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
-                </button>
-              </div>
-              {!isConnected && (
-                <div className="px-6 pt-6 md:px-10">
-                  <div className="rounded-lg bg-zinc-950/50 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                    Guest Mode: Watchlist is saved locally in this browser.
-                  </div>
-                </div>
+                </Button>
               )}
+              <Button
+                onClick={() => {
+                  const slug = brief.protocol.toLowerCase();
+                  toggle(slug);
+                  if (!isWatched(slug)) {
+                    toast.success(`${slug} added to watchlist.`);
+                  }
+                }}
+                variant={isWatched(brief.protocol.toLowerCase()) ? 'outline' : 'default'}
+                size="sm"
+                className={isWatched(brief.protocol.toLowerCase())
+                  ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                  : 'bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-bold'
+                }
+              >
+                {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
+              </Button>
+            </div>
+            {!isConnected && (
               <div className="px-6 pt-6 md:px-10">
-                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-zinc-950/45 p-2">
-                  <button
-                    onClick={copyBriefMarkdown}
-                    className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200 transition-all hover:bg-zinc-700"
-                  >
-                    Copy Markdown
-                  </button>
+                <div className="rounded-lg bg-zinc-950/50 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                  Guest Mode: Watchlist is saved locally in this browser.
                 </div>
               </div>
-              <div className="p-6 md:p-10">
-                <MarkdownBrief content={brief.brief} />
-              </div>
-            </article>
-
-            {/* Footer Tip */}
-            <div className="text-center pb-20">
-              <p className="text-zinc-600 text-xs">Reports are generated in real-time. Verify critical data independently.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Active Thinking State */}
-        {loading && (
-          <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-2xl bg-zinc-900/35 backdrop-blur-md duration-500">
-            <div className="h-1 bg-zinc-800 w-full">
-              <div className="h-full bg-primary animate-progress-fast shadow-[0_0_10px_rgb(var(--p))]" />
-            </div>
-            <div className="p-12 flex flex-col items-center justify-center space-y-6">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-4 border-zinc-800" />
-                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-primary animate-spin" />
-              </div>
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
-                <p className="text-zinc-500 text-sm">Aegis is processing high-dimensional data flows...</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 text-red-300 text-sm flex items-start gap-3">
-            <span className="mt-0.5">⚠️</span>
-            <p className="flex-1 font-medium">{error}</p>
-          </div>
-        )}
-
-        <section className="rounded-3xl border border-zinc-800/70 bg-zinc-900/40 p-5 shadow-xl backdrop-blur-xl md:p-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center rounded-full bg-cyan-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-100">
-                Live protocol catalog
-              </div>
-              <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
-                {supportedProtocols.length} supported protocols with active TVL
-              </h2>
-              <p className="max-w-2xl text-sm text-zinc-300">
-                These are the live protocols pulled from DeFiLlama for the currently selected chain, filtered to remove zero-TVL entries so the catalog stays useful and faster to scan.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300 ring-1 ring-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Feed status</p>
-              <p className="mt-1 font-semibold text-cyan-100">
-                {protocolsLoading ? 'Refreshing live catalog...' : 'Live and ready'}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 rounded-2xl border border-zinc-800/70 bg-zinc-950/40 p-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Catalog search</p>
-                <p className="text-xs text-zinc-400">Search by name, slug, or category.</p>
-              </div>
-              <div className="text-xs font-semibold text-cyan-100">
-                {protocolsLoading ? 'Loading live feed...' : `${supportedProtocols.length} protocols available`}
-              </div>
-            </div>
-            <div className="mt-3">
-              <input
-                type="search"
-                value={protocolSearch}
-                onChange={(e) => setProtocolSearch(e.target.value)}
-                placeholder="Search protocols..."
-                className="h-11 w-full rounded-xl border border-zinc-800/70 bg-zinc-950/80 px-4 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
-              />
-            </div>
-          </div>
-
-          <div className="mt-5 max-h-[28rem] overflow-auto rounded-2xl border border-zinc-800/70 bg-zinc-950/50 p-3">
-            <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-400">
-              <span>
-                Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length}
-                {' '}
-                matched protocols
-              </span>
-              {deferredProtocolSearch && (
-                <button
-                  type="button"
-                  onClick={() => setProtocolSearch('')}
-                  className="font-semibold text-cyan-100 hover:text-cyan-50"
+            )}
+            <div className="px-6 pt-6 md:px-10">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl bg-zinc-950/45 p-2">
+                <Button
+                  onClick={copyBriefMarkdown}
+                  variant="outline"
+                  size="sm"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold border-white/5"
                 >
-                  Clear search
-                </button>
-              )}
+                  Copy Markdown
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleFilteredProtocols.map((protocol) => (
-                <button
-                  key={protocol.slug}
-                  type="button"
-                  onClick={() => {
-                    runResearch(protocol.slug);
-                  }}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/70 px-3 py-2 text-left transition hover:border-cyan-300/40 hover:bg-zinc-900"
-                  style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
-                  disabled={loading}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-zinc-100">{protocol.label}</p>
-                    <p className="truncate text-[11px] text-zinc-500">{protocol.category}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-100">TVL</p>
-                    <p className="text-xs text-zinc-300">{protocol.tvl}</p>
-                  </div>
-                </button>
-              ))}
-              {filteredProtocols.length === 0 && (
-                <div className="rounded-xl border border-dashed border-zinc-800/80 bg-zinc-900/50 px-4 py-6 text-sm text-zinc-400 sm:col-span-2 xl:col-span-3">
-                  No protocols matched your search.
+            <div className="p-6 md:p-10">
+              <MarkdownBrief content={brief.brief} />
+            </div>
+          </article>
+
+          {/* Footer Tip */}
+          <div className="text-center pb-20">
+            <p className="text-zinc-600 text-xs">Reports are generated in real-time. Verify critical data independently.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Active Thinking State */}
+      {loading && (
+        <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-2xl bg-zinc-900/35 border border-white/5 backdrop-blur-md duration-500">
+          <div className="h-1 bg-zinc-800 w-full">
+            <div className="h-full bg-cyan-400 animate-progress-fast shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+          </div>
+          <div className="p-12 flex flex-col items-center justify-center space-y-6">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-4 border-zinc-800" />
+              <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-cyan-400 animate-spin" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
+              <p className="text-zinc-500 text-sm">Aegis is processing high-dimensional data flows...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-start gap-3">
+          <span className="mt-0.5">⚠️</span>
+          <p className="flex-1 font-medium">{error}</p>
+        </div>
+      )}
+
+      <section className="rounded-3xl border border-white/5 bg-zinc-900/40 p-5 shadow-xl backdrop-blur-xl md:p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center rounded-full bg-cyan-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-100">
+              Live protocol catalog
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+              {supportedProtocols.length} supported protocols with active TVL
+            </h2>
+            <p className="max-w-2xl text-sm text-zinc-350">
+              These are the live protocols pulled from DeFiLlama for the currently selected chain, filtered to remove zero-TVL entries so the catalog stays useful and faster to scan.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-zinc-950/70 px-4 py-3 text-sm text-zinc-300 ring-1 ring-white/5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Feed status</p>
+            <p className="mt-1 font-semibold text-cyan-100">
+              {protocolsLoading ? 'Refreshing live catalog...' : 'Live and ready'}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-white/5 bg-zinc-950/40 p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Catalog search</p>
+              <p className="text-xs text-zinc-400">Search by name, slug, or category.</p>
+            </div>
+            <div className="text-xs font-semibold text-cyan-100">
+              {protocolsLoading ? 'Loading live feed...' : `${supportedProtocols.length} protocols available`}
+            </div>
+          </div>
+          <div className="mt-3">
+            <Input
+              type="search"
+              value={protocolSearch}
+              onChange={(e) => setProtocolSearch(e.target.value)}
+              placeholder="Search protocols..."
+              className="h-11 w-full bg-zinc-950/80 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 max-h-[28rem] overflow-auto rounded-2xl border border-white/5 bg-zinc-950/50 p-3">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-400">
+            <span>
+              Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length}
+              {' '}
+              matched protocols
+            </span>
+            {deferredProtocolSearch && (
+              <button
+                type="button"
+                onClick={() => setProtocolSearch('')}
+                className="font-semibold text-cyan-100 hover:text-cyan-50"
+              >
+                Clear search
+              </button>
+            )}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {visibleFilteredProtocols.map((protocol) => (
+              <button
+                key={protocol.slug}
+                type="button"
+                onClick={() => {
+                  runResearch(protocol.slug);
+                }}
+                className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-zinc-900/40 px-3 py-2 text-left transition hover:border-cyan-300/40 hover:bg-zinc-900/60"
+                style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
+                disabled={loading}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-zinc-100">{protocol.label}</p>
+                  <p className="truncate text-[11px] text-zinc-500">{protocol.category}</p>
                 </div>
-              )}
-            </div>
-            {filteredProtocols.length > visibleProtocols && (
-              <div className="mt-3 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setVisibleProtocols((current) => Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length))}
-                  className="rounded-xl bg-zinc-800 px-4 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700"
-                >
-                  Load more
-                </button>
+                <div className="shrink-0 text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-100">TVL</p>
+                  <p className="text-xs text-zinc-300">{protocol.tvl}</p>
+                </div>
+              </button>
+            ))}
+            {filteredProtocols.length === 0 && (
+              <div className="rounded-xl border border-dashed border-white/5 bg-zinc-900/50 px-4 py-6 text-sm text-zinc-400 sm:col-span-2 xl:col-span-3">
+                No protocols matched your search.
               </div>
             )}
           </div>
-        </section>
+          {filteredProtocols.length > visibleProtocols && (
+            <div className="mt-3 flex justify-center">
+              <Button
+                type="button"
+                onClick={() => setVisibleProtocols((current) => Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length))}
+                variant="outline"
+                size="sm"
+              >
+                Load more
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
 
-      </div>
-
-      <style jsx global>{`
-        .glass-card {
-           backdrop-filter: blur(20px);
-        }
-        @keyframes progress-fast {
-          0% { width: 0%; left: 0; }
-          40% { width: 70%; left: 0; }
-          100% { width: 0%; left: 100%; }
-        }
-        .animate-progress-fast {
-          animation: progress-fast 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-          position: absolute;
-        }
-      `}</style>
+    <style jsx global>{`
+      .glass-card {
+         backdrop-filter: blur(20px);
+      }
+      @keyframes progress-fast {
+        0% { width: 0%; left: 0; }
+        40% { width: 70%; left: 0; }
+        100% { width: 0%; left: 100%; }
+      }
+      .animate-progress-fast {
+        animation: progress-fast 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        position: absolute;
+      }
+    `}</style>
     </div>
   );
 }

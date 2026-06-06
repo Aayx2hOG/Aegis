@@ -2,19 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Activity, ChevronDown, ExternalLink, Layers3, Plus, Play, ShieldAlert, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Layers3, Plus, Play } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueries } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain } from '@/hooks/use-multichain-watchlist'
 import { fetchJson } from '@/lib/api/fetch-json'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
-import { ChainEnvironment, ChainType } from '@/lib/chain/types'
+import { ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/shared/types'
 import { toast } from 'sonner'
 
@@ -239,9 +239,7 @@ const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
 }
 
 export default function AlertsPage() {
-    const router = useRouter()
-    const queryClient = useQueryClient()
-    const { activeChain, allChains } = useMultiChain()
+    const { allChains } = useMultiChain()
     const wallet = useWallet()
     const walletAddress = wallet.publicKey?.toBase58()
     const { data: watchlistsByChainData } = useMultiChainWatchlistByChain(walletAddress)
@@ -824,13 +822,13 @@ export default function AlertsPage() {
         }
     }
 
+    // Local storage generated address setup
+    const [currentAlertWalletAddress, setCurrentAlertWalletAddress] = useState<string | null>(null)
+
     useEffect(() => {
         if (!currentAlertWalletAddress) return
         setGuestAlertWalletAddress(currentAlertWalletAddress)
-    }, [alertWalletAddress])
-
-    // Local storage generated address setup
-    const [currentAlertWalletAddress, setCurrentAlertWalletAddress] = useState<string | null>(null)
+    }, [currentAlertWalletAddress])
     useEffect(() => {
         if (typeof window === 'undefined') return
 
@@ -966,36 +964,30 @@ export default function AlertsPage() {
     }, [alertWalletAddress]);
 
     return (
-        <div className="min-h-screen text-zinc-100 selection:bg-cyan-400/20 bg-[radial-gradient(circle_at_12%_8%,rgba(22,163,184,0.2),transparent_34%),radial-gradient(circle_at_88%_4%,rgba(59,130,246,0.14),transparent_30%),linear-gradient(165deg,#050910,#0a1119_46%,#070d15)]">
-            <div className="fixed inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute -top-[10%] -left-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]" />
-                <div className="absolute top-[18%] -right-[8%] h-[32%] w-[32%] rounded-full bg-blue-500/10 blur-[100px]" />
-            </div>
-
-            <div className="relative mx-auto max-w-6xl space-y-10 px-4 py-10 md:space-y-12 md:px-6 md:py-14">
-                <header className="space-y-5">
-                    <Link
-                        href="/watchlist"
-                        className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-500 transition-colors hover:text-cyan-200"
-                    >
-                        <ArrowLeft className="h-3 w-3 transition-transform group-hover:-translate-x-1" />
-                        Back to Watchlist
-                    </Link>
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="space-y-4">
-                            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-200">
-                                <Layers3 className="h-3.5 w-3.5" />
-                                Alerts
-                            </div>
-                            <h1 className="text-4xl font-black tracking-tight text-white md:text-6xl">
-                                Alerts & <span className="text-cyan-200">Briefs</span>
-                            </h1>
-                            <p className="max-w-3xl text-zinc-300">
-                                Create and evaluate alert rules, manually test parameters on watched protocols, and view your research brief timeline.
-                            </p>
-                        </div>
+        <>
+            <div className="mx-auto max-w-6xl space-y-8 py-6">
+            <header className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <Link href="/watchlist">
+                            <Button variant="outline" size="sm" className="flex items-center gap-1.5 font-bold">
+                                <ArrowLeft className="h-3.5 w-3.5" /> Back to Watchlist
+                            </Button>
+                        </Link>
+                        <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
+                            <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Alerts
+                        </Badge>
                     </div>
-                </header>
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
+                        Alerts & <span className="text-cyan-200">Briefs</span>
+                    </h1>
+                    <p className="max-w-3xl text-zinc-400 text-sm leading-relaxed">
+                        Create and evaluate alert rules, manually test parameters on watched protocols, and view your research brief timeline.
+                    </p>
+                </div>
+            </header>
 
                 <section className="grid gap-6 lg:grid-cols-2">
                     {/* Alerts Rule Creation & Testing Form */}
@@ -1007,26 +999,27 @@ export default function AlertsPage() {
                                     <p className="mt-1 text-sm text-zinc-400">Set one rule on a watched protocol, then run a live evaluation to verify it fires.</p>
                                 </div>
                                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="outline"
                                         onClick={() => runAlertEvaluation()}
                                         disabled={!alertWalletAddress || evaluatingAlerts}
                                         title="Checks every saved alert against the latest market data"
-                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-300/20 px-3 py-2 text-xs font-bold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[150px]"
+                                        className="text-cyan-100 bg-cyan-300/10 border-cyan-300/20 hover:bg-cyan-300/20 sm:min-w-[150px]"
                                     >
                                         <Play className="h-3.5 w-3.5" />
                                         {evaluatingAlerts ? 'Running check…' : 'Run saved alerts'}
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="button"
                                         onClick={createAndTestAlert}
                                         disabled={!alertWalletAddress || creatingAlert || evaluatingAlerts || selectedAlertCurrentValue == null}
                                         title="Creates an alert at the current live value, then checks it immediately"
-                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-300 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[180px]"
+                                        className="bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-bold sm:min-w-[180px]"
                                     >
                                         <Plus className="h-3.5 w-3.5" />
                                         Create & test
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
 
@@ -1048,14 +1041,14 @@ export default function AlertsPage() {
                                         <select
                                             value={alertProtocolSlug}
                                             onChange={(event) => setAlertProtocolSlug(event.target.value)}
-                                            className="h-11 w-full appearance-none rounded-xl border border-cyan-300/15 bg-black px-3 pr-10 text-sm text-white outline-none transition hover:border-cyan-300/30 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20 [color-scheme:dark]"
+                                            className="flex h-11 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 pr-10 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white appearance-none"
                                             disabled={!alertWalletAddress || creatingAlert}
                                         >
-                                            <option value="" disabled>
+                                            <option value="" disabled className="bg-zinc-950 text-white">
                                                 Select a protocol from your watchlist
                                             </option>
                                             {availableAlertProtocolSlugs.map((slug) => (
-                                                <option key={slug} value={slug} className="bg-black text-white">
+                                                <option key={slug} value={slug} className="bg-zinc-950 text-white">
                                                     {slug}
                                                 </option>
                                             ))}
@@ -1079,13 +1072,13 @@ export default function AlertsPage() {
                                             else if (nextMetric === 'PRICE_USD') setAlertThreshold('1.00')
                                             else setAlertThreshold('10')
                                         }}
-                                        className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+                                        className="flex h-11 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     >
-                                        <option value="CHANGE_1D">24h change</option>
-                                        <option value="CHANGE_7D">7d change</option>
-                                        <option value="TVL_USD">TVL ($)</option>
-                                        <option value="PRICE_USD">Token Price ($)</option>
+                                        <option value="CHANGE_1D" className="bg-zinc-950 text-white">24h change</option>
+                                        <option value="CHANGE_7D" className="bg-zinc-950 text-white">7d change</option>
+                                        <option value="TVL_USD" className="bg-zinc-950 text-white">TVL ($)</option>
+                                        <option value="PRICE_USD" className="bg-zinc-950 text-white">Token Price ($)</option>
                                     </select>
                                 </div>
 
@@ -1094,11 +1087,11 @@ export default function AlertsPage() {
                                     <select
                                         value={alertDirection}
                                         onChange={(event) => setAlertDirection(event.target.value as AlertDirection)}
-                                        className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+                                        className="flex h-11 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     >
-                                        <option value="BELOW">Below threshold</option>
-                                        <option value="ABOVE">Above threshold</option>
+                                        <option value="BELOW" className="bg-zinc-950 text-white">Below threshold</option>
+                                        <option value="ABOVE" className="bg-zinc-950 text-white">Above threshold</option>
                                     </select>
                                 </div>
 
@@ -1106,13 +1099,13 @@ export default function AlertsPage() {
                                     <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
                                         {alertMetric === 'CHANGE_1D' || alertMetric === 'CHANGE_7D' ? 'Threshold %' : 'Threshold ($)'}
                                     </label>
-                                    <input
+                                    <Input
                                         type="number"
                                         step={alertMetric === 'PRICE_USD' ? '0.0001' : alertMetric === 'TVL_USD' ? '1000' : '0.1'}
                                         value={alertThreshold}
                                         onChange={(event) => setAlertThreshold(event.target.value)}
                                         placeholder={alertMetric === 'PRICE_USD' ? '1.50' : alertMetric === 'TVL_USD' ? '10000000' : '10'}
-                                        className="h-11 w-full rounded-xl border border-zinc-800/80 bg-zinc-950/80 px-3 text-sm text-zinc-100 outline-none transition focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20"
+                                        className="h-11"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     />
                                     <p className="mt-1 text-[11px] text-zinc-500">
@@ -1125,14 +1118,14 @@ export default function AlertsPage() {
                                 </div>
 
                                 <div className="flex items-end">
-                                    <button
+                                    <Button
                                         type="submit"
                                         disabled={!alertWalletAddress || creatingAlert}
-                                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                        className="h-11 w-full bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-bold"
                                     >
                                         <Plus className="h-4 w-4" />
                                         {creatingAlert ? 'Creating…' : 'Save alert'}
-                                    </button>
+                                    </Button>
                                 </div>
                             </form>
                         </div>
@@ -1141,7 +1134,7 @@ export default function AlertsPage() {
                         <div className="rounded-2xl bg-zinc-950/60 p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Alert rules</p>
-                                {rules.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{rules.length} saved</span>}
+                                {rules.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{alertsLoading ? 'loading...' : `${rules.length} saved`}</span>}
                             </div>
                             {rules.length === 0 ? (
                                 <p className="mt-2 text-sm text-zinc-400">No rules yet. Create one above to start monitoring a protocol.</p>
@@ -1161,30 +1154,36 @@ export default function AlertsPage() {
                                                 </span>
                                             </div>
                                             <div className="mt-3 flex flex-wrap items-center gap-2">
-                                                <button
+                                                <Button
                                                     type="button"
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={() => openTestRuleDialog(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="rounded-lg bg-cyan-300/15 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                                    className="bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20 border-cyan-300/20"
                                                 >
                                                     Test this rule
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
                                                     type="button"
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={() => toggleAlertRule(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                                    className="bg-zinc-800 text-zinc-200 border-white/5 hover:bg-zinc-700"
                                                 >
                                                     {updatingRuleId === rule.id ? 'Updating…' : rule.enabled ? 'Disable' : 'Enable'}
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
                                                     type="button"
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={() => deleteAlertRule(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                                    className="bg-rose-500/10 text-rose-200 border-rose-500/20 hover:bg-rose-500/20"
                                                 >
                                                     {deletingRuleId === rule.id ? 'Deleting…' : 'Delete'}
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     ))}
@@ -1192,13 +1191,15 @@ export default function AlertsPage() {
                             )}
                             {rules.length > 3 && (
                                 <div className="mt-3 flex justify-center">
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => setShowAllAlertRules((current) => !current)}
-                                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-white/10 cursor-pointer"
+                                        className="border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
                                     >
                                         {showAllAlertRules ? 'Show fewer' : `Show all ${rules.length}`}
-                                    </button>
+                                    </Button>
                                 </div>
                             )}
                         </div>
@@ -1277,8 +1278,10 @@ export default function AlertsPage() {
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="font-semibold">{event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}%</div>
                                                 <div>
-                                                    <button
-                                                        className="text-xs opacity-90 hover:underline cursor-pointer"
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="text-xs opacity-90 text-rose-200 hover:text-rose-100 p-0 h-auto cursor-pointer"
                                                         disabled={regeneratingEventId === event.id}
                                                         onClick={async () => {
                                                             try {
@@ -1305,7 +1308,7 @@ export default function AlertsPage() {
                                                         }}
                                                     >
                                                         {regeneratingEventId === event.id ? 'Regenerating…' : 'Regenerate summary'}
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                             {event.summary ? (
@@ -1317,8 +1320,10 @@ export default function AlertsPage() {
                                                 <p className="mt-1 text-[10px] text-rose-200">No summary yet.</p>
                                             )}
                                             <div className="mt-2 flex gap-2">
-                                                <button
-                                                    className="text-xs opacity-90 hover:underline cursor-pointer"
+                                                <Button
+                                                    variant="link"
+                                                    size="sm"
+                                                    className="text-xs opacity-90 text-rose-200 hover:text-rose-100 p-0 h-auto cursor-pointer"
                                                     onClick={() => {
                                                         if (event.summary) {
                                                             setFullSummaryEventId(event.id)
@@ -1329,7 +1334,7 @@ export default function AlertsPage() {
                                                     }}
                                                 >
                                                     View full summary
-                                                </button>
+                                                </Button>
                                                 {pollingEventId === event.id && <span className="text-xs text-zinc-400">Polling for update…</span>}
                                             </div>
                                         </div>
@@ -1356,12 +1361,14 @@ export default function AlertsPage() {
                                     <h3 className="mt-2 text-xl font-black text-white">{evt.protocolSlug}</h3>
                                     <p className="mt-1 text-sm text-zinc-400">Why this alert fired and what exactly was checked.</p>
                                 </div>
-                                <button
-                                    className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800 hover:text-white cursor-pointer"
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
                                     onClick={() => setFullSummaryOpen(false)}
                                 >
                                     Close
-                                </button>
+                                </Button>
                             </div>
 
                             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1388,13 +1395,13 @@ export default function AlertsPage() {
                                 <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
                                     {evt.summary ?? 'No summary available.'}
                                 </div>
-                            </div>
-
-                            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
+                                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
                                 <span>Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</span>
-                                <button
+                                <Button
                                     type="button"
-                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-semibold text-zinc-200 transition hover:bg-white/10 cursor-pointer"
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
                                     onClick={async () => {
                                         try {
                                             await navigator.clipboard.writeText(
@@ -1416,8 +1423,8 @@ export default function AlertsPage() {
                                     }}
                                 >
                                     Copy full summary
-                                </button>
-                            </div>
+                                </Button>
+                            </div>                           </div>
                         </div>
                     </div>
                 )
@@ -1442,7 +1449,7 @@ export default function AlertsPage() {
                             </div>
                             <label className="grid gap-2 text-sm text-zinc-300">
                                 Test value
-                                <input
+                                <Input
                                     type="number"
                                     step={selectedTestRule.metric === 'PRICE_USD' ? '0.0001' : selectedTestRule.metric === 'TVL_USD' ? '1000' : '0.1'}
                                     value={testRuleValue}
@@ -1479,26 +1486,27 @@ export default function AlertsPage() {
                         </div>
                     )}
                     <DialogFooter className="sm:justify-between">
-                        <button
+                        <Button
                             type="button"
+                            variant="outline"
                             onClick={() => setTestRuleOpen(false)}
-                            className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-700 cursor-pointer"
+                            className="bg-zinc-800 text-zinc-200 border-white/5 hover:bg-zinc-700"
                         >
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             onClick={async () => {
                                 if (!selectedTestRule) return
                                 await runSpecificAlertTest(selectedTestRule, testRuleValue)
                             }}
-                            className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition hover:bg-cyan-300 cursor-pointer"
+                            className="bg-cyan-400 text-cyan-950 font-bold hover:bg-cyan-300"
                         >
                             Evaluate test
-                        </button>
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </>
     )
 }

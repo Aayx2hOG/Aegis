@@ -69,7 +69,7 @@ export default function ChannelManager() {
     const { activeChain } = useMultiChain()
     const { data: rawChainProtocols = [] } = useChainProtocols(activeChain.type)
     const chainProtocols = useMemo(() => {
-        return rawChainProtocols.filter((p: any) => {
+        return rawChainProtocols.filter((p: { category?: string }) => {
             const category = p.category?.trim() ?? 'Uncategorized'
             return !EXCLUDED_PROTOCOL_CATEGORIES.has(category)
         })
@@ -213,7 +213,7 @@ export default function ChannelManager() {
         const ch = channels.find((c) => c.id === id)
         if (!ch) { toast.error('Channel not found'); return }
 
-        let configPayload: any = {}
+        let configPayload: Record<string, unknown> = {}
 
         if (ch.type === 'DISCORD') {
             const newUrl = prompt('Webhook URL', String(ch.config?.url ?? ''))
@@ -256,11 +256,11 @@ export default function ChannelManager() {
 
                     <div className="grid gap-3 lg:grid-cols-3">
                         <Input placeholder="Channel name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-                        <select className="h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100" value={type} onChange={(e) => {
+                        <select className="flex h-9 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={type} onChange={(e) => {
                             if (isChannelType(e.target.value)) setType(e.target.value)
                         }}>
-                            <option value="DISCORD">Discord webhook</option>
-                            <option value="TELEGRAM">Telegram Bot</option>
+                            <option value="DISCORD" className="bg-zinc-950 text-white">Discord webhook</option>
+                            <option value="TELEGRAM" className="bg-zinc-950 text-white">Telegram Bot</option>
                         </select>
                         {type === 'DISCORD' && (
                             <Input placeholder="Webhook URL" value={url} onChange={(e) => setUrl(e.target.value)} />
@@ -286,10 +286,10 @@ export default function ChannelManager() {
                         <p className="mb-2 text-sm text-zinc-400">End-to-end test: generate an AI summary for a protocol and deliver notifications to your configured channels.</p>
                         <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)_auto]">
                             <Input className="min-w-0" placeholder="protocol slug (e.g. serum)" value={testProtocol} onChange={(e) => setTestProtocol(e.target.value)} />
-                            <select className="h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-zinc-100" value={testChannelId} onChange={(e) => setTestChannelId(e.target.value)}>
-                                <option value="">All enabled channels</option>
+                            <select className="flex h-9 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={testChannelId} onChange={(e) => setTestChannelId(e.target.value)}>
+                                <option value="" className="bg-zinc-950 text-white">All enabled channels</option>
                                 {channels.filter((channel) => channel.enabled).map((channel) => (
-                                    <option key={channel.id} value={channel.id}>{channel.name ?? channel.type}</option>
+                                    <option key={channel.id} value={channel.id} className="bg-zinc-950 text-white">{channel.name ?? channel.type}</option>
                                 ))}
                             </select>
                             <Button onClick={async () => {
