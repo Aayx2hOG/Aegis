@@ -196,9 +196,7 @@ function getProtocolSymbol(protocol: SolanaProtocol): string {
 }
 
 function derivePositionUsdValue(protocol: SolanaProtocol, index: number): number {
-    const tvl = protocol.tvl ?? 0
-    const scale = POSITION_SCALE[index] ?? POSITION_SCALE[POSITION_SCALE.length - 1]
-    return Math.max(POSITION_MIN_USD, Math.min(POSITION_MAX_USD, Math.round(tvl * scale)))
+    return Math.round(protocol.tvl ?? 0)
 }
 
 function deriveVolatility(protocol: SolanaProtocol, index: number): number {
@@ -370,8 +368,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'token',
         symbol: 'SOL',
         protocol: 'wallet',
-        balance: 100,
-        usdValue: 15000,
+        balance: 32000000,
+        usdValue: 4800000000,
         volatility: 72,
         liquidityScore: 94,
     },
@@ -380,8 +378,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'yield',
         symbol: 'JITOSOL',
         protocol: 'jito',
-        balance: 50,
-        usdValue: 8250,
+        balance: 13333333,
+        usdValue: 2200000000,
         volatility: 58,
         liquidityScore: 79,
     },
@@ -390,8 +388,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'token',
         symbol: 'ETH',
         protocol: 'wallet',
-        balance: 5,
-        usdValue: 17500,
+        balance: 17142857,
+        usdValue: 60000000000,
         volatility: 64,
         liquidityScore: 95,
     },
@@ -400,8 +398,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'yield',
         symbol: 'rETH',
         protocol: 'rocketpool',
-        balance: 4,
-        usdValue: 14800,
+        balance: 1054054,
+        usdValue: 3900000000,
         volatility: 55,
         liquidityScore: 82,
     },
@@ -411,7 +409,7 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         symbol: 'ETH-USDC LP',
         protocol: 'uniswap',
         balance: 1,
-        usdValue: 20000,
+        usdValue: 320000000,
         volatility: 45,
         liquidityScore: 75,
     },
@@ -420,8 +418,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'lending',
         symbol: 'USDC',
         protocol: 'aerodrome',
-        balance: 12000,
-        usdValue: 12000,
+        balance: 780000000,
+        usdValue: 780000000,
         volatility: 5,
         liquidityScore: 90,
         collateralFactor: 0.85,
@@ -431,8 +429,8 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
         kind: 'token',
         symbol: 'OP',
         protocol: 'wallet',
-        balance: 3000,
-        usdValue: 7500,
+        balance: 56000000,
+        usdValue: 140000000,
         volatility: 85,
         liquidityScore: 70,
     }
@@ -1085,11 +1083,13 @@ function WarRoomContent() {
                                         {positions.length === 0 ? (
                                             <span className="text-xs text-zinc-400">Total: —</span>
                                         ) : (
-                                            <span className="text-xs text-zinc-400">{isTestNetworkWallet ? 'Estimated total*: ' : 'Total: '}{formatCurrency(totalValue)}</span>
-                                        )}
-                                        {portfolioSource === 'live' && (
-                                            <span className="rounded-full bg-yellow-500/20 px-2 py-1 text-xs font-semibold text-yellow-300">
-                                                Sample data
+                                            <span className="text-xs text-zinc-400">
+                                                {isTestNetworkWallet ? 'Estimated total*: ' : 'Total: '}{formatCurrency(totalValue)}
+                                                {portfolioSource === 'live' && (
+                                                    <span className="ml-2 rounded-full bg-cyan-500/20 px-2 py-1 text-xs font-semibold text-cyan-300">
+                                                        Live TVL data
+                                                    </span>
+                                                )}
                                             </span>
                                         )}
                                     </div>
@@ -1099,7 +1099,7 @@ function WarRoomContent() {
                                     <div className="text-xs text-zinc-400 leading-normal bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-800/40 flex items-start gap-2">
                                         <Info className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
                                         <div>
-                                            <strong>Simulated Live Basket:</strong> The total value is derived by scaling down the real-world TVL of top Solana protocols and capping each at <strong>$220,000</strong> to avoid displaying unrealistic balances. You can type in your own custom amounts below.
+                                            <strong>Live Basket:</strong> The total value is derived directly from the real-world TVL of top Solana protocols in USD. You can type in your own custom amounts below.
                                         </div>
                                     </div>
                                 )}
@@ -1132,7 +1132,7 @@ function WarRoomContent() {
                                             const sample = createSampleBasket(livePositions)
                                             setPositions(sample)
                                             setPortfolioSource('live')
-                                            setImportStatus('Loaded live market basket (sample).')
+                                            setImportStatus('Loaded live market basket (actual USD values).')
                                         }}
                                         className={
                                             `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide ` +
@@ -1183,6 +1183,9 @@ function WarRoomContent() {
                                                         onChange={(e) => updatePositionValue(position.id, Number(e.target.value))}
                                                         className="w-full rounded-md bg-zinc-950 px-2 py-1.5 text-sm font-medium ring-1 ring-zinc-800/60"
                                                     />
+                                                    <span className="text-[10px] text-zinc-400 mt-1 block font-mono">
+                                                        {formatCurrency(position.usdValue)} ({new Intl.NumberFormat('en-US', { notation: 'compact', style: 'currency', currency: 'USD' }).format(position.usdValue)})
+                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
@@ -1388,6 +1391,9 @@ function WarRoomContent() {
                                                         onChange={(e) => updateMultichainPositionField(idx, 'usdValue', Number(e.target.value))}
                                                         className="w-full rounded-md bg-zinc-950 px-2 py-1 text-xs font-medium ring-1 ring-zinc-800/60"
                                                     />
+                                                    <span className="text-[9px] text-zinc-400 mt-1 block font-mono truncate">
+                                                        {formatCurrency(pos.usdValue)} ({new Intl.NumberFormat('en-US', { notation: 'compact', style: 'currency', currency: 'USD' }).format(pos.usdValue)})
+                                                    </span>
                                                 </div>
                                                 <div className="sm:col-span-2">
                                                     <label className="text-[9px] uppercase tracking-wider text-zinc-500 block mb-0.5">Vol %</label>
@@ -1484,6 +1490,11 @@ function WarRoomContent() {
                                                 onChange={(e) => setNewPosForm({ ...newPosForm, usdValue: Number(e.target.value) })}
                                                 className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2 py-1.5 text-xs text-white"
                                             />
+                                            {newPosForm.usdValue > 0 && (
+                                                <span className="text-[10px] text-zinc-400 mt-1 block font-mono">
+                                                    {formatCurrency(newPosForm.usdValue)} ({new Intl.NumberFormat('en-US', { notation: 'compact', style: 'currency', currency: 'USD' }).format(newPosForm.usdValue)})
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center pt-2">
