@@ -1,14 +1,13 @@
 'use client'
+
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Bell, ChevronDown, Menu, X } from 'lucide-react'
+import { Bell, Menu, X } from 'lucide-react'
 import { ThemeSelect } from '@/components/theme-select'
 import { WalletButton } from '@/components/solana/solana-provider'
 import { ChainUiSelect } from './chain/chain-ui'
-
-
 
 export function AppHeader({
   links = [],
@@ -19,139 +18,140 @@ export function AppHeader({
 }) {
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
-  const [showUtilities, setShowUtilities] = useState(false)
-  const hasActiveUtility = utilityLinks.some(({ path }) => isActive(path))
 
+  // Merge Alerts into main links list, keep Notifications for the right-side bell icon
+  const mainNavLinks = [
+    ...links,
+    ...utilityLinks.filter((item) => item.label === 'Alerts'),
+  ]
 
   function isActive(path: string) {
     return path === '/' ? pathname === '/' : pathname.startsWith(path)
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-[#050910]/90 px-4 py-3 text-zinc-300 shadow-[0_2px_12px_rgba(0,0,0,0.18)] backdrop-blur-md">
-
+    <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md py-3 px-4 md:px-6">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
-        <div className="flex items-baseline gap-4">
-          <Link className="text-lg font-black tracking-tight text-zinc-100 transition hover:text-cyan-200" href="/">
-            <span>Aegis Intelligence</span>
+        {/* Left Side: Logo & Main Nav */}
+        <div className="flex items-center gap-8">
+          <Link
+            className="flex items-center gap-2 text-sm font-black tracking-tight text-white transition hover:text-zinc-200"
+            href="/"
+          >
+            <div className="w-5.5 h-5.5 rounded-md bg-white text-zinc-950 flex items-center justify-center font-black text-xs select-none">
+              Æ
+            </div>
+            <span className="hidden sm:inline font-bold tracking-tight text-zinc-100">
+              Aegis Intelligence
+            </span>
           </Link>
-          <div className="hidden md:flex items-center">
-            <ul className="flex flex-nowrap items-center gap-4">
-              {links.map(({ label, path }) => (
+
+          {/* Desktop Nav Links */}
+          <nav className="hidden md:block">
+            <ul className="flex items-center gap-6">
+              {mainNavLinks.map(({ label, path }) => (
                 <li key={path}>
                   <Link
-                    className={`text-sm font-semibold uppercase tracking-wide transition ${isActive(path)
-                      ? 'text-cyan-200'
-                      : 'text-zinc-400 hover:text-zinc-100'
-                      }`}
+                    className={`text-xs font-semibold uppercase tracking-wider transition-colors duration-200 ${
+                      isActive(path)
+                        ? 'text-white font-bold'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
                     href={path}
                   >
                     {label}
                   </Link>
                 </li>
               ))}
-              <li>
-                <button
-                  type="button"
-                  className={`inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wide transition ${showUtilities || hasActiveUtility
-                    ? 'text-cyan-200'
-                    : 'text-zinc-400 hover:text-zinc-100'
-                    }`}
-                  onClick={() => setShowUtilities(!showUtilities)}
-                >
-                  Utilities
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </li>
             </ul>
-          </div>
+          </nav>
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="bg-zinc-900/70 text-zinc-300 hover:bg-zinc-800 md:hidden"
-          onClick={() => {
-            setShowUtilities(false)
-            setShowMenu(!showMenu)
-          }}
-        >
-          {showMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </Button>
-
+        {/* Right Side Controls */}
         <div className="hidden md:flex items-center gap-4">
-          <div className="relative">
-            {showUtilities && (
-              <div className="absolute right-0 top-full z-50 mt-2 min-w-48 rounded-xl border border-white/10 bg-[#060b13]/98 p-2 shadow-2xl shadow-black/40 backdrop-blur-md">
-                <div className="flex flex-col gap-1">
-                  {utilityLinks.map(({ label, path }) => (
-                    <Link
-                      key={path}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${isActive(path)
-                        ? 'bg-cyan-400/10 text-cyan-200'
-                        : 'text-zinc-300 hover:bg-white/5 hover:text-zinc-100'
-                        }`}
-                      href={path}
-                      onClick={() => setShowUtilities(false)}
-                    >
-                      <Bell className="h-4 w-4" />
-                      {label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Notifications Bell */}
+          <Link
+            href="/settings/notifications"
+            className={`p-2 rounded-lg transition-colors border ${
+              isActive('/settings/notifications')
+                ? 'bg-zinc-800 border-zinc-700 text-white'
+                : 'border-zinc-800/40 text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200'
+            }`}
+            title="Notifications Settings"
+          >
+            <Bell className="h-4 w-4" />
+          </Link>
+
           <WalletButton />
           <ChainUiSelect />
           <ThemeSelect />
         </div>
 
-        {showMenu && (
-          <div className="fixed inset-x-0 bottom-0 top-[64px] bg-[#060b13]/96 backdrop-blur-sm md:hidden">
-            <div className="flex flex-col gap-4 p-4">
-              <ul className="flex flex-col gap-4">
-                {links.map(({ label, path }) => (
-                  <li key={path}>
-                    <Link
-                      className={`block py-2 text-base font-semibold uppercase tracking-wide transition ${isActive(path) ? 'text-cyan-200' : 'text-zinc-300 hover:text-zinc-100'
-                        }`}
-                      href={path}
-                      onClick={() => setShowMenu(false)}
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">Utilities</p>
-                <div className="flex flex-col gap-2">
-                  {utilityLinks.map(({ label, path }) => (
-                    <Link
-                      key={path}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-base font-semibold transition ${isActive(path)
-                        ? 'bg-cyan-400/10 text-cyan-200'
-                        : 'text-zinc-300 hover:bg-white/5 hover:text-zinc-100'
-                        }`}
-                      href={path}
-                      onClick={() => setShowMenu(false)}
-                    >
-                      <Bell className="h-4 w-4" />
-                      {label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col gap-4">
+        {/* Mobile Menu Toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="border border-zinc-800 bg-zinc-900/40 text-zinc-350 hover:bg-zinc-800 md:hidden"
+          onClick={() => setShowMenu(!showMenu)}
+        >
+          {showMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      {/* Mobile Drawer */}
+      {showMenu && (
+        <div className="fixed inset-x-0 bottom-0 top-[57px] z-50 bg-zinc-950/98 backdrop-blur-md border-t border-zinc-850 p-4 md:hidden flex flex-col justify-between">
+          <div className="flex flex-col gap-6">
+            <nav className="flex flex-col gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">
+                Navigation
+              </p>
+              {mainNavLinks.map(({ label, path }) => (
+                <Link
+                  key={path}
+                  className={`block py-2 text-sm font-semibold uppercase tracking-widest transition-colors ${
+                    isActive(path) ? 'text-white' : 'text-zinc-400 hover:text-zinc-250'
+                  }`}
+                  href={path}
+                  onClick={() => setShowMenu(false)}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="h-[1px] bg-zinc-850" />
+
+            <div className="flex flex-col gap-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                Identity & Settings
+              </p>
+              <div className="flex flex-col gap-3">
                 <WalletButton />
-                <ChainUiSelect />
-                <ThemeSelect />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-450 uppercase font-semibold">Chain:</span>
+                  <ChainUiSelect />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-450 uppercase font-semibold">Theme:</span>
+                  <ThemeSelect />
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </div>
+
+          <div className="pb-4">
+            <Link
+              href="/settings/notifications"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-zinc-800 bg-zinc-900/40 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 transition-colors"
+              onClick={() => setShowMenu(false)}
+            >
+              <Bell className="h-4 w-4" />
+              Notifications
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

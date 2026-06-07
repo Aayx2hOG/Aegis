@@ -19,6 +19,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+import { SpotlightCard } from '@/components/ui/spotlight-card';
+import { Sparkles as CanvasSparkles } from '@/components/ui/sparkles';
+
 const EXCLUDED_CATEGORIES = new Set(['CEX', 'CeFi', 'Centralized Exchange', 'Indexes', 'Portfolio Tracker', 'Risk Curators', 'Wallet']);
 
 function formatProtocolName(name: string): string {
@@ -30,62 +33,11 @@ function formatProtocolName(name: string): string {
     .join(' ');
 }
 
-// Reusable Spotlight Card (Aceternity UI Style)
-function SpotlightCard({
-  children,
-  className = '',
-  spotlightColor = 'rgba(34, 211, 238, 0.12)',
-  borderColor = 'rgba(34, 211, 238, 0.45)',
-  ...props
-}: React.HTMLAttributes<HTMLDivElement> & { spotlightColor?: string; borderColor?: string }) {
-  const [coords, setCoords] = useState({ x: 0, y: 0 })
-  const [isHovered, setIsHovered] = useState(false)
-
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setCoords({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    })
-  }
-
-  return (
-    <div
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`relative overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/40 p-6 shadow-2xl transition-all duration-500 hover:border-white/10 ${className}`}
-      {...props}
-    >
-      {/* Spotlight Backing */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
-        style={{
-          opacity: isHovered ? 1 : 0,
-          background: `radial-gradient(350px circle at ${coords.x}px ${coords.y}px, ${spotlightColor}, transparent 80%)`,
-        }}
-      />
-      {/* Glowing Border Overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none rounded-3xl transition-opacity duration-300"
-        style={{
-          opacity: isHovered ? 1 : 0,
-          border: '1px solid transparent',
-          backgroundImage: `linear-gradient(to bottom, transparent, transparent), radial-gradient(140px circle at ${coords.x}px ${coords.y}px, ${borderColor}, transparent 80%)`,
-          backgroundOrigin: 'border-box',
-          backgroundClip: 'padding-box, border-box',
-        }}
-      />
-      <div className="relative z-10">{children}</div>
-    </div>
-  )
-}
-
 export default function ComparePage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-cyan-300" />
+        <span className="loading loading-spinner loading-lg text-zinc-400" />
       </div>
     }>
       <CompareContent />
@@ -166,7 +118,7 @@ function SearchableDropdown({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-11 rounded-lg border border-white/5 bg-zinc-950/80 px-4 text-sm text-zinc-100 flex items-center justify-between outline-none transition-all hover:bg-zinc-950 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full h-11 rounded-lg border border-zinc-800 bg-zinc-950/80 px-4 text-sm text-zinc-100 flex items-center justify-between outline-none transition-all hover:bg-zinc-950 focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span className="truncate">
           {selectedOption ? (
@@ -214,7 +166,7 @@ function SearchableDropdown({
                   }}
                   className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition ${
                     isSelected
-                      ? 'bg-cyan-500/10 text-cyan-300 border-l-2 border-cyan-400'
+                      ? 'bg-zinc-800/60 text-white border-l-2 border-zinc-500'
                       : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
                   }`}
                 >
@@ -229,7 +181,7 @@ function SearchableDropdown({
                       <span className="text-[9px] text-zinc-500 block uppercase tracking-wider">TVL</span>
                       <span className="text-zinc-200 font-semibold">{formatTvl(opt.tvl)}</span>
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-cyan-300" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-zinc-300" />}
                   </div>
                 </button>
               );
@@ -449,17 +401,16 @@ function CompareContent() {
           </div>
         </div>
         <div className="space-y-2">
-          <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
-            Protocol <span className="text-cyan-200">Battleground</span>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)]">
+            Protocol <span className="text-zinc-200">Battleground</span>
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">
             Conduct side-by-side AI comparative analysis and quantitative metric audits for any two live DeFi protocols.
           </p>
         </div>
       </header>
-
       {/* Protocol Selector Arena */}
-      <section className="relative z-40 rounded-3xl border border-white/5 bg-zinc-900/40 p-6 shadow-xl backdrop-blur-xl md:p-8">
+      <section className="relative z-40 rounded-2xl border border-zinc-800 bg-zinc-900/10 p-6 shadow-xl md:p-8 overflow-hidden">
         <div className="grid gap-6 md:grid-cols-[1fr_auto_1fr] items-start">
           {/* Protocol A Selector */}
           <SearchableDropdown
@@ -469,14 +420,14 @@ function CompareContent() {
             disabled={loading}
             label="DeFi Protocol A"
           />
-
+ 
           {/* Battle Icon */}
           <div className="flex justify-center pt-6">
-            <div className="w-12 h-12 rounded-full border border-cyan-500/30 bg-cyan-950/20 flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.2)] animate-pulse">
-              <Swords className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-300">
+              <Swords className="w-4 h-4" />
             </div>
           </div>
-
+ 
           {/* Protocol B Selector */}
           <SearchableDropdown
             value={protocolB}
@@ -486,37 +437,36 @@ function CompareContent() {
             label="DeFi Protocol B"
           />
         </div>
-
+ 
         <div className="mt-8 flex justify-center">
           <Button
             onClick={() => void runComparison(protocolA, protocolB)}
             disabled={loading || protocolsLoading || !protocolA || !protocolB || protocolA === protocolB}
-            className="px-8 py-5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-350 hover:to-blue-450 text-zinc-950 font-black uppercase tracking-wider text-xs shadow-lg shadow-cyan-400/20 transition-all hover:scale-[1.02] hover:shadow-cyan-400/35 active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2 cursor-pointer"
+            className="px-8 h-11 rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 font-bold shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center gap-2 cursor-pointer"
           >
-            <Zap className="w-4 h-4 fill-zinc-950" /> Initiate Head-to-Head Battle
+            <Zap className="w-4.5 h-4.5 fill-zinc-950 text-zinc-950" /> Initiate Head-to-Head Battle
           </Button>
         </div>
       </section>
-
+ 
       {/* Loading State */}
       {loading && (
-        <div className="glass-card animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-3xl bg-zinc-900/35 backdrop-blur-md duration-500 border border-white/5">
-          <div className="h-1 bg-zinc-800 w-full">
-            <div className="h-full bg-cyan-400 animate-progress-fast shadow-[0_0_10px_#22d3ee]" />
+        <div className="animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-2xl bg-zinc-950/45 border border-zinc-800 backdrop-blur-md duration-500 relative min-h-[16rem] flex flex-col justify-center shadow-xl">
+          <div className="h-0.5 bg-zinc-900 w-full absolute top-0 left-0">
+            <div className="h-full bg-zinc-200 animate-progress-fast" />
           </div>
-          <div className="p-12 flex flex-col items-center justify-center space-y-6">
+          <div className="p-12 flex flex-col items-center justify-center space-y-6 relative z-10">
             <div className="relative">
-              <div className="w-16 h-16 rounded-full border-4 border-zinc-800" />
-              <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-t-cyan-400 animate-spin" />
+              <div className="w-12 h-12 rounded-full border-2 border-zinc-800 border-t-zinc-200 animate-spin" />
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-xl font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
-              <p className="text-zinc-500 text-sm">Synthesizing comparative vectors across Solana protocol networks...</p>
+              <h3 className="text-lg font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
+              <p className="text-zinc-500 text-xs font-medium">Synthesizing comparative vectors across Solana protocol networks...</p>
             </div>
           </div>
         </div>
       )}
-
+ 
       {/* Error Alert */}
       {error && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-start gap-3">
@@ -524,7 +474,7 @@ function CompareContent() {
           <p className="flex-1 font-medium">{error}</p>
         </div>
       )}
-
+ 
       {/* Results Panel */}
       {brief && metrics && !loading && (
         <div className="animate-in fade-in duration-700 space-y-8">
@@ -532,53 +482,53 @@ function CompareContent() {
           <section className="grid gap-6 md:grid-cols-2">
             {/* Protocol A Card */}
             <SpotlightCard
-              spotlightColor="rgba(34, 211, 238, 0.12)"
-              borderColor="rgba(34, 211, 238, 0.4)"
-              className="relative overflow-hidden border border-cyan-400/20 bg-cyan-950/5 p-6 shadow-xl"
+              spotlightColor="rgba(255, 255, 255, 0.02)"
+              borderColor="rgba(255, 255, 255, 0.1)"
+              className="relative overflow-hidden border border-zinc-800 bg-zinc-900/10 p-6 shadow-xl"
             >
-              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded">PROTOCOL A</span>
-              <h2 className="text-3xl font-black text-white mt-2 capitalize tracking-tight">{metrics.nameA}</h2>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-850 px-2.5 py-0.5 rounded">PROTOCOL A</span>
+              <h2 className="text-3xl font-extrabold text-white mt-3 capitalize tracking-tight">{metrics.nameA}</h2>
               <p className="text-xs text-zinc-500 uppercase mt-1">{metrics.categoryA}</p>
               <div className="grid grid-cols-2 gap-4 mt-6">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">TVL</span>
-                  <span className="text-xl font-black text-white">{usd(metrics.tvlA)}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 block">TVL</span>
+                  <span className="text-xl font-bold text-white">{usd(metrics.tvlA)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">Token Price</span>
-                  <span className="text-xl font-black text-cyan-300">{usd(metrics.priceA)}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 block">Token Price</span>
+                  <span className="text-xl font-bold text-zinc-100">{usd(metrics.priceA)}</span>
                 </div>
               </div>
               <div className="mt-6 flex gap-2">
-                <Button asChild variant="outline" className="text-cyan-300 border-cyan-300/20 hover:border-cyan-300/40 hover:bg-cyan-300/10 flex-1 h-11 rounded-xl font-bold cursor-pointer">
+                <Button asChild className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 flex-1 h-11 rounded-lg font-semibold cursor-pointer">
                   <Link href={`/war-room?protocol=${encodeURIComponent(protocolA.toLowerCase())}`}>
                     Stress Test A
                   </Link>
                 </Button>
               </div>
             </SpotlightCard>
-
+ 
             {/* Protocol B Card */}
             <SpotlightCard
-              spotlightColor="rgba(59, 130, 246, 0.12)"
-              borderColor="rgba(59, 130, 246, 0.4)"
-              className="relative overflow-hidden border border-blue-400/20 bg-blue-950/5 p-6 shadow-xl"
+              spotlightColor="rgba(255, 255, 255, 0.02)"
+              borderColor="rgba(255, 255, 255, 0.1)"
+              className="relative overflow-hidden border border-zinc-800 bg-zinc-900/10 p-6 shadow-xl"
             >
-              <span className="text-[9px] font-black uppercase tracking-widest text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">PROTOCOL B</span>
-              <h2 className="text-3xl font-black text-white mt-2 capitalize tracking-tight">{metrics.nameB}</h2>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 bg-zinc-900 border border-zinc-850 px-2.5 py-0.5 rounded">PROTOCOL B</span>
+              <h2 className="text-3xl font-extrabold text-white mt-3 capitalize tracking-tight">{metrics.nameB}</h2>
               <p className="text-xs text-zinc-500 uppercase mt-1">{metrics.categoryB}</p>
               <div className="grid grid-cols-2 gap-4 mt-6">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">TVL</span>
-                  <span className="text-xl font-black text-white">{usd(metrics.tvlB)}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 block">TVL</span>
+                  <span className="text-xl font-bold text-white">{usd(metrics.tvlB)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 block">Token Price</span>
-                  <span className="text-xl font-black text-blue-300">{usd(metrics.priceB)}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 block">Token Price</span>
+                  <span className="text-xl font-bold text-zinc-100">{usd(metrics.priceB)}</span>
                 </div>
               </div>
               <div className="mt-6 flex gap-2">
-                <Button asChild variant="outline" className="text-blue-300 border-blue-300/20 hover:border-blue-300/40 hover:bg-blue-300/10 flex-1 h-11 rounded-xl font-bold cursor-pointer">
+                <Button asChild className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 flex-1 h-11 rounded-lg font-semibold cursor-pointer">
                   <Link href={`/war-room?protocol=${encodeURIComponent(protocolB.toLowerCase())}`}>
                     Stress Test B
                   </Link>
@@ -590,7 +540,7 @@ function CompareContent() {
           {/* Interactive Visual Comparison Gauges */}
           <SpotlightCard spotlightColor="rgba(255, 255, 255, 0.04)" borderColor="rgba(255, 255, 255, 0.15)">
             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+              <Sparkles className="w-4 h-4 text-zinc-400 animate-pulse" />
               Dynamic Strength Metrics
             </h3>
             
@@ -605,17 +555,17 @@ function CompareContent() {
                 return (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-xs">
-                      <span className={`font-bold flex items-center gap-1.5 ${tvlA > tvlB ? 'text-cyan-300' : 'text-zinc-400'}`}>
+                      <span className={`font-bold flex items-center gap-1.5 ${tvlA > tvlB ? 'text-white' : 'text-zinc-500'}`}>
                         {tvlA > tvlB && '🏆'} {usd(metrics.tvlA)}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Total Value Locked</span>
-                      <span className={`font-bold flex items-center gap-1.5 ${tvlB > tvlA ? 'text-blue-300' : 'text-zinc-400'}`}>
+                      <span className={`font-bold flex items-center gap-1.5 ${tvlB > tvlA ? 'text-white' : 'text-zinc-500'}`}>
                         {usd(metrics.tvlB)} {tvlB > tvlA && '🏆'}
                       </span>
                     </div>
                     <div className="h-2.5 w-full bg-zinc-950 border border-white/5 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)] transition-all duration-500" style={{ width: `${pctA}%` }} />
-                      <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-all duration-500" style={{ width: `${pctB}%` }} />
+                      <div className="h-full bg-gradient-to-r from-white to-zinc-300 shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-500" style={{ width: `${pctA}%` }} />
+                      <div className="h-full bg-gradient-to-r from-zinc-500 to-zinc-700 shadow-[0_0_8px_rgba(113,113,122,0.1)] transition-all duration-500" style={{ width: `${pctB}%` }} />
                     </div>
                   </div>
                 );
@@ -631,17 +581,17 @@ function CompareContent() {
                 return (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-xs">
-                      <span className={`font-bold flex items-center gap-1.5 ${mcapA > mcapB ? 'text-cyan-300' : 'text-zinc-400'}`}>
+                      <span className={`font-bold flex items-center gap-1.5 ${mcapA > mcapB ? 'text-white' : 'text-zinc-500'}`}>
                         {mcapA > mcapB && '🏆'} {usd(metrics.mcapA)}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Market Capitalization</span>
-                      <span className={`font-bold flex items-center gap-1.5 ${mcapB > mcapA ? 'text-blue-300' : 'text-zinc-400'}`}>
+                      <span className={`font-bold flex items-center gap-1.5 ${mcapB > mcapA ? 'text-white' : 'text-zinc-500'}`}>
                         {usd(metrics.mcapB)} {mcapB > mcapA && '🏆'}
                       </span>
                     </div>
                     <div className="h-2.5 w-full bg-zinc-950 border border-white/5 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)] transition-all duration-500" style={{ width: `${pctA}%` }} />
-                      <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-all duration-500" style={{ width: `${pctB}%` }} />
+                      <div className="h-full bg-gradient-to-r from-white to-zinc-300 shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-500" style={{ width: `${pctA}%` }} />
+                      <div className="h-full bg-gradient-to-r from-zinc-500 to-zinc-700 shadow-[0_0_8px_rgba(113,113,122,0.1)] transition-all duration-500" style={{ width: `${pctB}%` }} />
                     </div>
                   </div>
                 );
@@ -657,17 +607,17 @@ function CompareContent() {
                 return (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-xs">
-                      <span className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-cyan-300' : 'text-zinc-400'}`}>
+                      <span className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-white' : 'text-zinc-500'}`}>
                         {Number(metrics.change1dA) > Number(metrics.change1dB) && '🏆'} {pct(metrics.change1dA)}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">24h TVL Momentum</span>
-                      <span className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-blue-300' : 'text-zinc-400'}`}>
+                      <span className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-white' : 'text-zinc-500'}`}>
                         {pct(metrics.change1dB)} {Number(metrics.change1dB) > Number(metrics.change1dA) && '🏆'}
                       </span>
                     </div>
                     <div className="h-2.5 w-full bg-zinc-950 border border-white/5 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.4)] transition-all duration-500" style={{ width: `${pctA}%` }} />
-                      <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)] transition-all duration-500" style={{ width: `${pctB}%` }} />
+                      <div className="h-full bg-gradient-to-r from-white to-zinc-300 shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-500" style={{ width: `${pctA}%` }} />
+                      <div className="h-full bg-gradient-to-r from-zinc-500 to-zinc-700 shadow-[0_0_8px_rgba(113,113,122,0.1)] transition-all duration-500" style={{ width: `${pctB}%` }} />
                     </div>
                   </div>
                 );
@@ -678,7 +628,7 @@ function CompareContent() {
           {/* Comparative Highlights Table */}
           <section className="rounded-3xl border border-white/5 bg-zinc-950/35 p-6 shadow-xl backdrop-blur-md">
             <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-300" />
+              <Sparkles className="w-4 h-4 text-zinc-400" />
               Comparative Metric Matrix
             </h3>
             <Table>
@@ -692,18 +642,18 @@ function CompareContent() {
               <TableBody>
                 <TableRow className="border-white/5 hover:bg-white/5">
                   <TableCell className="font-bold text-zinc-400">Total Value Locked (TVL)</TableCell>
-                  <TableCell className={`font-semibold ${Number(metrics.tvlA) > Number(metrics.tvlB) ? 'text-cyan-300 font-bold border-l-2 border-l-cyan-400' : 'text-zinc-200'}`}>{usd(metrics.tvlA)}</TableCell>
-                  <TableCell className={`font-semibold ${Number(metrics.tvlB) > Number(metrics.tvlA) ? 'text-blue-300 font-bold border-l-2 border-l-blue-400' : 'text-zinc-200'}`}>{usd(metrics.tvlB)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.tvlA) > Number(metrics.tvlB) ? 'text-white font-bold border-l-2 border-l-zinc-300' : 'text-zinc-400'}`}>{usd(metrics.tvlA)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.tvlB) > Number(metrics.tvlA) ? 'text-white font-bold border-l-2 border-l-zinc-500' : 'text-zinc-400'}`}>{usd(metrics.tvlB)}</TableCell>
                 </TableRow>
                 <TableRow className="border-white/5 hover:bg-white/5">
                   <TableCell className="font-bold text-zinc-400">24h TVL Momentum</TableCell>
-                  <TableCell className={`font-semibold ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-cyan-300 font-bold border-l-2 border-l-cyan-400' : 'text-zinc-200'}`}>{pct(metrics.change1dA)}</TableCell>
-                  <TableCell className={`font-semibold ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-blue-300 font-bold border-l-2 border-l-blue-400' : 'text-zinc-200'}`}>{pct(metrics.change1dB)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-white font-bold border-l-2 border-l-zinc-300' : 'text-zinc-400'}`}>{pct(metrics.change1dA)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-white font-bold border-l-2 border-l-zinc-500' : 'text-zinc-400'}`}>{pct(metrics.change1dB)}</TableCell>
                 </TableRow>
                 <TableRow className="border-white/5 hover:bg-white/5">
                   <TableCell className="font-bold text-zinc-400">7d TVL Momentum</TableCell>
-                  <TableCell className={`font-semibold ${Number(metrics.change7dA) > Number(metrics.change7dB) ? 'text-cyan-300 font-bold border-l-2 border-l-cyan-400' : 'text-zinc-200'}`}>{pct(metrics.change7dA)}</TableCell>
-                  <TableCell className={`font-semibold ${Number(metrics.change7dB) > Number(metrics.change7dA) ? 'text-blue-300 font-bold border-l-2 border-l-blue-400' : 'text-zinc-200'}`}>{pct(metrics.change7dB)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change7dA) > Number(metrics.change7dB) ? 'text-white font-bold border-l-2 border-l-zinc-300' : 'text-zinc-400'}`}>{pct(metrics.change7dA)}</TableCell>
+                  <TableCell className={`font-semibold ${Number(metrics.change7dB) > Number(metrics.change7dA) ? 'text-white font-bold border-l-2 border-l-zinc-500' : 'text-zinc-400'}`}>{pct(metrics.change7dB)}</TableCell>
                 </TableRow>
                 <TableRow className="border-white/5 hover:bg-white/5">
                   <TableCell className="font-bold text-zinc-400">Governance Token Price</TableCell>
@@ -731,7 +681,7 @@ function CompareContent() {
               {brief.toolCalls.map((tc, i) => (
                 <div key={i} className="p-4 rounded-xl bg-zinc-900/55 flex flex-col gap-2 border border-white/5">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-cyan-300 uppercase bg-cyan-500/10 px-1.5 py-0.5 rounded">STEP {i + 1}</span>
+                    <span className="text-[10px] font-black text-zinc-300 uppercase bg-zinc-800 px-2 py-0.5 rounded">STEP {i + 1}</span>
                     <span className="text-[10px] font-mono text-zinc-600">{tc.durationMs}ms</span>
                   </div>
                   <div className="font-mono text-xs font-bold text-zinc-300">{tc.tool}</div>
@@ -782,7 +732,7 @@ function MarkdownBrief({ content }: { content: string }) {
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-2xl font-black text-white mt-10 mb-4 tracking-tight border-l-2 border-cyan-400 pl-3">
+            <h2 className="text-2xl font-black text-white mt-10 mb-4 tracking-tight border-l-2 border-zinc-400 pl-3">
               {children}
             </h2>
           ),
@@ -803,7 +753,7 @@ function MarkdownBrief({ content }: { content: string }) {
           ),
           li: ({ children }) => (
             <li className="group ml-1 flex items-start gap-3 wrap-break-word text-zinc-300 [&>p]:mb-0 [&_code]:break-all">
-              <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300 shadow-[0_0_10px_#22d3ee] transition-transform group-hover:scale-125" />
+              <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-350 shadow-[0_0_10px_rgba(255,255,255,0.4)] transition-transform group-hover:scale-125" />
               <div className="min-w-0 leading-7">{children}</div>
             </li>
           ),
@@ -835,7 +785,7 @@ function MarkdownBrief({ content }: { content: string }) {
             </strong>
           ),
           code: ({ children }) => (
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-sm text-cyan-200">
+            <code className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-sm text-zinc-300">
               {children}
             </code>
           ),

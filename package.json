@@ -55,6 +55,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "express": "^5.2.1",
+    "framer-motion": "^12.40.0",
     "groq-sdk": "^1.1.2",
     "ioredis": "^5.3.2",
     "jotai": "^2.14.0",

@@ -980,10 +980,10 @@ export default function AlertsPage() {
                     </div>
                 </div>
                 <div className="space-y-2">
-                    <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
-                        Alerts & <span className="text-cyan-200">Briefs</span>
+                    <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)]">
+                        Alerts & Briefs
                     </h1>
-                    <p className="max-w-3xl text-zinc-400 text-sm leading-relaxed">
+                    <p className="max-w-3xl text-zinc-400 text-sm leading-relaxed font-medium">
                         Create and evaluate alert rules, manually test parameters on watched protocols, and view your research brief timeline.
                     </p>
                 </div>
@@ -991,21 +991,20 @@ export default function AlertsPage() {
 
                 <section className="grid gap-6 lg:grid-cols-2">
                     {/* Alerts Rule Creation & Testing Form */}
-                    <div className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5 space-y-6">
-                        <div className="rounded-2xl border border-cyan-300/10 bg-zinc-950/60 p-4">
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 backdrop-blur-md space-y-6">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-widest text-cyan-200">Create first alert</p>
-                                    <p className="mt-1 text-sm text-zinc-400">Set one rule on a watched protocol, then run a live evaluation to verify it fires.</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Create first alert</p>
+                                    <p className="mt-1 text-xs text-zinc-400">Set one rule on a watched protocol, then run a live evaluation to verify it fires.</p>
                                 </div>
                                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                                     <Button
                                         type="button"
-                                        variant="outline"
                                         onClick={() => runAlertEvaluation()}
                                         disabled={!alertWalletAddress || evaluatingAlerts}
                                         title="Checks every saved alert against the latest market data"
-                                        className="text-cyan-100 bg-cyan-300/10 border-cyan-300/20 hover:bg-cyan-300/20 sm:min-w-[150px]"
+                                        className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg sm:min-w-[150px]"
                                     >
                                         <Play className="h-3.5 w-3.5" />
                                         {evaluatingAlerts ? 'Running check…' : 'Run saved alerts'}
@@ -1015,7 +1014,7 @@ export default function AlertsPage() {
                                         onClick={createAndTestAlert}
                                         disabled={!alertWalletAddress || creatingAlert || evaluatingAlerts || selectedAlertCurrentValue == null}
                                         title="Creates an alert at the current live value, then checks it immediately"
-                                        className="bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-bold sm:min-w-[180px]"
+                                        className="bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all sm:min-w-[180px]"
                                     >
                                         <Plus className="h-3.5 w-3.5" />
                                         Create & test
@@ -1041,7 +1040,7 @@ export default function AlertsPage() {
                                         <select
                                             value={alertProtocolSlug}
                                             onChange={(event) => setAlertProtocolSlug(event.target.value)}
-                                            className="flex h-11 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 pr-10 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white appearance-none"
+                                            className="flex h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 pr-10 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white appearance-none"
                                             disabled={!alertWalletAddress || creatingAlert}
                                         >
                                             <option value="" disabled className="bg-zinc-950 text-white">
@@ -1053,7 +1052,7 @@ export default function AlertsPage() {
                                                 </option>
                                             ))}
                                         </select>
-                                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-200/70" />
+                                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                                     </div>
                                     <p className="mt-1 text-[11px] text-zinc-500">Choose a protocol from your current watchlist.</p>
                                     <p className="mt-2 text-[11px] text-zinc-400">
@@ -1072,7 +1071,7 @@ export default function AlertsPage() {
                                             else if (nextMetric === 'PRICE_USD') setAlertThreshold('1.00')
                                             else setAlertThreshold('10')
                                         }}
-                                        className="flex h-11 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white"
+                                        className="flex h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     >
                                         <option value="CHANGE_1D" className="bg-zinc-950 text-white">24h change</option>
@@ -1087,7 +1086,7 @@ export default function AlertsPage() {
                                     <select
                                         value={alertDirection}
                                         onChange={(event) => setAlertDirection(event.target.value as AlertDirection)}
-                                        className="flex h-11 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white"
+                                        className="flex h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     >
                                         <option value="BELOW" className="bg-zinc-950 text-white">Below threshold</option>
@@ -1121,7 +1120,7 @@ export default function AlertsPage() {
                                     <Button
                                         type="submit"
                                         disabled={!alertWalletAddress || creatingAlert}
-                                        className="h-11 w-full bg-cyan-300 hover:bg-cyan-200 text-zinc-950 font-bold"
+                                        className="h-11 w-full bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all"
                                     >
                                         <Plus className="h-4 w-4" />
                                         {creatingAlert ? 'Creating…' : 'Save alert'}
@@ -1131,7 +1130,7 @@ export default function AlertsPage() {
                         </div>
 
                         {/* Alert Rules List */}
-                        <div className="rounded-2xl bg-zinc-950/60 p-4">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Alert rules</p>
                                 {rules.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{alertsLoading ? 'loading...' : `${rules.length} saved`}</span>}
@@ -1160,7 +1159,7 @@ export default function AlertsPage() {
                                                     size="sm"
                                                     onClick={() => openTestRuleDialog(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20 border-cyan-300/20"
+                                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
                                                 >
                                                     Test this rule
                                                 </Button>
@@ -1170,7 +1169,7 @@ export default function AlertsPage() {
                                                     size="sm"
                                                     onClick={() => toggleAlertRule(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="bg-zinc-800 text-zinc-200 border-white/5 hover:bg-zinc-700"
+                                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
                                                 >
                                                     {updatingRuleId === rule.id ? 'Updating…' : rule.enabled ? 'Disable' : 'Enable'}
                                                 </Button>
@@ -1180,7 +1179,7 @@ export default function AlertsPage() {
                                                     size="sm"
                                                     onClick={() => deleteAlertRule(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="bg-rose-500/10 text-rose-200 border-rose-500/20 hover:bg-rose-500/20"
+                                                    className="border border-rose-500/20 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 rounded-lg"
                                                 >
                                                     {deletingRuleId === rule.id ? 'Deleting…' : 'Delete'}
                                                 </Button>
@@ -1196,7 +1195,7 @@ export default function AlertsPage() {
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setShowAllAlertRules((current) => !current)}
-                                        className="border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
+                                        className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
                                     >
                                         {showAllAlertRules ? 'Show fewer' : `Show all ${rules.length}`}
                                     </Button>
@@ -1205,7 +1204,7 @@ export default function AlertsPage() {
                         </div>
 
                         {/* Last check results */}
-                        <div className="rounded-2xl bg-zinc-950/60 p-4">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
                             <div className="flex items-center justify-between gap-3">
                                 <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Last check</p>
                                 {evaluationResults.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{evaluationResults.length} rules</span>}
@@ -1241,9 +1240,9 @@ export default function AlertsPage() {
                     </div>
 
                     {/* Brief history & triggers */}
-                    <div className="rounded-3xl bg-zinc-900/45 p-5 backdrop-blur-xl ring-1 ring-white/5 space-y-6">
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 backdrop-blur-md space-y-6">
                         {/* Research history Timeline */}
-                        <div className="rounded-2xl bg-zinc-950/60 p-4">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
                             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Recent brief history</p>
                             {historyLoading ? (
                                 <p className="mt-2 text-sm text-zinc-400">Loading history...</p>
@@ -1254,12 +1253,12 @@ export default function AlertsPage() {
                                     {history.slice(0, 3).map((item) => (
                                         <div key={item.id} className="rounded-xl bg-zinc-900/70 p-3">
                                             <div className="flex items-center justify-between gap-2">
-                                                <Link href={`/research?q=${item.protocolSlug}`} className="text-sm font-bold uppercase tracking-wide text-cyan-200 hover:underline">
+                                                <Link href={`/research?q=${item.protocolSlug}`} className="text-sm font-bold uppercase tracking-wide text-zinc-200 hover:underline hover:text-white">
                                                     {item.protocolSlug}
                                                 </Link>
                                                 <span className="text-[10px] text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span>
                                             </div>
-                                            <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-300">{item.briefMarkdown}</p>
+                                            <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-350">{item.briefMarkdown}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1267,7 +1266,7 @@ export default function AlertsPage() {
                         </div>
 
                         {/* Recent triggered briefs */}
-                        <div className="rounded-2xl bg-zinc-950/60 p-4">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
                             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Recent triggers</p>
                             {events.length === 0 ? (
                                 <p className="mt-2 text-sm text-zinc-400">No alert events yet.</p>
@@ -1354,17 +1353,17 @@ export default function AlertsPage() {
 
                 return (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                        <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl shadow-black/40">
+                        <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
                             <div className="flex items-start justify-between gap-4">
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">Alert details</p>
-                                    <h3 className="mt-2 text-xl font-black text-white">{evt.protocolSlug}</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Alert details</p>
+                                    <h3 className="mt-2 text-xl font-bold text-white">{evt.protocolSlug}</h3>
                                     <p className="mt-1 text-sm text-zinc-400">Why this alert fired and what exactly was checked.</p>
                                 </div>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
                                     onClick={() => setFullSummaryOpen(false)}
                                 >
                                     Close
@@ -1372,26 +1371,26 @@ export default function AlertsPage() {
                             </div>
 
                             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Metric</p>
+                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Metric</p>
                                     <p className="mt-2 text-sm font-semibold text-zinc-100">{ALERT_METRIC_LABEL[evt.metric]}</p>
                                 </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Condition</p>
+                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Condition</p>
                                     <p className="mt-2 text-sm font-semibold text-zinc-100">{condition}</p>
                                 </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Current value</p>
+                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Current value</p>
                                     <p className="mt-2 text-sm font-semibold text-zinc-100">{`${evt.currentValue.toFixed(2)}%`}</p>
                                 </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Triggered at</p>
+                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Triggered at</p>
                                     <p className="mt-2 text-sm font-semibold text-zinc-100">{new Date(evt.triggeredAt).toLocaleString()}</p>
                                 </div>
                             </div>
 
-                            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Full summary</p>
+                            <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Full summary</p>
                                 <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
                                     {evt.summary ?? 'No summary available.'}
                                 </div>
@@ -1401,7 +1400,7 @@ export default function AlertsPage() {
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    className="border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
+                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-lg"
                                     onClick={async () => {
                                         try {
                                             await navigator.clipboard.writeText(
@@ -1432,7 +1431,7 @@ export default function AlertsPage() {
 
             {/* Rule testing dialog */}
             <Dialog open={testRuleOpen} onOpenChange={setTestRuleOpen}>
-                <DialogContent className="border-white/10 bg-zinc-950 text-zinc-100 sm:max-w-lg">
+                <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Manual test rule</DialogTitle>
                         <DialogDescription className="text-zinc-400">
@@ -1441,7 +1440,7 @@ export default function AlertsPage() {
                     </DialogHeader>
                     {selectedTestRule && (
                         <div className="space-y-4">
-                            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-200">
+                            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4 text-sm text-zinc-200">
                                 <p className="font-semibold text-zinc-100">{selectedTestRule.protocolSlug}</p>
                                 <p className="mt-1 text-zinc-400">
                                     {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'} {formatAlertValue(selectedTestRule.metric, selectedTestRule.threshold)}
@@ -1454,7 +1453,7 @@ export default function AlertsPage() {
                                     step={selectedTestRule.metric === 'PRICE_USD' ? '0.0001' : selectedTestRule.metric === 'TVL_USD' ? '1000' : '0.1'}
                                     value={testRuleValue}
                                     onChange={(event) => setTestRuleValue(event.target.value)}
-                                    className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none transition focus:border-cyan-400/60"
+                                    className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none transition focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800"
                                 />
                             </label>
                             <p className="text-xs text-zinc-500">
@@ -1490,7 +1489,7 @@ export default function AlertsPage() {
                             type="button"
                             variant="outline"
                             onClick={() => setTestRuleOpen(false)}
-                            className="bg-zinc-800 text-zinc-200 border-white/5 hover:bg-zinc-700"
+                            className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-lg"
                         >
                             Cancel
                         </Button>
@@ -1500,7 +1499,7 @@ export default function AlertsPage() {
                                 if (!selectedTestRule) return
                                 await runSpecificAlertTest(selectedTestRule, testRuleValue)
                             }}
-                            className="bg-cyan-400 text-cyan-950 font-bold hover:bg-cyan-300"
+                            className="bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all"
                         >
                             Evaluate test
                         </Button>

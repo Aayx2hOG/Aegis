@@ -256,7 +256,7 @@ export default function ChannelManager() {
 
                     <div className="grid gap-3 lg:grid-cols-3">
                         <Input placeholder="Channel name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-                        <select className="flex h-9 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={type} onChange={(e) => {
+                        <select className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={type} onChange={(e) => {
                             if (isChannelType(e.target.value)) setType(e.target.value)
                         }}>
                             <option value="DISCORD" className="bg-zinc-950 text-white">Discord webhook</option>
@@ -286,7 +286,7 @@ export default function ChannelManager() {
                         <p className="mb-2 text-sm text-zinc-400">End-to-end test: generate an AI summary for a protocol and deliver notifications to your configured channels.</p>
                         <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)_auto]">
                             <Input className="min-w-0" placeholder="protocol slug (e.g. serum)" value={testProtocol} onChange={(e) => setTestProtocol(e.target.value)} />
-                            <select className="flex h-9 w-full rounded-md border border-white/5 bg-transparent dark:bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-cyan-350/60 focus:ring-2 focus:ring-cyan-350/20 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={testChannelId} onChange={(e) => setTestChannelId(e.target.value)}>
+                            <select className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={testChannelId} onChange={(e) => setTestChannelId(e.target.value)}>
                                 <option value="" className="bg-zinc-950 text-white">All enabled channels</option>
                                 {channels.filter((channel) => channel.enabled).map((channel) => (
                                     <option key={channel.id} value={channel.id} className="bg-zinc-950 text-white">{channel.name ?? channel.type}</option>
