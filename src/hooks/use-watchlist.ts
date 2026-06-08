@@ -8,7 +8,7 @@ import { BasicIDL, getBasicProgramId } from '@project/anchor';
 import { ClusterNetwork, useCluster } from '@/components/cluster/cluster-data-access';
 import { useMultiChain } from '@/components/chain/chain-provider';
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver';
-import { useSolanaProtocols } from '@/hooks/use-defillama';
+import { useChainProtocols } from '@/hooks/use-defillama';
 import { fetchJson } from '@/lib/api/fetch-json';
 import type { SolanaProtocol } from '@/shared/types';
 import { ChainType } from '@/lib/chain/types';
@@ -246,14 +246,14 @@ export function useWatchlist() {
   });
 
   // Enrich watchlist slugs with protocol metadata from DeFiLlama (for display)
-  const { data: solanaProtocols = [] } = useSolanaProtocols();
+  const { data: chainProtocols = [] } = useChainProtocols(activeChain.type);
 
   const { data: watchlistItems } = useQuery({
     queryKey: ['watchlist:enriched', cluster.name, walletAddress ?? 'guest', watchlist ?? []],
     queryFn: async () => {
       const slugs = watchlist ?? [];
       const mapped = slugs.map((slug) => {
-        const resolved = resolveProtocolFromList(slug, solanaProtocols);
+        const resolved = resolveProtocolFromList(slug, chainProtocols);
         const geckoId = (resolved as ProtocolWithGeckoId | undefined)?.gecko_id ?? null;
         return {
           slug,
@@ -302,7 +302,7 @@ export function useWatchlist() {
         return mapped;
       }
     },
-    enabled: Array.isArray(solanaProtocols) && (watchlist !== undefined),
+    enabled: Array.isArray(chainProtocols) && (watchlist !== undefined),
     staleTime: 30_000,
   });
 

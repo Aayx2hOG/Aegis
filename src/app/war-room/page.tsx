@@ -1,6 +1,7 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { ChainType } from '@/lib/chain/types'
 import { UI_DISCLAIMER } from '@/shared/config/war-room-config'
@@ -14,6 +15,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
+import { TerminalExecutionModal, ExecutionAction } from '@/components/terminal-execution-modal'
+import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 
 const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
     {
@@ -334,6 +337,54 @@ function BridgeThreatSimulator({ scenarioIdx }: { scenarioIdx: number }) {
   )
 }
 
+function mapCategoryToKind(category: string): ChainPortfolioPosition['kind'] {
+    const cat = category.toLowerCase();
+    if (cat.includes('lending') || cat.includes('cdp')) return 'lending';
+    if (cat.includes('yield') || cat.includes('farm') || cat.includes('vault')) return 'yield';
+    if (cat.includes('staking') || cat.includes('restaking')) return 'yield';
+    if (cat.includes('lp') || cat.includes('amm') || cat.includes('dex')) return 'lp';
+    if (cat.includes('token')) return 'token';
+    return 'other';
+}
+
+function getVolatility(category: string): number {
+    const cat = category.toLowerCase();
+    if (cat.includes('stable') || cat.includes('peg')) return 5;
+    if (cat.includes('lending') || cat.includes('cdp') || cat.includes('staking')) return 45;
+    if (cat.includes('yield') || cat.includes('farm') || cat.includes('vault')) return 60;
+    if (cat.includes('derivatives') || cat.includes('perpetuals') || cat.includes('options')) return 85;
+    return 55;
+}
+
+function getLiquidityScore(tvl: number): number {
+    if (tvl <= 0) return 50;
+    const score = Math.round(20 + 10 * Math.log10(tvl / 1000));
+    return Math.min(98, Math.max(10, score));
+}
+
+function getLatestTokenPriceFromProtocolDetail(detail?: any): number | null {
+    if (!detail) return null;
+
+    const latestUsdEntry = detail.tokensInUsd?.[detail.tokensInUsd.length - 1];
+    const latestTokenEntry = detail.tokens?.[detail.tokens.length - 1];
+    if (!latestUsdEntry || !latestTokenEntry) return null;
+
+    const usdTokens = latestUsdEntry.tokens ?? {};
+    const rawTokens = latestTokenEntry.tokens ?? {};
+    const symbols = Object.keys(usdTokens);
+
+    for (const symbol of symbols) {
+        const usdValue = usdTokens[symbol];
+        const tokenAmount = rawTokens[symbol];
+        if (typeof usdValue === 'number' && typeof tokenAmount === 'number' && tokenAmount > 0) {
+            const derived = usdValue / tokenAmount;
+            if (Number.isFinite(derived) && derived > 0) return derived;
+        }
+    }
+
+    return null;
+}
+
 export default function WarRoomPage() {
     return (
         <Suspense
@@ -351,6 +402,7 @@ export default function WarRoomPage() {
 function WarRoomContent() {
     const wallet = useWallet()
     const [simpleMode, setSimpleMode] = useState(false)
+    const searchParams = useSearchParams()
 
     // Multichain states
     const [multichainPositions, setMultichainPositions] = useState<ChainPortfolioPosition[]>(DEFAULT_MULTICHAIN_POSITIONS)
@@ -359,6 +411,227 @@ function WarRoomContent() {
     const [multichainLoading, setMultichainLoading] = useState(false)
     const [multichainError, setMultichainError] = useState<string | null>(null)
     const [multichainImportStatus, setMultichainImportStatus] = useState<string | null>(null)
+    const [execModalOpen, setExecModalOpen] = useState(false)
+    const [execAction, setExecAction] = useState<ExecutionAction | null>(null)
+
+    useEffect(() => {
+        const protocolParam = searchParams.get('protocol')
+        if (!protocolParam) return
+        const protocolSlug = protocolParam
+
+        let active = true
+        async function fetchProtocolDetails() {
+            setMultichainImportStatus(`Resolving contract telemetry for ${protocolSlug.toUpperCase()}...`)
+            try {
+                const res = await fetch(`/api/defillama/protocol?slug=${encodeURIComponent(protocolSlug)}`)
+                if (!res.ok) throw new Error(`Status ${res.status}`)
+                const data = await res.json()
+                if (!active) return
+
+                if (data.error) {
+                    throw new Error(data.error)
+                }
+
+                // Map chain names from DefiLlama to Aegis ChainType
+                const MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE: Record<string, ChainType> = {
+                    solana: ChainType.Solana,
+                    ethereum: ChainType.Ethereum,
+                    polygon: ChainType.Polygon,
+                    arbitrum: ChainType.Arbitrum,
+                    optimism: ChainType.Optimism,
+                    cosmos: ChainType.Cosmos,
+                    base: ChainType.Base,
+                }
+
+                const chainsList: string[] = data.chains || []
+                const category: string = data.category || 'other'
+                const symbol: string = (data.symbol || protocolSlug).toUpperCase()
+                const name: string = data.name || protocolSlug
+
+                // Resolve price
+                let tokenPrice = 0
+                let geckoId = data.gecko_id || data.geckoId
+                const address = data.address
+
+                // 1. Try contract address query via DeFiLlama Coins API
+                if (address) {
+                    try {
+                        const priceRes = await fetch(`https://coins.llama.fi/prices/current/${address}`)
+                        if (priceRes.ok) {
+                            const priceData = await priceRes.json()
+                            const coinInfo = priceData.coins?.[address]
+                            if (coinInfo && coinInfo.price != null) {
+                                tokenPrice = coinInfo.price
+                            }
+                        }
+                    } catch (addressErr) {
+                        console.error('Failed to fetch price by address:', addressErr)
+                    }
+                }
+
+                // If address had no prefix, try prefixing it with the primary chain
+                if (tokenPrice === 0 && address && !address.includes(':') && chainsList.length > 0) {
+                    const formattedAddress = `${chainsList[0].toLowerCase()}:${address}`
+                    try {
+                        const priceRes = await fetch(`https://coins.llama.fi/prices/current/${formattedAddress}`)
+                        if (priceRes.ok) {
+                            const priceData = await priceRes.json()
+                            const coinInfo = priceData.coins?.[formattedAddress]
+                            if (coinInfo && coinInfo.price != null) {
+                                tokenPrice = coinInfo.price
+                            }
+                        }
+                    } catch (addressErr) {
+                        console.error('Failed to fetch price by formatted address:', addressErr)
+                    }
+                }
+
+                // 2. Try CoinGecko ID fallback
+                if (tokenPrice === 0) {
+                    // If gecko_id is not found in the protocol detail, try looking it up in the chain's protocol list
+                    if (!geckoId && chainsList.length > 0) {
+                        const primaryChain = chainsList[0].toLowerCase()
+                        const mappedChain = MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE[primaryChain]
+                        if (mappedChain) {
+                            try {
+                                const listRes = await fetch(`/api/defillama?chain=${encodeURIComponent(mappedChain)}`)
+                                if (listRes.ok) {
+                                    const listData = await listRes.json()
+                                    const matched = resolveProtocolFromList(protocolSlug, listData)
+                                    if (matched) {
+                                        geckoId = (matched as any).gecko_id || (matched as any).geckoId
+                                    }
+                                }
+                            } catch (listErr) {
+                                console.error('Failed to fetch chain protocols list for lookup:', listErr)
+                            }
+                        }
+                    }
+
+                    if (geckoId) {
+                        try {
+                            const priceRes = await fetch(`/api/coingecko?id=${encodeURIComponent(geckoId)}`)
+                            if (priceRes.ok) {
+                                const priceData = await priceRes.json()
+                                tokenPrice = priceData.market_data?.current_price?.usd || 0
+                            }
+                        } catch (priceErr) {
+                            console.error('Failed to fetch price from CoinGecko:', priceErr)
+                        }
+                    }
+                }
+
+                // 3. Try token TVL weights fallback
+                if (tokenPrice === 0) {
+                    tokenPrice = getLatestTokenPriceFromProtocolDetail(data) || 0;
+                }
+
+                // 4. Default fallback
+                if (tokenPrice === 0) {
+                    tokenPrice = 1.0; // fallback unit price
+                }
+
+                // Resolve chain-specific TVLs
+                const parsedPositions: ChainPortfolioPosition[] = []
+                let totalTvl = 0
+
+                const chainDataList = chainsList.map(chainName => {
+                    const normalizedChain = chainName.trim().toLowerCase()
+                    const chainType = MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE[normalizedChain]
+                    if (!chainType) return null
+
+                    // Find latest TVL for this chain
+                    let chainTvl = 0
+                    if (data.chainTvls && data.chainTvls[chainName]) {
+                        const history = data.chainTvls[chainName].tvl || []
+                        if (history.length > 0) {
+                            chainTvl = history[history.length - 1].totalLiquidity || 0
+                        }
+                    }
+                    if (chainTvl === 0 && data.tvl) {
+                        // fallback to total tvl if only one chain
+                        const history = data.tvl || []
+                        if (history.length > 0) {
+                            chainTvl = history[history.length - 1].totalLiquidity || 0
+                        }
+                    }
+
+                    return { chainType, chainTvl, rawChainName: chainName }
+                }).filter((c): c is NonNullable<typeof c> => c !== null)
+
+                // Sum up supported chains TVL
+                chainDataList.forEach(c => {
+                    totalTvl += c.chainTvl
+                })
+
+                // Create position for each supported chain
+                chainDataList.forEach(c => {
+                    // Estimate volatility and liquidity score
+                    const volatility = getVolatility(category)
+                    const liquidityScore = getLiquidityScore(c.chainTvl)
+
+                    parsedPositions.push({
+                        chain: c.chainType,
+                        kind: mapCategoryToKind(category),
+                        symbol: symbol,
+                        protocol: protocolSlug.toLowerCase(),
+                        balance: 1, // exactly 1 unit of protocol token
+                        usdValue: tokenPrice, // value is exactly the price
+                        volatility: volatility,
+                        liquidityScore: liquidityScore,
+                    })
+                })
+
+                if (parsedPositions.length === 0) {
+                    setMultichainImportStatus(`Protocol ${name} fetched, but it is not deployed on any Aegis-supported networks.`)
+                    return
+                }
+
+                setMultichainPositions(parsedPositions)
+                setMultichainImportStatus(`Successfully loaded ${name} deployments across ${parsedPositions.length} network(s). Live Unit Price: $${tokenPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}.`)
+            } catch (err) {
+                if (!active) return
+                console.error('Failed to load protocol from URL parameter:', err)
+                setMultichainImportStatus(`Failed to resolve telemetry for ${protocolSlug}: ${String(err)}`)
+            }
+        }
+
+        void fetchProtocolDetails()
+        return () => {
+            active = false
+        }
+    }, [searchParams])
+
+    function handleExecuteAction(action: ExecutionAction) {
+        setExecAction(action)
+        setExecModalOpen(true)
+    }
+
+    function handleExecutionSuccess() {
+        if (!execAction) return
+        setMultichainPositions((current) => {
+            return current.map((pos) => {
+                // Find matching position
+                const isMatch = pos.symbol.toLowerCase() === execAction.assetSymbol.toLowerCase() &&
+                                pos.chain === execAction.fromChain;
+                if (isMatch) {
+                    if (execAction.action === 'liquidate') {
+                        return { ...pos, usdValue: Math.max(0, pos.usdValue - execAction.amount) }
+                    } else if (execAction.action === 'move') {
+                        return {
+                            ...pos,
+                            chain: (execAction.toChain as ChainType) || pos.chain,
+                            protocol: execAction.protocol || pos.protocol,
+                            volatility: Math.max(5, pos.volatility - 15),
+                            liquidityScore: Math.min(100, pos.liquidityScore + 10)
+                        }
+                    }
+                }
+                return pos
+            })
+        })
+        setMultichainResult(null)
+    }
 
     const [newPosForm, setNewPosForm] = useState<{
         chain: ChainType
@@ -383,6 +656,21 @@ function WarRoomContent() {
     function updateMultichainPositionField(index: number, field: keyof ChainPortfolioPosition, value: number) {
         setMultichainPositions((current) =>
             current.map((pos, idx) => (idx === index ? { ...pos, [field]: value } : pos))
+        )
+        setMultichainResult(null)
+    }
+
+    function updateMultichainPositionBalance(index: number, value: number) {
+        setMultichainPositions((current) =>
+            current.map((pos, idx) => {
+                if (idx !== index) return pos
+                const unitPrice = pos.balance > 0 ? (pos.usdValue / pos.balance) : 0
+                return {
+                    ...pos,
+                    balance: value,
+                    usdValue: unitPrice > 0 ? Math.round(value * unitPrice * 100) / 100 : pos.usdValue
+                }
+            })
         )
         setMultichainResult(null)
     }
@@ -521,13 +809,24 @@ function WarRoomContent() {
                             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 text-xs">
                                 {multichainPositions.map((pos, idx) => (
                                     <div key={`${pos.chain}-${pos.symbol}-${idx}`} className="grid grid-cols-1 gap-3 rounded-xs border border-zinc-900 bg-zinc-950/80 p-3.5 sm:grid-cols-12 items-center">
-                                        <div className="sm:col-span-4 text-left font-mono">
+                                        <div className="sm:col-span-3 text-left font-mono">
                                             <p className="font-bold text-white capitalize text-sm">{pos.symbol}</p>
                                             <p className="text-[9px] text-cyan-500 uppercase tracking-widest mt-1">
                                                 {pos.chain} • {pos.protocol} • {pos.kind}
                                             </p>
                                         </div>
-                                        <div className="sm:col-span-3 text-left">
+                                        <div className="sm:col-span-2 text-left">
+                                            <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">Balance</label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step="any"
+                                                value={pos.balance}
+                                                onChange={(e) => updateMultichainPositionBalance(idx, Number(e.target.value))}
+                                                className="h-8 text-xs font-mono bg-zinc-950 border-zinc-900 text-white"
+                                            />
+                                        </div>
+                                        <div className="sm:col-span-2 text-left">
                                             <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">USD Value</label>
                                             <Input
                                                 type="number"
@@ -579,7 +878,7 @@ function WarRoomContent() {
 
                         <div className="rounded-xs border border-zinc-850 bg-zinc-950/20 p-4 space-y-4">
                             <h3 className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">Add Custom Holding Vector</h3>
-                            <div className="grid gap-3 grid-cols-2 sm:grid-cols-5 text-left text-xs font-mono">
+                            <div className="grid gap-3 grid-cols-2 sm:grid-cols-6 text-left text-xs font-mono">
                                 <div>
                                     <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">Chain</label>
                                     <select
@@ -627,13 +926,39 @@ function WarRoomContent() {
                                     </select>
                                 </div>
                                 <div>
+                                    <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">Balance</label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step="any"
+                                        placeholder="100"
+                                        value={newPosForm.balance || ''}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            setNewPosForm({
+                                                ...newPosForm,
+                                                balance: val,
+                                                usdValue: newPosForm.usdValue || Math.round(val * 10 * 100) / 100
+                                            });
+                                        }}
+                                        className="h-9 text-xs bg-zinc-950 border-zinc-850 font-mono"
+                                    />
+                                </div>
+                                <div>
                                     <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">USD Value</label>
                                     <Input
                                         type="number"
                                         min={0}
                                         placeholder="1000"
                                         value={newPosForm.usdValue || ''}
-                                        onChange={(e) => setNewPosForm({ ...newPosForm, usdValue: Number(e.target.value) })}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            setNewPosForm({
+                                                ...newPosForm,
+                                                usdValue: val,
+                                                balance: newPosForm.balance || Math.round(val / 10 * 100) / 100
+                                            });
+                                        }}
                                         className="h-9 text-xs bg-zinc-950 border-zinc-850 font-mono"
                                     />
                                 </div>
@@ -734,6 +1059,22 @@ function WarRoomContent() {
                                 &gt; Simulation finished with portfolio vulnerability score at <span className="font-bold text-white">{multichainResult.aggregateRisk}/100</span> ({getRiskBand(multichainResult.aggregateRisk).label}). Max estimated asset drawdown is <span className="font-semibold text-rose-300">-{multichainResult.portfolioImpact.maxDrawdown.toFixed(1)}%</span>. Most vulnerable endpoint detected is <span className="font-semibold text-white uppercase">{multichainResult.mostVulnerableChain}</span>, while <span className="font-semibold text-white uppercase">{multichainResult.leastVulnerableChain}</span> registers as target safehaven.
                             </p>
                         </div>
+
+                        {multichainResult.aiBriefing && (
+                            <SpotlightCard
+                                spotlightColor="rgba(6, 182, 212, 0.05)"
+                                borderColor="rgba(6, 182, 212, 0.2)"
+                                className="border border-cyan-500/20 bg-zinc-950/90 p-5 rounded-xs font-mono text-xs text-left"
+                            >
+                                <div className="flex items-center gap-2 border-b border-cyan-500/10 pb-2 mb-3">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
+                                    <span className="font-bold text-cyan-400 uppercase tracking-widest text-[10px]">AEGIS DYNAMIC THREAT BRIEFING</span>
+                                </div>
+                                <div className="text-zinc-350 leading-relaxed space-y-4 whitespace-pre-line prose prose-invert max-w-none">
+                                    {multichainResult.aiBriefing}
+                                </div>
+                            </SpotlightCard>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
                           {/* Semicircular SVG dial */}
@@ -876,6 +1217,21 @@ function WarRoomContent() {
                                                     )}
                                                     <span>Volume: <span className="text-zinc-300 font-bold">{rec.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></span>
                                                 </div>
+                                                <div className="flex justify-end pt-2 border-t border-zinc-900/40">
+                                                     <Button 
+                                                         onClick={() => handleExecuteAction({
+                                                             action: rec.action,
+                                                             fromChain: rec.fromChain,
+                                                             toChain: rec.toChain,
+                                                             assetSymbol: rec.assetSymbol,
+                                                             protocol: rec.protocol,
+                                                             amount: rec.amount
+                                                         })}
+                                                         className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider text-[10px] h-7 px-3.5 rounded-xs cursor-pointer shadow-[0_0_6px_rgba(6,182,212,0.15)]"
+                                                     >
+                                                         Execute {rec.action === 'move' ? 'Bridge & Swap' : rec.action === 'liquidate' ? 'Exit/Swap' : 'Add Collateral'}
+                                                     </Button>
+                                                 </div>
                                             </div>
                                         ))}
                                     </div>
@@ -899,10 +1255,24 @@ function WarRoomContent() {
                                                     </span>
                                                 </div>
                                                 <p className="text-xs text-zinc-300 leading-relaxed">{opp.rationale}</p>
-                                                <div className="flex items-center justify-between text-[9px] pt-2 border-t border-zinc-900/60 font-semibold uppercase tracking-wider text-zinc-500">
+                                                <div className="flex items-center justify-between text-[9px] pt-2 border-t border-zinc-900/60 font-semibold uppercase tracking-wider text-zinc-550">
                                                     <span>Path: <span className="text-zinc-300">{opp.fromChain} ➜ {opp.toChain}</span></span>
                                                     <span>Profit margin: <span className="text-emerald-400 font-black">+{opp.profitMargin}%</span></span>
                                                 </div>
+                                                <div className="flex justify-end pt-2 border-t border-zinc-900/40">
+                                                     <Button 
+                                                         onClick={() => handleExecuteAction({
+                                                             action: 'arbitrage',
+                                                             fromChain: opp.fromChain,
+                                                             toChain: opp.toChain,
+                                                             assetSymbol: opp.assetSymbol,
+                                                             amount: 5000
+                                                         })}
+                                                         className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider text-[10px] h-7 px-3.5 rounded-xs cursor-pointer shadow-[0_0_6px_rgba(6,182,212,0.15)]"
+                                                     >
+                                                         Execute Arbitrage
+                                                     </Button>
+                                                 </div>
                                             </div>
                                         ))}
                                     </div>
@@ -911,6 +1281,12 @@ function WarRoomContent() {
                         </div>
                     </section>
                 )}
+                <TerminalExecutionModal
+                    isOpen={execModalOpen}
+                    onClose={() => setExecModalOpen(false)}
+                    action={execAction}
+                    onSuccess={handleExecutionSuccess}
+                />
             </div>
         </div>
     )

@@ -11,7 +11,7 @@ import { useChainProtocols } from '@/hooks/use-defillama';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { Star, Swords, RefreshCw, Terminal, ChevronDown, ChevronUp, Database, Cpu, CheckCircle2 } from 'lucide-react';
+import { Star, Swords, RefreshCw, Terminal } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useMultiChain } from '@/components/chain/chain-provider';
@@ -332,8 +332,6 @@ function ResearchContent() {
               </div>
             </article>
 
-            <AIAgentToolExplorer toolCalls={brief.toolCalls} />
-
             {/* Footer Tip */}
             <div className="text-center py-8">
               <p className="text-zinc-650 text-xs font-mono">&gt; DECRYPTION COMPLETE. AUDIT COMPLIANCE STANDARDS APPLIED.</p>
@@ -578,90 +576,6 @@ function MarkdownBrief({ content }: { content: string }) {
       >
         {content}
       </ReactMarkdown>
-    </div>
-  );
-}
-
-interface ToolCallItem {
-  tool: string;
-  input: Record<string, any>;
-  output: any;
-  durationMs?: number;
-}
-
-function AIAgentToolExplorer({ toolCalls }: { toolCalls?: ToolCallItem[] }) {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-
-  if (!toolCalls || toolCalls.length === 0) return null;
-
-  return (
-    <div className="mt-8 rounded-xl bg-zinc-950/60 border border-cyan-500/10 p-5 backdrop-blur-md corner-decor text-left shadow-2xl">
-      <div className="border-b border-cyan-500/10 pb-3 mb-4 flex justify-between items-center">
-        <div>
-          <h3 className="font-orbitron font-black text-sm uppercase tracking-wider text-white flex items-center gap-2 select-none">
-            <Cpu className="w-4 h-4 text-cyan-400" /> AI AGENT AUDIT TELEMETRY LOGS
-          </h3>
-          <p className="text-[10px] text-zinc-550 font-mono mt-0.5">&gt; Sequenced register of tool invocations during research synthesis.</p>
-        </div>
-        <Badge variant="accent" className="bg-cyan-950/20 text-cyan-400 border-cyan-500/20 font-mono text-[9px] uppercase tracking-wider">
-          {toolCalls.length} CALLS REGISTERED
-        </Badge>
-      </div>
-
-      <div className="space-y-3 font-mono text-xs">
-        {toolCalls.map((tc, idx) => {
-          const isExpanded = expandedIndex === idx;
-          const duration = tc.durationMs ? `${tc.durationMs}ms` : 'N/A';
-          return (
-            <div key={idx} className="rounded-xs border border-zinc-900 bg-zinc-950/40 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setExpandedIndex(isExpanded ? null : idx)}
-                className="w-full flex items-center justify-between p-3.5 hover:bg-zinc-900/40 text-left transition-all duration-200"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-5 h-5 rounded-xs bg-cyan-950/40 border border-cyan-500/20 text-cyan-400">
-                    {tc.tool.includes('defillama') ? <Database className="w-3 h-3" /> : <Terminal className="w-3 h-3" />}
-                  </span>
-                  <div>
-                    <span className="font-bold text-white uppercase text-xs tracking-wider">{tc.tool}</span>
-                    <span className="text-[9px] text-zinc-550 block mt-0.5 uppercase tracking-widest">
-                      status: active • latency: {duration}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[9px] font-bold text-emerald-450 uppercase tracking-widest flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> ok
-                  </span>
-                  {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-zinc-500" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-zinc-500" />
-                  )}
-                </div>
-              </button>
-
-              {isExpanded && (
-                <div className="p-4 border-t border-zinc-900 bg-zinc-950 space-y-3 animate-in slide-in-from-top-1 duration-200">
-                  <div className="space-y-1.5">
-                    <p className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">INPUT ARTIFACT PARAMETERS</p>
-                    <pre className="p-3 rounded-xs border border-zinc-900 bg-zinc-950 text-cyan-400/90 overflow-x-auto text-[10.5px] max-h-40 leading-relaxed scrollbar-thin select-all">
-                      {JSON.stringify(tc.input, null, 2)}
-                    </pre>
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">OUTPUT CONSOLE DECRYPTION</p>
-                    <pre className="p-3 rounded-xs border border-zinc-900 bg-zinc-950 text-zinc-300 overflow-x-auto text-[10.5px] max-h-72 leading-relaxed scrollbar-thin select-all">
-                      {typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

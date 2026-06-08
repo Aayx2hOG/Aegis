@@ -240,6 +240,7 @@ export const ComparativeSimulationResultSchema = z.object({
   leastVulnerableChain: z.nativeEnum(ChainType),
   rebalancingRecommendations: z.array(RebalancingRecommendationSchema),
   crossChainArbitrageOpportunities: z.array(ArbitrageOpportunitySchema),
+  aiBriefing: z.string().optional(),
 });
 export type ComparativeSimulationResult = z.infer<typeof ComparativeSimulationResultSchema>;
 

@@ -1,6 +1,7 @@
 // Tool schemas — OpenAI / Groq format
 import { getTokenPrice } from '@/server/api/birdeye';
 import { getRecentTransactions, getTokenMetadata } from '@/server/api/helius';
+import { getEvmRecentTransactions, getEvmTokenMetadata, getEvmTokenPrice } from '@/server/api/evm';
 import { getProtocolSlugCandidates, normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
 
 const PROTOCOL_TOKEN_OVERRIDES: Record<string, { mint?: string; geckoId?: string; symbol?: string; name?: string }> = {
@@ -502,23 +503,69 @@ export async function executeTool(
           }
         } else if (evmAddress) {
           try {
-            const geckoResult = await getCoinGeckoMarketByContract(evmAddress, primaryChain);
-            if (geckoResult) {
-              marketFallback = geckoResult;
+            const [priceRes, txRes, metaRes] = await Promise.allSettled([
+              getEvmTokenPrice(evmAddress, primaryChain),
+              getEvmRecentTransactions(evmAddress, primaryChain, 5),
+              getEvmTokenMetadata(evmAddress, primaryChain),
+            ]);
+
+            if (priceRes.status === 'fulfilled') {
+              const p = priceRes.value;
               tokenPrice = {
                 address: evmAddress,
-                symbol: geckoResult.symbol?.toUpperCase() || symbol || meta.symbol,
-                price: geckoResult.price ?? 0,
-                priceChange24h: geckoResult.priceChange24h ?? 0,
-                volume24h: geckoResult.volume24h,
-                marketCap: geckoResult.marketCap,
-                source: geckoResult.source,
+                symbol: p.symbol?.toUpperCase() || symbol || meta.symbol,
+                price: p.price ?? 0,
+                priceChange24h: p.priceChange24h ?? 0,
+                volume24h: p.volume24h,
+                marketCap: p.marketCap,
+                source: 'dexscreener/defillama',
               };
-              if (geckoResult.geckoId) {
-                geckoId = geckoResult.geckoId;
+              if (p.symbol) {
+                symbol = p.symbol.toUpperCase();
               }
-              if (geckoResult.symbol) {
-                symbol = geckoResult.symbol.toUpperCase();
+            }
+
+            if (txRes.status === 'fulfilled') {
+              recentTransactions = txRes.value.map((tx) => ({
+                signature: tx.signature,
+                type: tx.type,
+                timestamp: tx.timestamp,
+                fee: tx.fee,
+                source: tx.source,
+              }));
+            }
+
+            if (metaRes.status === 'fulfilled') {
+              const m = metaRes.value;
+              tokenMetadata = {
+                name: m.name,
+                symbol: m.symbol,
+                decimals: m.decimals,
+                totalSupply: m.totalSupply,
+                source: m.source,
+              };
+            }
+
+            // Also search CoinGecko fallback if price was not resolved
+            if (!tokenPrice) {
+              const geckoResult = await getCoinGeckoMarketByContract(evmAddress, primaryChain);
+              if (geckoResult) {
+                marketFallback = geckoResult;
+                tokenPrice = {
+                  address: evmAddress,
+                  symbol: geckoResult.symbol?.toUpperCase() || symbol || meta.symbol,
+                  price: geckoResult.price ?? 0,
+                  priceChange24h: geckoResult.priceChange24h ?? 0,
+                  volume24h: geckoResult.volume24h,
+                  marketCap: geckoResult.marketCap,
+                  source: geckoResult.source,
+                };
+                if (geckoResult.geckoId) {
+                  geckoId = geckoResult.geckoId;
+                }
+                if (geckoResult.symbol) {
+                  symbol = geckoResult.symbol.toUpperCase();
+                }
               }
             }
           } catch (err) {

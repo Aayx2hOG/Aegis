@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Activity, ExternalLink, Layers3, ShieldAlert, Trash2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
+import { TerminalExecutionModal, ExecutionAction } from '@/components/terminal-execution-modal'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain, removeFromWatchlist } from '@/hooks/use-multichain-watchlist'
@@ -521,6 +522,13 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
 export default function WatchlistPage() {
     const router = useRouter()
     const queryClient = useQueryClient()
+    const [execModalOpen, setExecModalOpen] = useState(false)
+    const [execAction, setExecAction] = useState<ExecutionAction | null>(null)
+
+    function handleExecuteAction(action: ExecutionAction) {
+        setExecAction(action)
+        setExecModalOpen(true)
+    }
     const { activeChain, activeChainConnections, allChains } = useMultiChain()
     const wallet = useWallet()
     const walletAddress = wallet.publicKey?.toBase58()
@@ -831,14 +839,29 @@ export default function WatchlistPage() {
                                                 <h3 className="text-sm font-orbitron font-bold text-white uppercase tracking-wider">{alert.title}</h3>
                                                 <p className="max-w-3xl text-xs leading-5 text-zinc-400 font-light">{alert.detail}</p>
                                             </div>
-                                            <Button
-                                                type="button"
-                                                onClick={() => handleAnomalyAction(alert)}
-                                                className="shrink-0 bg-white hover:bg-zinc-200 text-zinc-950 font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(255,255,255,0.15)] h-9 px-4"
-                                            >
-                                                {alert.actionLabel}
-                                                <ArrowRight className="h-3.5 w-3.5" />
-                                            </Button>
+                                            <div className="flex flex-wrap gap-2 items-center shrink-0">
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => handleAnomalyAction(alert)}
+                                                    className="bg-zinc-900 border border-zinc-800 hover:bg-zinc-855 text-zinc-350 hover:text-white font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs h-9 px-4 cursor-pointer"
+                                                >
+                                                    {alert.actionLabel}
+                                                    <ArrowRight className="h-3.5 w-3.5" />
+                                                </Button>
+                                                {(alert.type === 'tvl_move' || alert.type === 'liquidity_compression') && (
+                                                    <Button
+                                                        type="button"
+                                                        onClick={() => handleExecuteAction({
+                                                            action: alert.type === 'tvl_move' ? 'hedge' : 'liquidate',
+                                                            assetSymbol: alert.protocolSlug?.toUpperCase() || 'DEFI',
+                                                            amount: 10000
+                                                        })}
+                                                        className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.25)] h-9 px-4 cursor-pointer"
+                                                    >
+                                                        Mitigate Risk
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -956,6 +979,11 @@ export default function WatchlistPage() {
                     </article>
                 ))}
             </section>
+            <TerminalExecutionModal
+                isOpen={execModalOpen}
+                onClose={() => setExecModalOpen(false)}
+                action={execAction}
+            />
         </div>
     )
 }
