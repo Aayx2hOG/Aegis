@@ -3,7 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useAtom } from 'jotai';
 import { agentStateAtom } from '@/store/research-store';
-import type { ResearchBrief, ToolCallRecord } from '@/shared/types';
+import type { ResearchBrief } from '@/shared/types';
 
 import { useWatchlist } from '@/hooks/use-watchlist';
 import { useChainProtocols } from '@/hooks/use-defillama';
@@ -11,7 +11,7 @@ import { useChainProtocols } from '@/hooks/use-defillama';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { Star } from 'lucide-react';
+import { Star, Swords, RefreshCw, Terminal, ChevronDown, ChevronUp, Database, Cpu, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useMultiChain } from '@/components/chain/chain-provider';
@@ -22,8 +22,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
 import { TracingBeam } from '@/components/ui/tracing-beam';
-import { Tabs } from '@/components/ui/tabs';
-import { Sparkles } from '@/components/ui/sparkles';
 
 const RELEVANT_PROTOCOL_CATEGORIES = new Set([
   'AMM',
@@ -83,17 +81,16 @@ function buildSupportedProtocolCatalog(protocols: SolanaProtocol[]) {
 
   return Array.from(deduped.values())
     .map((protocol) => {
-      // DeFiLlama may use different keys for TVL (tvl, tvlUsd, etc.). Normalize.
-      const raw = protocol as { tvl?: number; tvlUsd?: number; category?: string }
-      const tvlNum: number | null = typeof raw.tvl === 'number' ? raw.tvl : typeof raw.tvlUsd === 'number' ? raw.tvlUsd : null
-      return { protocol, tvlNum }
+      const raw = protocol as { tvl?: number; tvlUsd?: number; category?: string };
+      const tvlNum: number | null = typeof raw.tvl === 'number' ? raw.tvl : typeof raw.tvlUsd === 'number' ? raw.tvlUsd : null;
+      return { protocol, tvlNum };
     })
     .filter(({ tvlNum }) => tvlNum != null && tvlNum > 0)
     .filter(({ protocol }) => {
-      const category = (protocol as { category?: string }).category?.trim() ?? 'Uncategorized'
-      if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false
-      if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true
-      return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized'
+      const category = (protocol as { category?: string }).category?.trim() ?? 'Uncategorized';
+      if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false;
+      if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true;
+      return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized';
     })
     .sort((a, b) => (b.tvlNum ?? 0) - (a.tvlNum ?? 0))
     .map(({ protocol, tvlNum }) => ({
@@ -101,7 +98,7 @@ function buildSupportedProtocolCatalog(protocols: SolanaProtocol[]) {
       label: protocol.name || formatProtocolName(protocol.slug),
       category: (protocol as { category?: string }).category ?? 'Uncategorized',
       tvl: typeof tvlNum === 'number' ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(tvlNum) : 'N/A',
-    }))
+    }));
 }
 
 function matchesProtocolSearch(protocol: { slug: string; label: string; category: string }, query: string) {
@@ -114,11 +111,20 @@ function matchesProtocolSearch(protocol: { slug: string; label: string; category
   );
 }
 
+// Category Badge Color helper
+function getCategoryTone(category: string) {
+  const cat = category.toLowerCase();
+  if (cat.includes('lending') || cat.includes('cdp')) return 'border-cyan-500/35 bg-cyan-500/5 text-cyan-400';
+  if (cat.includes('amm') || cat.includes('dex')) return 'border-emerald-500/35 bg-emerald-500/5 text-emerald-400';
+  if (cat.includes('yield') || cat.includes('staking')) return 'border-amber-500/35 bg-amber-500/5 text-amber-400';
+  return 'border-rose-500/35 bg-rose-500/5 text-rose-400';
+}
+
 export default function ResearchPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-primary" />
+      <div className="min-h-screen bg-[#070b13] flex items-center justify-center">
+        <span className="loading loading-spinner loading-lg text-cyan-500" />
       </div>
     }>
       <ResearchContent />
@@ -139,6 +145,8 @@ function ResearchContent() {
   const { isWatched, toggle, isConnected } = useWatchlist();
   const { data: chainProtocols = [], isLoading: protocolsLoading } = useChainProtocols(activeChain.type);
 
+  const [simulatedLogs, setSimulatedLogs] = useState<string[]>([]);
+
   const supportedProtocols = useMemo(() => buildSupportedProtocolCatalog(chainProtocols), [chainProtocols]);
   const deferredProtocolSearch = useDeferredValue(protocolSearch.trim());
   const filteredProtocols = useMemo(
@@ -158,32 +166,43 @@ function ResearchContent() {
   useEffect(() => {
     const q = searchParams.get('q');
     if (q) {
-      runResearch(q);
+      void runResearch(q);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Auto-set status message based on timing
-  const [statusMsg, setStatusMsg] = useState('Initializing analyst...');
-
-
+  // Loading console log simulation
   useEffect(() => {
-    if (!loading) return;
-    const messages = [
-      `Scanning ${activeChain.displayName}...`,
-      'Gathering protocol TVL data...',
-      'Analyzing token market dynamics...',
-      'Inspecting recent on-chain transactions...',
-      'Synthesizing research brief...',
-      'Finalizing report formatting...'
+    if (!loading) {
+      setSimulatedLogs([]);
+      return;
+    }
+    const rawLogs = [
+      `Initializing secure Aegis node proxy for ${activeChain.displayName.toUpperCase()}...`,
+      `[NODE] Handshake complete. Resolving RPC feeds...`,
+      `[FEED] Fetching historical TVL metrics via DeFiLlama proxy...`,
+      `[INTEL] Analyzing smart contract risk footprint...`,
+      `[AI-AGENT] Scanning on-chain liquidity depth and slippage parameters...`,
+      `[AI-AGENT] Resolving recent security incidents and audits...`,
+      `[AI-AGENT] Synthesizing dossier metrics into markdown report...`,
+      `[SYSTEM] Structuring research brief. Outputting classification card...`
     ];
-    let i = 0;
-    const interval = setInterval(() => {
-      i = (i + 1) % messages.length;
-      setStatusMsg(messages[i]);
-    }, 3500);
-    return () => clearInterval(interval);
-  }, [loading, activeChain.displayName]);
+
+    setSimulatedLogs([`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] ${rawLogs[0]}`]);
+    let nextIdx = 1;
+    const timer = setInterval(() => {
+      if (nextIdx < rawLogs.length) {
+        const currentLog = rawLogs[nextIdx];
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+        setSimulatedLogs((old) => [...old, `[${timestamp}] ${currentLog}`]);
+        nextIdx++;
+      } else {
+        clearInterval(timer);
+      }
+    }, 2200);
+
+    return () => clearInterval(timer);
+  }, [loading, activeChain]);
 
   async function runResearch(protocol: string) {
     const normalizedProtocol = normalizeProtocolSlug(protocol);
@@ -228,173 +247,190 @@ function ResearchContent() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 py-6">
+    <div className="mx-auto max-w-5xl space-y-8 py-6 px-2 cyber-grid">
       {/* Header */}
-      <header className="space-y-4">
+      <header className="space-y-4 text-left">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
+            <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20">
               Aegis Research Analyst
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="border-zinc-800 bg-zinc-900/40 text-zinc-350 hover:bg-zinc-800 hover:text-white font-bold transition-all">
-              <Link href="/research/compare">
-                ⚔️ Protocol Battleground
+            <Button asChild variant="outline" size="sm" className="border-cyan-500/10 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/15 hover:text-white font-orbitron font-bold uppercase tracking-wider rounded-xs transition-all">
+              <Link href="/research/compare" className="flex items-center gap-1.5">
+                <Swords className="w-3.5 h-3.5" /> Protocol Battleground
               </Link>
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/watchlist" className="flex items-center gap-1.5 font-bold">
-                My Watchlist <Star className="w-3.5 h-3.5 fill-current" />
+            <Button asChild variant="outline" size="sm" className="border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900 text-zinc-300 font-orbitron font-bold uppercase tracking-wider rounded-xs">
+              <Link href="/watchlist" className="flex items-center gap-1.5">
+                Watchlist <Star className="w-3.5 h-3.5 fill-current text-cyan-400" />
               </Link>
             </Button>
           </div>
         </div>
         <div className="space-y-2">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)]">
-            {activeChain.displayName} <span className="text-zinc-200">Research</span>
+          <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
+            {activeChain.displayName} <span className="text-cyan-400 font-black">Research</span>
           </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">
-            Autonomous AI analyst generating deep-dive reports for the selected chain using live protocol and market data.
+          <p className="max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-400">
+            Autonomous AI analyst extracting on-chain contract intelligence, governance data, and multi-chain TVL trends in real-time.
           </p>
         </div>
       </header>
 
-      {/* Results */}
+      {/* Results (Dossier Mode) */}
       {brief && !loading && (
         <div className="animate-in space-y-8 fade-in duration-700">
-          {/* Main Brief wrapped in a Tracing Beam */}
           <TracingBeam>
-            <article className="relative overflow-hidden rounded-2xl bg-zinc-900/20 border border-zinc-800 shadow-xl">
-              {/* Watchlist Actions */}
-              <div className="absolute top-6 right-6 flex gap-2 z-20">
-                {brief?.protocol && (
-                  <Button asChild size="sm" className="bg-white text-zinc-950 hover:bg-zinc-200 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all">
-                    <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>
-                      Run War Room
-                    </Link>
-                  </Button>
-                )}
-                <Button
-                  onClick={() => {
-                    const slug = brief.protocol.toLowerCase();
-                    toggle(slug);
-                    if (!isWatched(slug)) {
-                      toast.success(`${slug} added to watchlist.`);
+            <article className="relative overflow-hidden rounded-xl bg-zinc-950/70 border border-cyan-500/15 shadow-[0_15px_50px_rgba(0,0,0,0.6)] corner-decor">
+              {/* Dossier Header Strip */}
+              <div className="border-b border-cyan-500/15 bg-cyan-950/15 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                  <span className="font-orbitron font-black text-xs uppercase tracking-widest text-cyan-400">
+                    CLASSIFIED RESEARCH BRIEF // CORE: {brief.protocol.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  {brief?.protocol && (
+                    <Button asChild size="sm" className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_10px_rgba(6,182,212,0.25)]">
+                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>
+                        Run War Room Simulation
+                      </Link>
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      const slug = brief.protocol.toLowerCase();
+                      toggle(slug);
+                      if (!isWatched(slug)) {
+                        toast.success(`${slug} added to watchlist.`);
+                      }
+                    }}
+                    variant={isWatched(brief.protocol.toLowerCase()) ? 'outline' : 'default'}
+                    size="sm"
+                    className={isWatched(brief.protocol.toLowerCase())
+                      ? 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 rounded-xs'
+                      : 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xs transition-all'
                     }
-                  }}
-                  variant={isWatched(brief.protocol.toLowerCase()) ? 'outline' : 'default'}
-                  size="sm"
-                  className={isWatched(brief.protocol.toLowerCase())
-                    ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
-                    : 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all'
-                  }
-                >
-                  {isWatched(brief.protocol.toLowerCase()) ? '★ Watched' : '☆ Add to Watchlist'}
-                </Button>
+                  >
+                    {isWatched(brief.protocol.toLowerCase()) ? '★ Active monitor' : '☆ Watch Protocol'}
+                  </Button>
+                </div>
               </div>
+
               {!isConnected && (
-                <div className="px-6 pt-6 md:px-10">
-                  <div className="rounded-lg bg-zinc-950/50 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400 border border-zinc-900">
-                    Guest Mode: Watchlist is saved locally in this browser.
+                <div className="px-6 pt-4 md:px-10">
+                  <div className="rounded-xs bg-cyan-500/5 px-3.5 py-2 text-[9px] font-mono font-bold uppercase tracking-widest text-cyan-400 border border-cyan-500/10">
+                    &gt; HOST IDENTITY: GUEST // CACHING SECURE PORTFOLIO TO LOCAL STORAGE.
                   </div>
                 </div>
               )}
-              <div className="p-6 md:p-10">
+              <div className="p-6 md:p-10 text-left">
                 <MarkdownBrief content={brief.brief} />
               </div>
             </article>
- 
+
+            <AIAgentToolExplorer toolCalls={brief.toolCalls} />
+
             {/* Footer Tip */}
-            <div className="text-center py-12">
-              <p className="text-zinc-500 text-xs">Reports are generated in real-time. Verify critical data independently.</p>
+            <div className="text-center py-8">
+              <p className="text-zinc-650 text-xs font-mono">&gt; DECRYPTION COMPLETE. AUDIT COMPLIANCE STANDARDS APPLIED.</p>
             </div>
           </TracingBeam>
         </div>
       )}
- 
-      {/* Active Thinking State */}
+
+      {/* Active Thinking State (Console Terminal Logger) */}
       {loading && (
-        <div className="animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-2xl bg-zinc-950/40 border border-zinc-800/80 backdrop-blur-md duration-500 relative min-h-[16rem] flex flex-col justify-center shadow-xl">
-          <div className="h-0.5 bg-zinc-900 w-full absolute top-0 left-0">
-            <div className="h-full bg-zinc-200 animate-progress-fast" />
+        <div className="animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-xl bg-zinc-950 border border-cyan-500/15 backdrop-blur-md duration-500 relative min-h-[18rem] flex flex-col justify-between shadow-2xl shadow-cyan-500/5 corner-decor">
+          <div className="border-b border-cyan-500/15 bg-zinc-900/50 px-4 py-2 flex items-center justify-between text-cyan-400/80 font-mono text-xs">
+            <span className="flex items-center gap-2"><Terminal className="w-3.5 h-3.5" /> AEGIS SECURE CONSOLE LOGS</span>
+            <span className="text-zinc-550 flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> PROCESS: ACTIVE</span>
           </div>
-          <div className="p-12 flex flex-col items-center justify-center space-y-6 relative z-10">
-            <div className="relative">
-              <div className="w-12 h-12 rounded-full border-2 border-zinc-800 border-t-zinc-200 animate-spin" />
+
+          <div className="p-6 flex-1 flex flex-col justify-start space-y-2 font-mono text-xs text-left overflow-y-auto">
+            {simulatedLogs.map((log, index) => (
+              <div key={index} className="text-cyan-400/90 tracking-wide font-light">
+                {log}
+              </div>
+            ))}
+            <div className="text-white font-bold flex items-center gap-1 animate-pulse">
+              <span>&gt; PROCESSING DEFI MATRIX</span>
+              <span className="h-3 w-1.5 bg-white inline-block animate-caret" />
             </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-bold leading-none tracking-tight text-white">{statusMsg}</h3>
-              <p className="text-zinc-500 text-xs font-medium">Aegis is processing high-dimensional data flows...</p>
-            </div>
+          </div>
+          
+          <div className="border-t border-cyan-500/10 p-3 bg-cyan-950/5 text-center">
+            <p className="text-[10px] uppercase font-orbitron font-bold tracking-widest text-cyan-500/60">SCANNING HIGH-DIMENSIONAL DATA PIPELINES</p>
           </div>
         </div>
       )}
 
       {/* Error State */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-start gap-3">
-          <span className="mt-0.5">⚠️</span>
-          <p className="flex-1 font-medium">{error}</p>
+        <div className="p-4 rounded-xs bg-rose-500/5 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-3 font-mono text-left">
+          <span className="mt-0.5">⚠️ ERROR DETECTED:</span>
+          <p className="flex-1 font-semibold">{error}</p>
         </div>
       )}
 
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 shadow-xl backdrop-blur-md md:p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      {/* Catalog Section */}
+      <section className="rounded-xl border border-zinc-850 bg-zinc-950/30 p-5 shadow-xl backdrop-blur-md md:p-6 text-left relative">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <div className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">
-              Live protocol catalog
+            <div className="inline-flex items-center rounded-xs border border-cyan-500/15 bg-cyan-500/5 px-3 py-0.5 text-[10px] font-orbitron font-bold uppercase tracking-widest text-cyan-400">
+              TARGET DATABASE INDEX
             </div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">
-              {supportedProtocols.length} supported protocols with active TVL
+            <h2 className="text-2xl font-orbitron font-black text-white uppercase tracking-wider">
+              {supportedProtocols.length} verified network protocols
             </h2>
-            <p className="max-w-2xl text-sm text-zinc-350">
-              These are the live protocols pulled from DeFiLlama for the currently selected chain, filtered to remove zero-TVL entries so the catalog stays useful and faster to scan.
+            <p className="max-w-2xl text-xs text-zinc-400 leading-relaxed font-medium">
+              Live catalog derived from active chain telemetry. Displaying active protocols sorted by liquidity scale (TVL).
             </p>
           </div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Feed status</p>
-            <p className="mt-1 font-semibold text-zinc-350">
-              {protocolsLoading ? 'Refreshing live catalog...' : 'Live and ready'}
+          <div className="rounded-xs border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs text-zinc-400 font-mono">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-550">Node Sync</p>
+            <p className="mt-0.5 font-semibold text-cyan-400">
+              {protocolsLoading ? 'REFRESHING DATABASE...' : 'INTELLIGENCE SYNCHRONIZED'}
             </p>
           </div>
         </div>
 
-        <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-6 rounded-xs border border-zinc-850 bg-zinc-950/45 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Catalog search</p>
-              <p className="text-xs text-zinc-400">Search by name, slug, or category.</p>
+              <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-550">Filter parameters</p>
+              <p className="text-[10px] text-zinc-450">Narrow search by protocol labels or category flags.</p>
             </div>
-            <div className="text-xs font-semibold text-zinc-450">
-              {protocolsLoading ? 'Loading live feed...' : `${supportedProtocols.length} protocols available`}
+            <div className="text-[10px] font-mono font-semibold text-zinc-500">
+              {protocolsLoading ? 'Awaiting metrics...' : `${supportedProtocols.length} entries matching filters`}
             </div>
           </div>
-          <div className="mt-3">
+          <div>
             <Input
               type="search"
               value={protocolSearch}
               onChange={(e) => setProtocolSearch(e.target.value)}
-              placeholder="Search protocols..."
-              className="h-11 w-full bg-zinc-950/80 focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800"
+              placeholder="Search database (e.g. jito, aave, kamino)..."
+              className="h-10 w-full bg-zinc-950 border-zinc-850 focus:border-cyan-500/40 text-xs font-mono"
             />
           </div>
         </div>
 
-        <div className="mt-5 max-h-[28rem] overflow-auto rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-400">
+        <div className="mt-6 max-h-[28rem] overflow-auto rounded-xs border border-zinc-850 bg-zinc-950/20 p-4 scrollbar-thin">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1 text-[10px] font-mono text-zinc-500">
             <span>
-              Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length}
-              {' '}
-              matched protocols
+              DISPLAYING {Math.min(visibleProtocols, filteredProtocols.length)} OF {filteredProtocols.length} REGISTERED TARGETS
             </span>
             {deferredProtocolSearch && (
               <button
                 type="button"
                 onClick={() => setProtocolSearch('')}
-                className="font-semibold text-zinc-450 hover:text-zinc-200"
+                className="font-bold text-cyan-400 hover:text-white"
               >
-                Clear search
+                CLEAR FILTER
               </button>
             )}
           </div>
@@ -404,57 +440,64 @@ function ResearchContent() {
                 key={protocol.slug}
                 type="button"
                 onClick={() => {
-                  runResearch(protocol.slug);
+                  void runResearch(protocol.slug);
                 }}
-                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-950/20 px-3.5 py-2.5 text-left transition hover:border-zinc-700 hover:bg-zinc-900/40"
+                className="flex items-center justify-between gap-3 rounded-xs border border-zinc-850 bg-zinc-950/60 px-4 py-3 text-left transition hover:border-cyan-500/30 hover:bg-zinc-950 hover:shadow-[0_0_12px_rgba(6,182,212,0.03)] cursor-pointer group"
                 style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
                 disabled={loading}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-zinc-100">{protocol.label}</p>
-                  <p className="truncate text-[11px] text-zinc-500">{protocol.category}</p>
+                  <p className="truncate text-xs font-orbitron font-bold tracking-wider text-white group-hover:text-cyan-400 transition-colors uppercase">{protocol.label}</p>
+                  <span className={`inline-block mt-1.5 rounded-xs px-2 py-0.5 text-[8px] font-mono uppercase tracking-wider border ${getCategoryTone(protocol.category)}`}>
+                    {protocol.category}
+                  </span>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">TVL</p>
-                  <p className="text-xs text-zinc-300">{protocol.tvl}</p>
+                <div className="shrink-0 text-right font-mono">
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-550">TVL</p>
+                  <p className="text-xs text-white font-semibold">{protocol.tvl}</p>
                 </div>
               </button>
             ))}
             {filteredProtocols.length === 0 && (
-                <div className="rounded-xl border border-dashed border-zinc-850 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-400 sm:col-span-2 xl:col-span-3">
-                No protocols matched your search.
+              <div className="rounded-xs border border-dashed border-zinc-850 bg-zinc-950/40 px-4 py-8 text-center text-xs text-zinc-550 font-mono sm:col-span-2 xl:col-span-3">
+                &gt; Query yielded 0 matches. Target parameters unrecognized.
               </div>
             )}
           </div>
           {filteredProtocols.length > visibleProtocols && (
-            <div className="mt-3 flex justify-center">
+            <div className="mt-4 flex justify-center">
               <Button
                 type="button"
                 onClick={() => setVisibleProtocols((current) => Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length))}
                 variant="outline"
                 size="sm"
+                className="font-orbitron font-bold border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white rounded-xs uppercase tracking-wider text-xs"
               >
-                Load more
+                Load Next Page
               </Button>
             </div>
           )}
         </div>
       </section>
 
-    <style jsx global>{`
-      .glass-card {
-         backdrop-filter: blur(20px);
-      }
-      @keyframes progress-fast {
-        0% { width: 0%; left: 0; }
-        40% { width: 70%; left: 0; }
-        100% { width: 0%; left: 100%; }
-      }
-      .animate-progress-fast {
-        animation: progress-fast 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        position: absolute;
-      }
-    `}</style>
+      <style jsx global>{`
+        @keyframes progress-fast {
+          0% { width: 0%; left: 0; }
+          40% { width: 70%; left: 0; }
+          100% { width: 0%; left: 100%; }
+        }
+        .animate-progress-fast {
+          animation: progress-fast 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          position: absolute;
+        }
+        @keyframes caret {
+          0%, 100% { opacity: 0; }
+          50% { opacity: 1; }
+        }
+        .animate-caret {
+          animation: caret 1s step-end infinite;
+        }
+      `}</style>
     </div>
   );
 }
@@ -464,60 +507,60 @@ import remarkGfm from 'remark-gfm';
 
 function MarkdownBrief({ content }: { content: string }) {
   return (
-    <div className="prose prose-invert max-w-none">
+    <div className="prose prose-invert max-w-none font-sans text-sm">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="text-4xl font-extrabold text-white mt-12 mb-6 tracking-tighter capitalize pb-4">
-              {children}
+            <h1 className="text-xl font-orbitron font-black text-white mt-8 mb-4 tracking-wider uppercase border-b border-cyan-500/10 pb-2 flex items-center gap-2">
+              <span className="h-1.5 w-1.5 bg-cyan-400 rounded-full" /> {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-2xl font-extrabold text-white mt-10 mb-4 tracking-tight">
+            <h2 className="text-base font-orbitron font-bold text-cyan-400 mt-6 mb-3 tracking-wider uppercase border-l border-cyan-500/30 pl-2">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="mt-8 mb-2 pl-1 text-xl font-bold text-white">
+            <h3 className="mt-5 mb-1.5 font-bold text-white text-xs font-mono uppercase tracking-wider text-zinc-150">
               {children}
             </h3>
           ),
           p: ({ children }) => (
-            <p className="mb-4 text-base leading-7 tracking-wide text-zinc-300 md:text-[1.02rem]">
+            <p className="mb-4 text-xs sm:text-sm leading-relaxed text-zinc-300 font-medium">
               {children}
             </p>
           ),
           ul: ({ children }) => (
-            <ul className="mb-7 space-y-3">
+            <ul className="mb-6 space-y-2.5 font-sans">
               {children}
             </ul>
           ),
           li: ({ children }) => (
-            <li className="group ml-1 flex items-start gap-3 wrap-break-word text-zinc-300 [&>p]:mb-0 [&_code]:break-all">
-              <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-650 transition-transform group-hover:scale-125" />
-              <div className="min-w-0 leading-7">{children}</div>
+            <li className="group ml-1 flex items-start gap-2 text-zinc-300 text-xs sm:text-sm">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-cyan-500/50 border border-cyan-500/70" />
+              <div className="min-w-0 leading-relaxed font-medium">{children}</div>
             </li>
           ),
           table: ({ children }) => (
-            <div className="overflow-x-auto my-8 rounded-xl bg-zinc-950/40">
-              <table className="w-full text-sm text-left">
+            <div className="overflow-x-auto my-6 rounded-xs bg-zinc-950 border border-zinc-850 shadow-inner">
+              <table className="w-full text-xs text-left border-collapse font-mono">
                 {children}
               </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-zinc-900/70 text-zinc-500 uppercase text-[10px] font-bold tracking-widest">
+            <thead className="bg-zinc-900 border-b border-zinc-800 text-zinc-400 uppercase text-[9px] font-bold tracking-widest">
               {children}
             </thead>
           ),
           th: ({ children }) => (
-            <th className="px-6 py-4 font-bold">
+            <th className="px-5 py-3 font-bold text-cyan-400">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="px-6 py-4 text-zinc-300 font-medium">
+            <td className="px-5 py-3 text-zinc-300 border-b border-zinc-900">
               {children}
             </td>
           ),
@@ -527,7 +570,7 @@ function MarkdownBrief({ content }: { content: string }) {
             </strong>
           ),
           code: ({ children }) => (
-            <code className="rounded bg-zinc-850 px-1.5 py-0.5 font-mono text-sm text-zinc-200">
+            <code className="rounded-xs bg-cyan-950/20 border border-cyan-500/15 px-1.5 py-0.5 font-mono text-[11px] text-cyan-300 font-bold">
               {children}
             </code>
           ),
@@ -539,4 +582,86 @@ function MarkdownBrief({ content }: { content: string }) {
   );
 }
 
+interface ToolCallItem {
+  tool: string;
+  input: Record<string, any>;
+  output: any;
+  durationMs?: number;
+}
 
+function AIAgentToolExplorer({ toolCalls }: { toolCalls?: ToolCallItem[] }) {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+  if (!toolCalls || toolCalls.length === 0) return null;
+
+  return (
+    <div className="mt-8 rounded-xl bg-zinc-950/60 border border-cyan-500/10 p-5 backdrop-blur-md corner-decor text-left shadow-2xl">
+      <div className="border-b border-cyan-500/10 pb-3 mb-4 flex justify-between items-center">
+        <div>
+          <h3 className="font-orbitron font-black text-sm uppercase tracking-wider text-white flex items-center gap-2 select-none">
+            <Cpu className="w-4 h-4 text-cyan-400" /> AI AGENT AUDIT TELEMETRY LOGS
+          </h3>
+          <p className="text-[10px] text-zinc-550 font-mono mt-0.5">&gt; Sequenced register of tool invocations during research synthesis.</p>
+        </div>
+        <Badge variant="accent" className="bg-cyan-950/20 text-cyan-400 border-cyan-500/20 font-mono text-[9px] uppercase tracking-wider">
+          {toolCalls.length} CALLS REGISTERED
+        </Badge>
+      </div>
+
+      <div className="space-y-3 font-mono text-xs">
+        {toolCalls.map((tc, idx) => {
+          const isExpanded = expandedIndex === idx;
+          const duration = tc.durationMs ? `${tc.durationMs}ms` : 'N/A';
+          return (
+            <div key={idx} className="rounded-xs border border-zinc-900 bg-zinc-950/40 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setExpandedIndex(isExpanded ? null : idx)}
+                className="w-full flex items-center justify-between p-3.5 hover:bg-zinc-900/40 text-left transition-all duration-200"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-xs bg-cyan-950/40 border border-cyan-500/20 text-cyan-400">
+                    {tc.tool.includes('defillama') ? <Database className="w-3 h-3" /> : <Terminal className="w-3 h-3" />}
+                  </span>
+                  <div>
+                    <span className="font-bold text-white uppercase text-xs tracking-wider">{tc.tool}</span>
+                    <span className="text-[9px] text-zinc-550 block mt-0.5 uppercase tracking-widest">
+                      status: active • latency: {duration}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-bold text-emerald-450 uppercase tracking-widest flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> ok
+                  </span>
+                  {isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-zinc-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-zinc-500" />
+                  )}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="p-4 border-t border-zinc-900 bg-zinc-950 space-y-3 animate-in slide-in-from-top-1 duration-200">
+                  <div className="space-y-1.5">
+                    <p className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">INPUT ARTIFACT PARAMETERS</p>
+                    <pre className="p-3 rounded-xs border border-zinc-900 bg-zinc-950 text-cyan-400/90 overflow-x-auto text-[10.5px] max-h-40 leading-relaxed scrollbar-thin select-all">
+                      {JSON.stringify(tc.input, null, 2)}
+                    </pre>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">OUTPUT CONSOLE DECRYPTION</p>
+                    <pre className="p-3 rounded-xs border border-zinc-900 bg-zinc-950 text-zinc-300 overflow-x-auto text-[10.5px] max-h-72 leading-relaxed scrollbar-thin select-all">
+                      {typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

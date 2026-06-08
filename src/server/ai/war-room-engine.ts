@@ -16,7 +16,6 @@ import {
     ORACLE_DELAY_MIN_MULT,
     SMART_CONTRACT_BASE_MULT,
     LIQUIDITY_SLIPPAGE_MULT,
-    LIQUIDATION_PROB_MULT,
     ACTIONS,
     DEFAULT_CONFIDENCES,
 } from '@/shared/config/war-room-config'

@@ -43,65 +43,62 @@ export function Sparkles({
     })
     resizeObserver.observe(canvas)
 
-    // Particle representation
-    class Particle {
-      x: number = 0
-      y: number = 0
-      size: number = 0
-      speedX: number = 0
-      speedY: number = 0
-      opacity: number = 0
-      fadeSpeed: number = 0
+    interface Particle {
+      x: number
+      y: number
+      size: number
+      speedX: number
+      speedY: number
+      opacity: number
+      fadeSpeed: number
+    }
 
-      constructor() {
-        this.reset()
-      }
-
-      reset() {
-        this.x = Math.random() * width
-        this.y = Math.random() * height
-        this.size = Math.random() * (maxSize - minSize) + minSize
-        this.speedX = (Math.random() - 0.5) * 0.15
-        this.speedY = (Math.random() - 0.5) * 0.15
-        this.opacity = Math.random() * 0.5 + 0.1
-        this.fadeSpeed = (Math.random() * 0.005 + 0.002) * (Math.random() > 0.5 ? 1 : -1)
-      }
-
-      update() {
-        this.x += this.speedX
-        this.y += this.speedY
-        this.opacity += this.fadeSpeed
-
-        if (this.opacity <= 0.05 || this.opacity >= 0.8) {
-          this.fadeSpeed = -this.fadeSpeed
-        }
-
-        // Boundary wrap
-        if (this.x < 0) this.x = width
-        if (this.x > width) this.x = 0
-        if (this.y < 0) this.y = height
-        if (this.y > height) this.y = 0
-      }
-
-      draw() {
-        if (!ctx) return
-        ctx.save()
-        ctx.globalAlpha = Math.max(0, Math.min(1, this.opacity))
-        ctx.fillStyle = particleColor
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.restore()
+    const createParticle = (): Particle => {
+      return {
+        x: Math.random() * width,
+        y: Math.random() * height,
+        size: Math.random() * (maxSize - minSize) + minSize,
+        speedX: (Math.random() - 0.5) * 0.15,
+        speedY: (Math.random() - 0.5) * 0.15,
+        opacity: Math.random() * 0.5 + 0.1,
+        fadeSpeed: (Math.random() * 0.005 + 0.002) * (Math.random() > 0.5 ? 1 : -1),
       }
     }
 
-    const particles: Particle[] = Array.from({ length: particleDensity }).map(() => new Particle())
+    const updateParticle = (p: Particle) => {
+      p.x += p.speedX
+      p.y += p.speedY
+      p.opacity += p.fadeSpeed
+
+      if (p.opacity <= 0.05 || p.opacity >= 0.8) {
+        p.fadeSpeed = -p.fadeSpeed
+      }
+
+      // Boundary wrap
+      if (p.x < 0) p.x = width
+      if (p.x > width) p.x = 0
+      if (p.y < 0) p.y = height
+      if (p.y > height) p.y = 0
+    }
+
+    const drawParticle = (p: Particle) => {
+      if (!ctx) return
+      ctx.save()
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.opacity))
+      ctx.fillStyle = particleColor
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
+
+    const particles: Particle[] = Array.from({ length: particleDensity }).map(createParticle)
 
     const animate = () => {
       ctx.clearRect(0, 0, width, height)
       particles.forEach((particle) => {
-        particle.update()
-        particle.draw()
+        updateParticle(particle)
+        drawParticle(particle)
       })
       animationFrameId = requestAnimationFrame(animate)
     }

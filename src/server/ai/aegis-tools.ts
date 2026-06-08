@@ -164,8 +164,18 @@ async function getCoinGeckoMarket(geckoId: string) {
     marketCap: asNumber(entry.usd_market_cap),
   };
 }
+interface CoinGeckoContractMarket {
+  source: string;
+  price: number | null;
+  priceChange24h: number | null;
+  volume24h: number | null;
+  marketCap: number | null;
+  geckoId?: string;
+  symbol?: string;
+  name?: string;
+}
 
-async function getCoinGeckoMarketByContract(address: string, chainType: string): Promise<any> {
+async function getCoinGeckoMarketByContract(address: string, chainType: string): Promise<CoinGeckoContractMarket | null> {
   let platform = 'ethereum';
   const normChain = chainType.toLowerCase();
   if (normChain === 'solana') platform = 'solana';

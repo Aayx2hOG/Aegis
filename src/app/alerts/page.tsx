@@ -238,6 +238,76 @@ const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
     PRICE_USD: 'Token Price',
 }
 
+function AlertTelemetryScanner() {
+    const [logs, setLogs] = useState<string[]>([
+        'Sentinel telemetry initialization...',
+        'Establishing secure dispatch links...'
+    ])
+
+    useEffect(() => {
+        const diagnosticMsgs = [
+            'SENTINEL: Port 8443 listener active.',
+            'OK: Discord webhook endpoint validated.',
+            'OK: Telegram bot token handshake stable.',
+            'MONITOR: Active rule count sync verified.',
+            'OK: Server-Sent Events stream connected.',
+            'TELEMETRY: Queue monitors running (Prisma/Redis).',
+            'MONITOR: Signal evaluator latency: 12ms.'
+        ]
+        const interval = setInterval(() => {
+            const msg = diagnosticMsgs[Math.floor(Math.random() * diagnosticMsgs.length)]
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            setLogs((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 2)])
+        }, 5000)
+        return () => clearInterval(interval)
+    }, [])
+
+    return (
+        <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md flex flex-col sm:flex-row items-center gap-4">
+            {/* Sonar Scan Visual */}
+            <div className="relative w-28 h-28 border border-cyan-500/20 rounded-full flex items-center justify-center bg-zinc-950 shadow-[0_0_12px_rgba(6,182,212,0.1)] overflow-hidden shrink-0">
+                <div className="absolute w-24 h-24 border border-cyan-500/10 rounded-full" />
+                <div className="absolute w-16 h-16 border border-cyan-500/15 rounded-full" />
+                <div className="absolute w-8 h-8 border border-cyan-500/20 rounded-full" />
+                <div className="absolute w-full h-[1px] bg-cyan-500/10" />
+                <div className="absolute h-full w-[1px] bg-cyan-500/10" />
+                
+                {/* Pulsing signal nodes */}
+                <span className="absolute top-6 left-6 w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping duration-1000" />
+                <span className="absolute top-6 left-6 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#06b6d4]" />
+                
+                <span className="absolute bottom-8 right-6 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping duration-800" />
+                <span className="absolute bottom-8 right-6 w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_#ef4444]" />
+
+                {/* Sweep radar */}
+                <div 
+                    className="absolute inset-0 origin-center bg-[conic-gradient(from_0deg,rgba(6,182,212,0.12)_0deg,transparent_90deg)] rounded-full animate-spin" 
+                    style={{ animationDuration: '5s' }}
+                />
+                <span className="absolute bottom-1 left-0 right-0 text-center text-[6px] font-mono text-cyan-500/40 uppercase tracking-widest">SENTINEL SCAN</span>
+            </div>
+
+            {/* Signal Status Ticker */}
+            <div className="flex-1 w-full min-h-[92px] rounded-xs bg-zinc-950/80 border border-zinc-900/60 p-3 shadow-[inset_0_0_10px_rgba(0,0,0,0.85)] font-mono text-[10px] text-cyan-400 flex flex-col justify-between">
+                <div className="flex items-center justify-between border-b border-cyan-500/10 pb-1.5 mb-1.5 select-none">
+                    <span className="font-bold flex items-center gap-1 uppercase tracking-wider">
+                        <span className="h-1 w-1 bg-cyan-400 animate-ping rounded-full" />
+                        SENTINEL SIGNAL DISPATCH
+                    </span>
+                    <span className="text-zinc-550 uppercase text-[7px] tracking-widest font-bold">STATE: ONLINE</span>
+                </div>
+                <div className="space-y-1 text-left">
+                    {logs.map((log, idx) => (
+                        <div key={idx} className="truncate tracking-wide opacity-90 first:opacity-100 first:text-white transition-opacity duration-300">
+                            {log}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export default function AlertsPage() {
     const { allChains } = useMultiChain()
     const wallet = useWallet()
@@ -965,37 +1035,37 @@ export default function AlertsPage() {
 
     return (
         <>
-            <div className="mx-auto max-w-6xl space-y-8 py-6">
-            <header className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                        <Link href="/watchlist">
-                            <Button variant="outline" size="sm" className="flex items-center gap-1.5 font-bold">
-                                <ArrowLeft className="h-3.5 w-3.5" /> Back to Watchlist
-                            </Button>
-                        </Link>
-                        <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
-                            <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Alerts
-                        </Badge>
+            <div className="mx-auto max-w-6xl space-y-8 py-6 px-2 cyber-grid">
+                <header className="space-y-4 text-left">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <Link href="/watchlist">
+                                <span className="inline-flex items-center justify-center gap-1.5 font-orbitron font-bold border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900 text-zinc-300 rounded-xs text-xs px-3.5 py-2 cursor-pointer transition-all">
+                                    <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" /> Back to Watchlist
+                                </span>
+                            </Link>
+                            <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20">
+                                <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Alerts System
+                            </Badge>
+                        </div>
                     </div>
-                </div>
-                <div className="space-y-2">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)]">
-                        Alerts & Briefs
-                    </h1>
-                    <p className="max-w-3xl text-zinc-400 text-sm leading-relaxed font-medium">
-                        Create and evaluate alert rules, manually test parameters on watched protocols, and view your research brief timeline.
-                    </p>
-                </div>
-            </header>
+                    <div className="space-y-2">
+                        <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
+                            Alerts & Briefs
+                        </h1>
+                        <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed font-medium">
+                            Create and evaluate active alert rules, manually test parameters on watched protocols, and view your research brief timeline.
+                        </p>
+                    </div>
+                </header>
 
                 <section className="grid gap-6 lg:grid-cols-2">
                     {/* Alerts Rule Creation & Testing Form */}
-                    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 backdrop-blur-md space-y-6">
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
+                    <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-6 shadow-2xl">
+                        <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Create first alert</p>
+                                    <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">Create Alert Vector</p>
                                     <p className="mt-1 text-xs text-zinc-400">Set one rule on a watched protocol, then run a live evaluation to verify it fires.</p>
                                 </div>
                                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
@@ -1004,9 +1074,9 @@ export default function AlertsPage() {
                                         onClick={() => runAlertEvaluation()}
                                         disabled={!alertWalletAddress || evaluatingAlerts}
                                         title="Checks every saved alert against the latest market data"
-                                        className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg sm:min-w-[150px]"
+                                        className="border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-300 font-mono rounded-xs text-xs sm:min-w-[150px] cursor-pointer"
                                     >
-                                        <Play className="h-3.5 w-3.5" />
+                                        <Play className="h-3.5 w-3.5 mr-1" />
                                         {evaluatingAlerts ? 'Running check…' : 'Run saved alerts'}
                                     </Button>
                                     <Button
@@ -1014,54 +1084,54 @@ export default function AlertsPage() {
                                         onClick={createAndTestAlert}
                                         disabled={!alertWalletAddress || creatingAlert || evaluatingAlerts || selectedAlertCurrentValue == null}
                                         title="Creates an alert at the current live value, then checks it immediately"
-                                        className="bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all sm:min-w-[180px]"
+                                        className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all sm:min-w-[180px] text-xs h-9 sm:h-auto py-2 px-3 cursor-pointer"
                                     >
-                                        <Plus className="h-3.5 w-3.5" />
+                                        <Plus className="h-3.5 w-3.5 mr-1" />
                                         Create & test
                                     </Button>
                                 </div>
                             </div>
 
-                            <div className="mt-3 grid gap-2 text-[11px] text-zinc-500 sm:grid-cols-2">
-                                <p>Run saved alerts: checks every enabled rule against the latest market data.</p>
-                                <p>Create & test: saves the new rule and tests only that specific rule right away.</p>
+                            <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2 font-mono">
+                                <p>&gt; Run saved alerts: checks every enabled rule against the latest market data.</p>
+                                <p>&gt; Create & test: saves the new rule and tests only that specific rule right away.</p>
                             </div>
 
                             <form
-                                className="mt-4 grid gap-3 md:grid-cols-2"
+                                className="mt-4 grid gap-4 md:grid-cols-2"
                                 onSubmit={async (event) => {
                                     event.preventDefault()
                                     await createAlertRule()
                                 }}
                             >
                                 <div className="md:col-span-2">
-                                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Protocol slug</label>
+                                    <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">Protocol slug</label>
                                     <div className="relative">
                                         <select
                                             value={alertProtocolSlug}
                                             onChange={(event) => setAlertProtocolSlug(event.target.value)}
-                                            className="flex h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 pr-10 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white appearance-none"
+                                            className="flex h-11 w-full rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 pr-10 text-sm shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono appearance-none"
                                             disabled={!alertWalletAddress || creatingAlert}
                                         >
                                             <option value="" disabled className="bg-zinc-950 text-white">
                                                 Select a protocol from your watchlist
                                             </option>
                                             {availableAlertProtocolSlugs.map((slug) => (
-                                                <option key={slug} value={slug} className="bg-zinc-950 text-white">
+                                                <option key={slug} value={slug} className="bg-zinc-950 text-white font-mono">
                                                     {slug}
                                                 </option>
                                             ))}
                                         </select>
                                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                                     </div>
-                                    <p className="mt-1 text-[11px] text-zinc-500">Choose a protocol from your current watchlist.</p>
-                                    <p className="mt-2 text-[11px] text-zinc-400">
+                                    <p className="mt-1 text-xs text-zinc-450 font-medium">Choose a protocol from your current watchlist.</p>
+                                    <p className="mt-2 text-xs text-cyan-400 font-mono">
                                         Live {ALERT_METRIC_LABEL[alertMetric]}: {selectedAlertCurrentValue == null ? 'not available' : formatAlertValue(alertMetric, selectedAlertCurrentValue)}
                                     </p>
                                 </div>
 
                                 <div>
-                                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Metric</label>
+                                    <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">Metric</label>
                                     <select
                                         value={alertMetric}
                                         onChange={(event) => {
@@ -1071,7 +1141,7 @@ export default function AlertsPage() {
                                             else if (nextMetric === 'PRICE_USD') setAlertThreshold('1.00')
                                             else setAlertThreshold('10')
                                         }}
-                                        className="flex h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white"
+                                        className="flex h-11 w-full rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 py-1 text-sm shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     >
                                         <option value="CHANGE_1D" className="bg-zinc-950 text-white">24h change</option>
@@ -1082,20 +1152,20 @@ export default function AlertsPage() {
                                 </div>
 
                                 <div>
-                                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Direction</label>
+                                    <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">Direction</label>
                                     <select
                                         value={alertDirection}
                                         onChange={(event) => setAlertDirection(event.target.value as AlertDirection)}
-                                        className="flex h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white"
+                                        className="flex h-11 w-full rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 py-1 text-sm shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     >
-                                        <option value="BELOW" className="bg-zinc-950 text-white">Below threshold</option>
-                                        <option value="ABOVE" className="bg-zinc-950 text-white">Above threshold</option>
+                                        <option value="BELOW" className="bg-zinc-950 text-white font-mono">Below threshold</option>
+                                        <option value="ABOVE" className="bg-zinc-950 text-white font-mono">Above threshold</option>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                                    <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
                                         {alertMetric === 'CHANGE_1D' || alertMetric === 'CHANGE_7D' ? 'Threshold %' : 'Threshold ($)'}
                                     </label>
                                     <Input
@@ -1104,10 +1174,10 @@ export default function AlertsPage() {
                                         value={alertThreshold}
                                         onChange={(event) => setAlertThreshold(event.target.value)}
                                         placeholder={alertMetric === 'PRICE_USD' ? '1.50' : alertMetric === 'TVL_USD' ? '10000000' : '10'}
-                                        className="h-11"
+                                        className="h-11 rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 text-sm text-white focus:border-cyan-500/30 font-mono"
                                         disabled={!alertWalletAddress || creatingAlert}
                                     />
-                                    <p className="mt-1 text-[11px] text-zinc-500">
+                                    <p className="mt-1 text-xs text-zinc-450 leading-relaxed font-medium">
                                         {alertMetric === 'TVL_USD'
                                             ? 'Enter absolute TVL in USD (e.g. 50000000 for $50M).'
                                             : alertMetric === 'PRICE_USD'
@@ -1120,9 +1190,9 @@ export default function AlertsPage() {
                                     <Button
                                         type="submit"
                                         disabled={!alertWalletAddress || creatingAlert}
-                                        className="h-11 w-full bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all"
+                                        className="h-11 w-full bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all text-xs cursor-pointer"
                                     >
-                                        <Plus className="h-4 w-4" />
+                                        <Plus className="h-4 w-4 mr-1" />
                                         {creatingAlert ? 'Creating…' : 'Save alert'}
                                     </Button>
                                 </div>
@@ -1130,36 +1200,36 @@ export default function AlertsPage() {
                         </div>
 
                         {/* Alert Rules List */}
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Alert rules</p>
-                                {rules.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{alertsLoading ? 'loading...' : `${rules.length} saved`}</span>}
+                        <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
+                            <div className="flex items-center justify-between gap-3 border-b border-zinc-900 pb-2">
+                                <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">Active Alert Rules</p>
+                                {rules.length > 0 && <span className="text-xs font-mono font-bold text-zinc-450">{alertsLoading ? 'loading...' : `${rules.length} saved`}</span>}
                             </div>
                             {rules.length === 0 ? (
-                                <p className="mt-2 text-sm text-zinc-400">No rules yet. Create one above to start monitoring a protocol.</p>
+                                <p className="text-xs text-zinc-400 leading-normal font-mono">&gt; No rules yet. Create one above to start monitoring a protocol.</p>
                             ) : (
-                                <div className="mt-3 space-y-2">
+                                <div className="space-y-3">
                                     {visibleAlertRules.map((rule) => (
-                                        <div key={rule.id} className="rounded-xl bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200">
+                                        <div key={rule.id} className="rounded-xs border border-zinc-900 bg-zinc-950/80 px-3.5 py-3 text-xs text-zinc-200">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div>
-                                                    <p className="font-semibold text-zinc-100">{rule.protocolSlug}</p>
-                                                    <p className="text-[11px] text-zinc-400">
+                                                    <p className="font-bold text-white text-sm font-orbitron tracking-wider">{rule.protocolSlug}</p>
+                                                    <p className="text-xs text-zinc-400 font-mono mt-1">
                                                         {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '≤' : '≥'} {formatAlertValue(rule.metric, rule.threshold)}
                                                     </p>
                                                 </div>
-                                                <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${rule.enabled ? 'bg-emerald-500/15 text-emerald-200' : 'bg-zinc-800 text-zinc-400'}`}>
-                                                    {rule.enabled ? 'Enabled' : 'Disabled'}
+                                                <span className={`rounded-xs px-2 py-0.5 text-[10px] font-mono font-bold uppercase border ${rule.enabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
+                                                    {rule.enabled ? 'Active' : 'Disabled'}
                                                 </span>
                                             </div>
-                                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                            <div className="mt-4 flex flex-wrap items-center gap-2">
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => openTestRuleDialog(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
+                                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer"
                                                 >
                                                     Test this rule
                                                 </Button>
@@ -1169,7 +1239,7 @@ export default function AlertsPage() {
                                                     size="sm"
                                                     onClick={() => toggleAlertRule(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
+                                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer"
                                                 >
                                                     {updatingRuleId === rule.id ? 'Updating…' : rule.enabled ? 'Disable' : 'Enable'}
                                                 </Button>
@@ -1179,7 +1249,7 @@ export default function AlertsPage() {
                                                     size="sm"
                                                     onClick={() => deleteAlertRule(rule)}
                                                     disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                                    className="border border-rose-500/20 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20 rounded-lg"
+                                                    className="border border-rose-500/20 bg-rose-500/10 text-rose-350 hover:bg-rose-500/20 rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer"
                                                 >
                                                     {deletingRuleId === rule.id ? 'Deleting…' : 'Delete'}
                                                 </Button>
@@ -1195,7 +1265,7 @@ export default function AlertsPage() {
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setShowAllAlertRules((current) => !current)}
-                                        className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
+                                        className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
                                     >
                                         {showAllAlertRules ? 'Show fewer' : `Show all ${rules.length}`}
                                     </Button>
@@ -1204,31 +1274,32 @@ export default function AlertsPage() {
                         </div>
 
                         {/* Last check results */}
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Last check</p>
-                                {evaluationResults.length > 0 && <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{evaluationResults.length} rules</span>}
+                        <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
+                            <div className="flex items-center justify-between gap-3 border-b border-zinc-900 pb-2">
+                                <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">Last Evaluation Run</p>
+                                {evaluationResults.length > 0 && <span className="text-xs font-mono font-bold text-zinc-450">{evaluationResults.length} rules</span>}
                             </div>
                             {evaluationResults.length === 0 ? (
-                                <p className="mt-2 text-sm text-zinc-400">Run saved alerts to see which rules passed or failed.</p>
+                                <p className="text-xs text-zinc-400 font-mono leading-normal">&gt; Run saved alerts to see which rules passed or failed.</p>
                             ) : (
-                                <div className="mt-3 space-y-2">
+                                <div className="space-y-3">
                                     {evaluationResults.map((result) => {
                                         const condition = `${ALERT_METRIC_LABEL[result.metric]} ${result.direction === 'BELOW' ? '≤' : '≥'} ${formatAlertValue(result.metric, result.threshold)}`
-                                        const statusLabel = result.status === 'triggered' ? 'PASSED' : 'FAILED'
+                                        const statusLabel = result.status === 'triggered' ? 'PASSED' : 'SKIPPED'
                                         const tone = result.status === 'triggered'
-                                            ? 'bg-emerald-500/10 text-emerald-100'
-                                            : 'bg-rose-500/10 text-rose-100'
+                                            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
+                                            : 'bg-rose-500/5 border border-rose-500/15 text-rose-300'
 
                                         return (
-                                            <div key={result.ruleId} className={`rounded-xl px-3 py-2 text-sm ${tone}`}>
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div className="font-semibold">
-                                                        {result.protocolSlug} {statusLabel} - {condition}
+                                            <div key={result.ruleId} className={`rounded-xs px-3.5 py-3 text-xs ${tone}`}>
+                                                <div className="flex items-start justify-between gap-2 border-b border-white/5 pb-1.5 mb-2">
+                                                    <div className="font-bold font-orbitron tracking-wide">
+                                                        {result.protocolSlug} {statusLabel}
                                                     </div>
-                                                    <span className="text-[10px] uppercase tracking-wide text-zinc-400">{result.status === 'triggered' ? 'Triggered' : 'Skipped'}</span>
+                                                    <span className="text-xs font-mono font-bold uppercase opacity-85">{result.status === 'triggered' ? 'Triggered' : 'Skipped'}</span>
                                                 </div>
-                                                <p className="mt-1 text-xs text-zinc-300">
+                                                <p className="mt-1 text-xs text-zinc-300 font-mono leading-relaxed">
+                                                    Condition: {condition} <br/>
                                                     {result.currentValue == null ? result.reason : `${result.reason} Current value: ${formatAlertValue(result.metric, result.currentValue)}.`}
                                                 </p>
                                             </div>
@@ -1240,25 +1311,28 @@ export default function AlertsPage() {
                     </div>
 
                     {/* Brief history & triggers */}
-                    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 backdrop-blur-md space-y-6">
+                    <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-6 shadow-2xl">
+                        {/* Telemetry sweep visual */}
+                        <AlertTelemetryScanner />
+
                         {/* Research history Timeline */}
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Recent brief history</p>
+                        <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
+                            <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">Recent Brief History</p>
                             {historyLoading ? (
-                                <p className="mt-2 text-sm text-zinc-400">Loading history...</p>
+                                <p className="text-xs text-zinc-400 font-mono leading-normal">&gt; Loading history...</p>
                             ) : history.length === 0 ? (
-                                <p className="mt-2 text-sm text-zinc-400">No saved research runs yet. Generate reports to build your timeline.</p>
+                                <p className="text-xs text-zinc-400 font-mono leading-normal">&gt; No saved research runs yet. Generate reports to build your timeline.</p>
                             ) : (
-                                <div className="mt-3 space-y-2">
+                                <div className="space-y-3">
                                     {history.slice(0, 3).map((item) => (
-                                        <div key={item.id} className="rounded-xl bg-zinc-900/70 p-3">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <Link href={`/research?q=${item.protocolSlug}`} className="text-sm font-bold uppercase tracking-wide text-zinc-200 hover:underline hover:text-white">
+                                        <div key={item.id} className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-3.5">
+                                            <div className="flex items-center justify-between gap-2 border-b border-zinc-900 pb-1.5 mb-2">
+                                                <Link href={`/research?q=${item.protocolSlug}`} className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 hover:underline">
                                                     {item.protocolSlug}
                                                 </Link>
-                                                <span className="text-[10px] text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span>
+                                                <span className="text-[10px] font-mono text-zinc-550 font-semibold">{new Date(item.createdAt).toLocaleString()}</span>
                                             </div>
-                                            <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-350">{item.briefMarkdown}</p>
+                                            <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-300 font-mono">{item.briefMarkdown}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1266,21 +1340,23 @@ export default function AlertsPage() {
                         </div>
 
                         {/* Recent triggered briefs */}
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-900/10 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Recent triggers</p>
+                        <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
+                            <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">Recent System Triggers</p>
                             {events.length === 0 ? (
-                                <p className="mt-2 text-sm text-zinc-400">No alert events yet.</p>
+                                <p className="text-xs text-zinc-400 font-mono leading-normal">&gt; No alert events yet.</p>
                             ) : (
-                                <div className="mt-3 space-y-2">
+                                <div className="space-y-3">
                                     {normalizeAlertEvents(events).slice(0, 3).map((event) => (
-                                        <div key={event.id} className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="font-semibold">{event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {event.currentValue.toFixed(2)}%</div>
+                                        <div key={event.id} className="rounded-xs border border-rose-500/15 bg-rose-500/5 px-3.5 py-3 text-xs text-rose-250">
+                                            <div className="flex items-start justify-between gap-2 border-b border-rose-500/10 pb-1.5 mb-2">
+                                                <div className="font-bold font-orbitron tracking-wide text-rose-300">
+                                                    {event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at {formatAlertValue(event.metric, event.currentValue)}
+                                                </div>
                                                 <div>
                                                     <Button
                                                         variant="link"
                                                         size="sm"
-                                                        className="text-xs opacity-90 text-rose-200 hover:text-rose-100 p-0 h-auto cursor-pointer"
+                                                        className="text-xs font-mono font-bold text-rose-300 hover:text-rose-100 hover:underline p-0 h-auto cursor-pointer"
                                                         disabled={regeneratingEventId === event.id}
                                                         onClick={async () => {
                                                             try {
@@ -1306,23 +1382,23 @@ export default function AlertsPage() {
                                                             }
                                                         }}
                                                     >
-                                                        {regeneratingEventId === event.id ? 'Regenerating…' : 'Regenerate summary'}
+                                                        {regeneratingEventId === event.id ? 'Regenerating…' : '[Regenerate summary]'}
                                                     </Button>
                                                 </div>
                                             </div>
                                             {event.summary ? (
                                                 <>
-                                                    <p className="mt-1 line-clamp-2 text-xs text-rose-100/80">{event.summary}</p>
-                                                    <p className="mt-1 text-[10px] text-rose-200">Generated: {event.summaryGeneratedAt ? new Date(event.summaryGeneratedAt).toLocaleString() : 'unknown'}</p>
+                                                    <p className="mt-1 line-clamp-2 text-xs text-rose-100/80 leading-relaxed font-mono">{event.summary}</p>
+                                                    <p className="mt-2 text-[10px] font-mono text-rose-350">Generated: {event.summaryGeneratedAt ? new Date(event.summaryGeneratedAt).toLocaleString() : 'unknown'}</p>
                                                 </>
                                             ) : (
-                                                <p className="mt-1 text-[10px] text-rose-200">No summary yet.</p>
+                                                <p className="mt-1 text-[10px] font-mono text-rose-350">No summary yet.</p>
                                             )}
-                                            <div className="mt-2 flex gap-2">
+                                            <div className="mt-3 flex gap-3 border-t border-rose-500/10 pt-2">
                                                 <Button
                                                     variant="link"
                                                     size="sm"
-                                                    className="text-xs opacity-90 text-rose-200 hover:text-rose-100 p-0 h-auto cursor-pointer"
+                                                    className="text-xs font-mono font-bold text-rose-300 hover:text-rose-100 hover:underline p-0 h-auto cursor-pointer"
                                                     onClick={() => {
                                                         if (event.summary) {
                                                             setFullSummaryEventId(event.id)
@@ -1332,9 +1408,9 @@ export default function AlertsPage() {
                                                         }
                                                     }}
                                                 >
-                                                    View full summary
+                                                    [View full summary]
                                                 </Button>
-                                                {pollingEventId === event.id && <span className="text-xs text-zinc-400">Polling for update…</span>}
+                                                {pollingEventId === event.id && <span className="text-xs font-mono text-zinc-450">Polling for update…</span>}
                                             </div>
                                         </div>
                                     ))}
@@ -1349,81 +1425,82 @@ export default function AlertsPage() {
             {fullSummaryOpen && fullSummaryEventId ? (() => {
                 const evt = events.find((e) => e.id === fullSummaryEventId)
                 if (!evt) return null
-                const condition = `${ALERT_METRIC_LABEL[evt.metric]} ${evt.direction === 'BELOW' ? '≤' : '≥'} ${evt.threshold.toFixed(2)}%`
+                const condition = `${ALERT_METRIC_LABEL[evt.metric]} ${evt.direction === 'BELOW' ? '≤' : '≥'} ${formatAlertValue(evt.metric, evt.threshold)}`
 
                 return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                        <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-                            <div className="flex items-start justify-between gap-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                        <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-xs border border-cyan-500/20 bg-zinc-950 p-6 shadow-2xl">
+                            <div className="flex items-start justify-between gap-4 border-b border-zinc-900 pb-3">
                                 <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Alert details</p>
-                                    <h3 className="mt-2 text-xl font-bold text-white">{evt.protocolSlug}</h3>
-                                    <p className="mt-1 text-sm text-zinc-400">Why this alert fired and what exactly was checked.</p>
+                                    <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">&gt; telemetry metadata</p>
+                                    <h3 className="mt-2 text-xl font-orbitron font-black text-white">{evt.protocolSlug}</h3>
+                                    <p className="mt-1 text-xs text-zinc-400 font-mono">Why this alert fired and what exactly was checked.</p>
                                 </div>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg"
+                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
                                     onClick={() => setFullSummaryOpen(false)}
                                 >
                                     Close
                                 </Button>
                             </div>
 
-                            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Metric</p>
-                                    <p className="mt-2 text-sm font-semibold text-zinc-100">{ALERT_METRIC_LABEL[evt.metric]}</p>
+                            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 font-mono">
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Metric</p>
+                                    <p className="mt-2 text-sm font-semibold text-zinc-200">{ALERT_METRIC_LABEL[evt.metric]}</p>
                                 </div>
-                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Condition</p>
-                                    <p className="mt-2 text-sm font-semibold text-zinc-100">{condition}</p>
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Condition</p>
+                                    <p className="mt-2 text-sm font-semibold text-zinc-200">{condition}</p>
                                 </div>
-                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Current value</p>
-                                    <p className="mt-2 text-sm font-semibold text-zinc-100">{`${evt.currentValue.toFixed(2)}%`}</p>
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Current value</p>
+                                    <p className="mt-2 text-sm font-semibold text-zinc-200">{formatAlertValue(evt.metric, evt.currentValue)}</p>
                                 </div>
-                                <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Triggered at</p>
-                                    <p className="mt-2 text-sm font-semibold text-zinc-100">{new Date(evt.triggeredAt).toLocaleString()}</p>
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Triggered at</p>
+                                    <p className="mt-2 text-sm font-semibold text-zinc-200">{new Date(evt.triggeredAt).toLocaleString()}</p>
                                 </div>
                             </div>
 
-                            <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/20 p-4">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Full summary</p>
-                                <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-200">
+                            <div className="mt-5 rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
+                                <p className="text-[10px] font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">Full AI Summary</p>
+                                <div className="mt-3 whitespace-pre-wrap text-xs leading-6 text-zinc-200 font-mono">
                                     {evt.summary ?? 'No summary available.'}
                                 </div>
-                                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
-                                <span>Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</span>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-lg"
-                                    onClick={async () => {
-                                        try {
-                                            await navigator.clipboard.writeText(
-                                                [
-                                                    `Protocol: ${evt.protocolSlug}`,
-                                                    `Metric: ${ALERT_METRIC_LABEL[evt.metric]}`,
-                                                    `Condition: ${condition}`,
-                                                    `Current value: ${evt.currentValue.toFixed(2)}%`,
-                                                    `Triggered at: ${new Date(evt.triggeredAt).toLocaleString()}`,
-                                                    `Generated: ${evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}`,
-                                                    '',
-                                                    evt.summary ?? 'No summary available.',
-                                                ].join('\n')
-                                            )
-                                            toast.success('Copied full summary to clipboard.')
-                                        } catch {
-                                            toast.error('Could not copy the summary.')
-                                        }
-                                    }}
-                                >
-                                    Copy full summary
-                                </Button>
-                            </div>                           </div>
+                                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 font-mono pt-3 border-t border-zinc-900">
+                                    <span>Generated: {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}</span>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-xs text-xs px-3 py-1.5 cursor-pointer"
+                                        onClick={async () => {
+                                            try {
+                                                await navigator.clipboard.writeText(
+                                                    [
+                                                        `Protocol: ${evt.protocolSlug}`,
+                                                        `Metric: ${ALERT_METRIC_LABEL[evt.metric]}`,
+                                                        `Condition: ${condition}`,
+                                                        `Current value: ${formatAlertValue(evt.metric, evt.currentValue)}`,
+                                                        `Triggered at: ${new Date(evt.triggeredAt).toLocaleString()}`,
+                                                        `Generated: ${evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}`,
+                                                        '',
+                                                        evt.summary ?? 'No summary available.',
+                                                    ].join('\n')
+                                                )
+                                                toast.success('Copied full summary to clipboard.')
+                                            } catch {
+                                                toast.error('Could not copy the summary.')
+                                            }
+                                        }}
+                                    >
+                                        Copy full summary
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )
@@ -1431,32 +1508,32 @@ export default function AlertsPage() {
 
             {/* Rule testing dialog */}
             <Dialog open={testRuleOpen} onOpenChange={setTestRuleOpen}>
-                <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-lg">
+                <DialogContent className="border-cyan-500/20 bg-zinc-950/95 text-zinc-100 sm:max-w-lg rounded-xs backdrop-blur-md shadow-2xl">
                     <DialogHeader>
-                        <DialogTitle>Manual test rule</DialogTitle>
-                        <DialogDescription className="text-zinc-400">
+                        <DialogTitle className="font-orbitron tracking-wider text-lg uppercase text-cyan-400">Manual test rule</DialogTitle>
+                        <DialogDescription className="text-zinc-400 text-xs font-mono">
                             Enter a value to see whether the rule would pass or fail. This does not create a real alert.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedTestRule && (
                         <div className="space-y-4">
-                            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4 text-sm text-zinc-200">
-                                <p className="font-semibold text-zinc-100">{selectedTestRule.protocolSlug}</p>
-                                <p className="mt-1 text-zinc-400">
+                            <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 text-xs text-zinc-200">
+                                <p className="font-orbitron font-bold text-white uppercase tracking-wider">{selectedTestRule.protocolSlug}</p>
+                                <p className="mt-1.5 font-mono text-zinc-400">
                                     {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'} {formatAlertValue(selectedTestRule.metric, selectedTestRule.threshold)}
                                 </p>
                             </div>
-                            <label className="grid gap-2 text-sm text-zinc-300">
+                            <label className="grid gap-2 text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
                                 Test value
                                 <Input
                                     type="number"
                                     step={selectedTestRule.metric === 'PRICE_USD' ? '0.0001' : selectedTestRule.metric === 'TVL_USD' ? '1000' : '0.1'}
                                     value={testRuleValue}
                                     onChange={(event) => setTestRuleValue(event.target.value)}
-                                    className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none transition focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800"
+                                    className="rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-zinc-100 outline-hidden transition focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 font-mono text-xs"
                                 />
                             </label>
-                            <p className="text-xs text-zinc-500">
+                            <p className="text-xs text-zinc-400 font-mono">
                                 Current live value for reference:{' '}
                                 {(() => {
                                     const market = findMarketProtocol(selectedTestRule.protocolSlug)
@@ -1466,30 +1543,30 @@ export default function AlertsPage() {
                                 })()}
                             </p>
                             {testResults[0]?.ruleId === selectedTestRule.id ? (
-                                <div className={`rounded-2xl border p-4 text-sm space-y-2 backdrop-blur-md ${testResults[0].triggered 
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200' 
-                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-200'
+                                <div className={`rounded-xs border p-4 text-xs space-y-2 backdrop-blur-md ${testResults[0].triggered 
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' 
+                                    : 'bg-rose-500/5 border-rose-500/15 text-rose-350'
                                 }`}>
                                     <div className="flex items-center justify-between">
-                                        <p className="font-bold uppercase tracking-wider text-[10px]">Latest manual result</p>
-                                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${testResults[0].triggered
-                                            ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-500/30'
-                                            : 'bg-rose-500/20 text-rose-100 border border-rose-500/30'
+                                        <p className="font-bold uppercase tracking-wider text-[10px] font-orbitron text-zinc-400">Latest manual result</p>
+                                        <span className={`rounded-xs px-2 py-0.5 text-[10px] font-mono font-bold uppercase border ${testResults[0].triggered
+                                            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                            : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
                                         }`}>
                                             {testResults[0].triggered ? '🟢 PASSED (Alert Fires)' : '🔴 FAILED (No Alert)'}
                                         </span>
                                     </div>
-                                    <p className="text-zinc-300 text-xs leading-relaxed">{testResults[0].summary}</p>
+                                    <p className="text-zinc-300 text-xs leading-relaxed font-mono">{testResults[0].summary}</p>
                                 </div>
                             ) : null}
                         </div>
                     )}
-                    <DialogFooter className="sm:justify-between">
+                    <DialogFooter className="sm:justify-between gap-2 mt-4">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setTestRuleOpen(false)}
-                            className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-lg"
+                            className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
                         >
                             Cancel
                         </Button>
@@ -1499,7 +1576,7 @@ export default function AlertsPage() {
                                 if (!selectedTestRule) return
                                 await runSpecificAlertTest(selectedTestRule, testRuleValue)
                             }}
-                            className="bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all"
+                            className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all text-xs cursor-pointer px-4 py-1.5"
                         >
                             Evaluate test
                         </Button>

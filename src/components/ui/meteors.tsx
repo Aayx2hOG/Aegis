@@ -14,7 +14,10 @@ export function Meteors({ number = 20 }: { number?: number }) {
       animationDelay: (Math.random() * (0.8 - 0.2) + 0.2).toFixed(2) + 's',
       animationDuration: Math.floor(Math.random() * (10 - 2) + 2) + 's',
     }))
-    setMeteorStyles(styles)
+    const timeoutId = setTimeout(() => {
+      setMeteorStyles(styles)
+    }, 0)
+    return () => clearTimeout(timeoutId)
   }, [number])
 
   return (

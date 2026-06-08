@@ -7,20 +7,17 @@ import { ArrowLeft, ArrowRight, Activity, ExternalLink, Layers3, ShieldAlert, Tr
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain, removeFromWatchlist } from '@/hooks/use-multichain-watchlist'
 import { fetchJson } from '@/lib/api/fetch-json'
-import { normalizeProtocolSlug, resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
+import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
 import MiniMetric from '@/components/ui/mini-metric'
 import { ChainEnvironment, ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/shared/types'
 import { toast } from 'sonner'
-
-
 
 type CoinGeckoResponse = {
     market_data?: {
@@ -52,7 +49,6 @@ type WatchlistMarketRow = {
 }
 
 type AnomalySeverity = 'critical' | 'high' | 'moderate'
-
 type AnomalyType = 'tvl_move' | 'liquidity_compression' | 'concentration_shift' | 'chain_spike'
 
 interface AnomalyAlertItem {
@@ -97,9 +93,6 @@ interface AnomalySnapshot {
     dominantChainShare: number
 }
 
-
-
-
 function formatPct(value: number | null | undefined): string {
     if (typeof value !== 'number' || Number.isNaN(value)) return 'N/A'
     const sign = value > 0 ? '+' : ''
@@ -140,41 +133,39 @@ function getLatestTokenPriceFromProtocolDetail(detail?: DefiLlamaProtocolDetail)
 
 function riskState(protocol?: SolanaProtocol): { label: string; tone: string; isRisk: boolean } {
     if (!protocol) {
-        return { label: 'No Market Data', tone: 'bg-zinc-800 text-zinc-300', isRisk: false }
+        return { label: 'No Market Data', tone: 'border-zinc-800 bg-zinc-950 text-zinc-550', isRisk: false }
     }
 
     const d1 = protocol.change_1d ?? 0
     const d7 = protocol.change_7d ?? 0
 
     if (d1 <= -10 || d7 <= -20) {
-        return { label: 'Critical', tone: 'bg-red-500/20 text-red-200', isRisk: true }
+        return { label: 'Critical', tone: 'border-rose-500/20 bg-rose-500/5 text-rose-400 shadow-[0_0_8px_rgba(239,68,68,0.1)] animate-pulse', isRisk: true }
     }
     if (d1 <= -5 || d7 <= -12) {
-        return { label: 'Watch', tone: 'bg-amber-500/20 text-amber-200', isRisk: true }
+        return { label: 'Watch', tone: 'border-amber-500/20 bg-amber-500/5 text-amber-400', isRisk: true }
     }
-    return { label: 'Stable', tone: 'bg-emerald-500/20 text-emerald-200', isRisk: false }
+    return { label: 'Stable', tone: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400', isRisk: false }
 }
 
-
-
 const CHAIN_LABELS: Record<ChainType, string> = {
-    [ChainType.Solana]: 'Solana',
-    [ChainType.Ethereum]: 'Ethereum',
-    [ChainType.Polygon]: 'Polygon',
-    [ChainType.Arbitrum]: 'Arbitrum',
-    [ChainType.Optimism]: 'Optimism',
-    [ChainType.Cosmos]: 'Cosmos',
-    [ChainType.Base]: 'Base',
+    [ChainType.Solana]: 'Solana Network',
+    [ChainType.Ethereum]: 'Ethereum Mainnet',
+    [ChainType.Polygon]: 'Polygon Suite',
+    [ChainType.Arbitrum]: 'Arbitrum Rollup',
+    [ChainType.Optimism]: 'Optimism Rollup',
+    [ChainType.Cosmos]: 'Cosmos Hub',
+    [ChainType.Base]: 'Base Rollup',
 }
 
 const CHAIN_TONES: Record<ChainType, string> = {
-    [ChainType.Solana]: 'bg-zinc-800/40 text-zinc-300 ring-zinc-700/20 border border-zinc-800/50',
-    [ChainType.Ethereum]: 'bg-zinc-800/40 text-zinc-300 ring-zinc-700/20 border border-zinc-800/50',
-    [ChainType.Polygon]: 'bg-zinc-800/40 text-zinc-300 ring-zinc-700/20 border border-zinc-800/50',
-    [ChainType.Arbitrum]: 'bg-zinc-800/40 text-zinc-300 ring-zinc-700/20 border border-zinc-800/50',
-    [ChainType.Optimism]: 'bg-zinc-800/40 text-zinc-300 ring-zinc-700/20 border border-zinc-800/50',
-    [ChainType.Cosmos]: 'bg-zinc-800/40 text-zinc-300 ring-zinc-700/20 border border-zinc-800/50',
-    [ChainType.Base]: 'bg-zinc-800/40 text-zinc-300 ring-zinc-700/20 border border-zinc-800/50',
+    [ChainType.Solana]: 'border-cyan-500/20 bg-cyan-500/5 text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.05)]',
+    [ChainType.Ethereum]: 'border-zinc-800 bg-zinc-950/40 text-zinc-400',
+    [ChainType.Polygon]: 'border-zinc-800 bg-zinc-950/40 text-zinc-400',
+    [ChainType.Arbitrum]: 'border-zinc-800 bg-zinc-950/40 text-zinc-400',
+    [ChainType.Optimism]: 'border-zinc-800 bg-zinc-950/40 text-zinc-400',
+    [ChainType.Cosmos]: 'border-zinc-800 bg-zinc-950/40 text-zinc-400',
+    [ChainType.Base]: 'border-zinc-800 bg-zinc-950/40 text-zinc-400',
 }
 
 const ANOMALY_STORAGE_PREFIX = 'aegis-anomaly-snapshot:'
@@ -203,6 +194,149 @@ function makeAnchorId(value: string) {
 
 function isTestNetwork(environment: ChainEnvironment) {
     return environment !== ChainEnvironment.Mainnet
+}
+
+function WatchlistAnalyticsPanel({ rows }: { rows: WatchlistMarketRow[] }) {
+    const chainMetrics = useMemo(() => {
+        const tvlByChain: Record<string, number> = {}
+        let totalTvl = 0
+        
+        rows.forEach(row => {
+            const tvl = row.market?.tvl ?? 0
+            tvlByChain[row.chainName] = (tvlByChain[row.chainName] ?? 0) + tvl
+            totalTvl += tvl
+        })
+
+        const sorted = Object.entries(tvlByChain)
+            .map(([name, tvl]) => ({
+                name,
+                tvl,
+                percentage: totalTvl > 0 ? (tvl / totalTvl) * 100 : 0
+            }))
+            .sort((a, b) => b.tvl - a.tvl)
+
+        return { list: sorted, totalTvl }
+    }, [rows])
+
+    const riskBreakdown = useMemo(() => {
+        let stable = 0
+        let watch = 0
+        let critical = 0
+
+        rows.forEach(row => {
+            const d1 = row.market?.change_1d ?? 0
+            const d7 = row.market?.change_7d ?? 0
+
+            if (d1 <= -10 || d7 <= -20) {
+                critical++
+            } else if (d1 <= -5 || d7 <= -12) {
+                watch++
+            } else {
+                stable++
+            }
+        })
+
+        const total = rows.length || 1
+        return {
+            stable,
+            watch,
+            critical,
+            stablePct: (stable / total) * 100,
+            watchPct: (watch / total) * 100,
+            criticalPct: (critical / total) * 100,
+        }
+    }, [rows])
+
+    const getChainColorClass = (chainName: string) => {
+        const name = chainName.toLowerCase()
+        if (name.includes('solana')) return 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+        if (name.includes('ethereum')) return 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]'
+        if (name.includes('base')) return 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.4)]'
+        if (name.includes('arbitrum')) return 'bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]'
+        if (name.includes('optimism')) return 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]'
+        if (name.includes('polygon')) return 'bg-fuchsia-600 shadow-[0_0_8px_rgba(192,38,211,0.4)]'
+        if (name.includes('cosmos')) return 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+        return 'bg-zinc-500'
+    }
+
+    if (rows.length === 0) {
+        return null
+    }
+
+    return (
+        <SpotlightCard spotlightColor="rgba(6, 182, 212, 0.03)" borderColor="rgba(6, 182, 212, 0.15)" className="border-cyan-500/10 bg-zinc-950/40 shadow-2xl backdrop-blur-xl !p-5 corner-decor">
+            <div className="space-y-3 pb-3 border-b border-zinc-900 mb-4 text-left">
+                <h3 className="text-sm font-orbitron font-black text-white uppercase tracking-wider">Watchlist Asset Analytics</h3>
+                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">&gt; System statistics monitoring active basket footprints.</p>
+            </div>
+
+            <div className="space-y-5 font-mono text-xs">
+                {/* Stacked Chart */}
+                <div className="space-y-2 text-left">
+                    <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">TVL ALLOCATION BY NETWORK</p>
+                    {chainMetrics.totalTvl === 0 ? (
+                        <div className="text-[10px] text-zinc-650 py-1">&gt; Metric inputs currently zero or unavailable.</div>
+                    ) : (
+                        <>
+                            <div className="h-3 w-full bg-zinc-900 rounded-xs overflow-hidden flex border border-zinc-800">
+                                {chainMetrics.list.map((c) => (
+                                    <div
+                                        key={c.name}
+                                        className={getChainColorClass(c.name)}
+                                        style={{ width: `${c.percentage}%` }}
+                                        title={`${c.name}: ${formatCompactUsd(c.tvl)} (${c.percentage.toFixed(1)}%)`}
+                                    />
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[9px]">
+                                {chainMetrics.list.map((c) => (
+                                    <div key={c.name} className="flex items-center gap-1.5 text-zinc-455">
+                                        <span className={`w-2.5 h-2.5 rounded-xs shrink-0 ${getChainColorClass(c.name)}`} />
+                                        <span className="truncate uppercase font-bold text-zinc-300">{c.name.split(' ')[0]}:</span>
+                                        <span className="text-zinc-550 font-bold">{c.percentage.toFixed(0)}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Risk Distribution */}
+                <div className="space-y-2 text-left">
+                    <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">BASKET RISK THREAT FACTOR</p>
+                    <div className="space-y-2.5">
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-[9px] text-emerald-400 font-bold">
+                                <span>STABLE VECTOR FOOTPRINT</span>
+                                <span>{riskBreakdown.stable} / {rows.length} ({riskBreakdown.stablePct.toFixed(0)}%)</span>
+                            </div>
+                            <div className="h-1.5 bg-zinc-900 rounded-xs overflow-hidden border border-zinc-800">
+                                <div className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all duration-500" style={{ width: `${riskBreakdown.stablePct}%` }} />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-[9px] text-amber-400 font-bold">
+                                <span>WATCH WARNING LEVEL</span>
+                                <span>{riskBreakdown.watch} / {rows.length} ({riskBreakdown.watchPct.toFixed(0)}%)</span>
+                            </div>
+                            <div className="h-1.5 bg-zinc-900 rounded-xs overflow-hidden border border-zinc-800">
+                                <div className="h-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] transition-all duration-500" style={{ width: `${riskBreakdown.watchPct}%` }} />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-[9px] text-rose-400 font-bold">
+                                <span>CRITICAL DEVIATION FAULT</span>
+                                <span>{riskBreakdown.critical} / {rows.length} ({riskBreakdown.criticalPct.toFixed(0)}%)</span>
+                            </div>
+                            <div className="h-1.5 bg-zinc-900 rounded-xs overflow-hidden border border-zinc-800">
+                                <div className="h-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] transition-all duration-500" style={{ width: `${riskBreakdown.criticalPct}%` }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </SpotlightCard>
+    )
 }
 
 function loadAnomalySnapshot(storageKey: string): AnomalySnapshot | null {
@@ -301,26 +435,26 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
         const liveRise = (protocol.change1d ?? 0) >= 18 || (protocol.change7d ?? 0) >= 40
 
         if (liveDrop || sharpDrop) {
-            const deltaText = typeof tvlDeltaPct === 'number' ? ` vs. the last refresh (${formatSignedPct(tvlDeltaPct)})` : ''
+            const deltaText = typeof tvlDeltaPct === 'number' ? ` vs. last refresh (${formatSignedPct(tvlDeltaPct)})` : ''
             alerts.push({
                 id: `tvl-drop:${protocol.slug}`,
                 type: 'tvl_move',
                 severity: 'critical',
-                title: `${protocol.slug} is under pressure`,
-                detail: `TVL is ${formatCompactUsd(protocol.tvl)} and the trend is soft${deltaText}. 24h ${protocol.change1d == null ? 'N/A' : formatSignedPct(protocol.change1d)}; 7d ${protocol.change7d == null ? 'N/A' : formatSignedPct(protocol.change7d)}.`,
-                actionLabel: 'Open research',
+                title: `${protocol.slug.toUpperCase()} under pressure`,
+                detail: `TVL is ${formatCompactUsd(protocol.tvl)} and momentum is decaying${deltaText}. 24H ${protocol.change1d == null ? 'N/A' : formatSignedPct(protocol.change1d)}; 7D ${protocol.change7d == null ? 'N/A' : formatSignedPct(protocol.change7d)}.`,
+                actionLabel: 'Open Research',
                 actionKind: 'research',
                 protocolSlug: protocol.slug,
             })
         } else if (liveRise || sharpRise) {
-            const deltaText = typeof tvlDeltaPct === 'number' ? ` vs. the last refresh (${formatSignedPct(tvlDeltaPct)})` : ''
+            const deltaText = typeof tvlDeltaPct === 'number' ? ` vs. last refresh (${formatSignedPct(tvlDeltaPct)})` : ''
             alerts.push({
                 id: `tvl-rise:${protocol.slug}`,
                 type: 'tvl_move',
                 severity: 'high',
-                title: `${protocol.slug} is accelerating`,
-                detail: `TVL is ${formatCompactUsd(protocol.tvl)} and momentum is expanding${deltaText}. 24h ${protocol.change1d == null ? 'N/A' : formatSignedPct(protocol.change1d)}; 7d ${protocol.change7d == null ? 'N/A' : formatSignedPct(protocol.change7d)}.`,
-                actionLabel: 'Inspect thesis',
+                title: `${protocol.slug.toUpperCase()} accelerating velocity`,
+                detail: `TVL is ${formatCompactUsd(protocol.tvl)} and expansion registers high${deltaText}. 24H ${protocol.change1d == null ? 'N/A' : formatSignedPct(protocol.change1d)}; 7D ${protocol.change7d == null ? 'N/A' : formatSignedPct(protocol.change7d)}.`,
+                actionLabel: 'Inspect Thesis',
                 actionKind: 'research',
                 protocolSlug: protocol.slug,
             })
@@ -332,9 +466,9 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
                 id: `liquidity:${protocol.slug}`,
                 type: 'liquidity_compression',
                 severity: compressionScore > 60 ? 'critical' : 'high',
-                title: `${protocol.slug} liquidity is compressing`,
-                detail: `Both 24h and 7d trend lines are moving lower, which usually shows up before exit quality worsens. TVL is ${formatCompactUsd(protocol.tvl)} and the 24h / 7d trend is ${formatSignedPct(protocol.change1d ?? 0)} / ${formatSignedPct(protocol.change7d ?? 0)}.`,
-                actionLabel: 'Open war room',
+                title: `${protocol.slug.toUpperCase()} liquidity compressing`,
+                detail: `Both 24H and 7D trend lines move lower, signaling possible slip parameters increase. TVL at ${formatCompactUsd(protocol.tvl)} and delta is ${formatSignedPct(protocol.change1d ?? 0)} / ${formatSignedPct(protocol.change7d ?? 0)}.`,
+                actionLabel: 'Open War Room',
                 actionKind: 'war-room',
                 protocolSlug: protocol.slug,
             })
@@ -352,9 +486,9 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
                 id: `concentration:${chain.chainName}`,
                 type: 'concentration_shift',
                 severity: chain.topProtocolShare >= 0.52 ? 'critical' : 'high',
-                title: `${chain.chainName} concentration is rising`,
-                detail: `${chain.topProtocolSlug} now represents ${formatSignedPct(chain.topProtocolShare * 100)} of ${chain.chainName}'s tracked basket${typeof shareDeltaPct === 'number' ? ` (${formatSignedPct(shareDeltaPct)})` : ''}.`,
-                actionLabel: 'Refresh feed',
+                title: `${chain.chainName} concentration expansion`,
+                detail: `${chain.topProtocolSlug.toUpperCase()} represents ${formatSignedPct(chain.topProtocolShare * 100)} of ${chain.chainName}'s tracked index${typeof shareDeltaPct === 'number' ? ` (${formatSignedPct(shareDeltaPct)})` : ''}.`,
+                actionLabel: 'Refresh Feed',
                 actionKind: 'refresh',
                 chainName: chain.chainName,
                 protocolSlug: chain.topProtocolSlug,
@@ -366,9 +500,9 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
                 id: `chain:${chain.chainName}`,
                 type: 'chain_spike',
                 severity: chain.shareOfTrackedBasket >= 0.5 ? 'critical' : 'moderate',
-                title: `${chain.chainName} is dominating flow`,
-                detail: `${chain.protocolCount} protocols account for ${formatSignedPct(chain.shareOfTrackedBasket * 100)} of the tracked basket${typeof shareDeltaPct === 'number' ? ` (${formatSignedPct(shareDeltaPct)})` : ''}.`,
-                actionLabel: 'Open top protocol',
+                title: `${chain.chainName} dominating basket flows`,
+                detail: `${chain.protocolCount} protocols represent ${formatSignedPct(chain.shareOfTrackedBasket * 100)} of the tracked index basket${typeof shareDeltaPct === 'number' ? ` (${formatSignedPct(shareDeltaPct)})` : ''}.`,
+                actionLabel: 'Inspect Protocol',
                 actionKind: 'research',
                 chainName: chain.chainName,
                 protocolSlug: chain.topProtocolSlug,
@@ -390,7 +524,7 @@ export default function WatchlistPage() {
     const { activeChain, activeChainConnections, allChains } = useMultiChain()
     const wallet = useWallet()
     const walletAddress = wallet.publicKey?.toBase58()
-    const { data: watchlistsByChainData, isLoading: watchlistsLoading } = useMultiChainWatchlistByChain(walletAddress)
+    const { data: watchlistsByChainData } = useMultiChainWatchlistByChain(walletAddress)
     const watchlistsByChain = useMemo<Record<string, string[]>>(() => watchlistsByChainData ?? {}, [watchlistsByChainData])
 
     const protocolChainTypes = useMemo(
@@ -531,7 +665,7 @@ export default function WatchlistPage() {
                 queryClient.invalidateQueries({ queryKey: ['coingecko-price'] }),
                 queryClient.invalidateQueries({ queryKey: ['defillama-protocol-detail'] }),
             ])
-            toast.success('Live feed refresh queued.')
+            toast.success('Live telemetry refresh queued.')
             return
         }
 
@@ -553,9 +687,9 @@ export default function WatchlistPage() {
     const handleRemove = (chainType: ChainType, environment: string, slug: string) => {
         const success = removeFromWatchlist(chainType, environment, slug, walletAddress)
         if (success) {
-            toast.success(`Removed ${slug} from watchlist`)
-            queryClient.invalidateQueries({ queryKey: ['multichain-watchlist-by-chain'] })
-            queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+            toast.success(`Removed ${slug} from watch monitor`)
+            void queryClient.invalidateQueries({ queryKey: ['multichain-watchlist-by-chain'] })
+            void queryClient.invalidateQueries({ queryKey: ['watchlist'] })
         }
     }
 
@@ -600,302 +734,228 @@ export default function WatchlistPage() {
     const totalProtocols = chainViews.reduce((acc, item) => acc + item.total, 0)
     const riskyProtocols = chainViews.reduce((acc, item) => acc + item.riskyCount, 0)
 
-    const comparisonChains = useMemo(
-        () => chainViews.filter((item) => item.slugs.length > 0).slice(0, 4),
-        [chainViews]
-    )
-
     const compactWatchlistLayout = chainViews.length <= 1
     const hasTestNetworkData = chainViews.some(({ chain }) => isTestNetwork(chain.environment))
 
     return (
-        <div className="mx-auto max-w-6xl space-y-8 py-6">
-            <header className="space-y-4">
+        <div className="mx-auto max-w-6xl space-y-8 py-6 px-2 cyber-grid">
+            <header className="space-y-4 text-left">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <Link href="/research">
-                            <Button variant="outline" size="sm" className="flex items-center gap-1.5 font-bold">
-                                <ArrowLeft className="h-3.5 w-3.5" /> Back to Research
-                            </Button>
+                            <span className="inline-flex items-center justify-center gap-1.5 font-orbitron font-bold border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900 text-zinc-300 rounded-xs text-xs px-3.5 py-2 cursor-pointer transition-all">
+                                <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" /> Research Center
+                            </span>
                         </Link>
-                        <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-semibold">
-                            <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Multichain Watchlist
+                        <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20">
+                            <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Threat Watchlist
                         </Badge>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 rounded-2xl bg-zinc-900/45 p-3 backdrop-blur-xl sm:gap-3 sm:p-4 shrink-0">
-                        <StatPill label="Chains" value={String(chainViews.length || 1)} />
-                        <StatPill label="Protocols" value={String(totalProtocols)} />
-                        <StatPill label="Flags" value={String(riskyProtocols)} tone={riskyProtocols > 0 ? 'text-rose-200' : 'text-emerald-200'} />
+                    
+                    {/* Console Metric Panel */}
+                    <div className="grid grid-cols-3 gap-2 rounded-xs border border-cyan-500/10 bg-zinc-950/90 p-3.5 backdrop-blur-xl shrink-0 font-mono text-xs text-left shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] min-w-[240px]">
+                        <div>
+                            <span className="text-[8px] font-bold text-zinc-550 block uppercase tracking-wider">Networks</span>
+                            <span className="text-sm font-bold text-white font-orbitron mt-0.5 block">{chainViews.length || 1}</span>
+                        </div>
+                        <div className="border-l border-zinc-900 pl-3">
+                            <span className="text-[8px] font-bold text-zinc-550 block uppercase tracking-wider">Targets</span>
+                            <span className="text-sm font-bold text-white font-orbitron mt-0.5 block">{totalProtocols}</span>
+                        </div>
+                        <div className="border-l border-zinc-900 pl-3">
+                            <span className="text-[8px] font-bold text-zinc-550 block uppercase tracking-wider">Risks</span>
+                            <span className={`text-sm font-bold font-orbitron mt-0.5 block ${riskyProtocols > 0 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>{riskyProtocols}</span>
+                        </div>
                     </div>
                 </div>
+                
                 <div className="space-y-2">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)]">
-                        Track protocols across multiple chains
+                    <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
+                        Active Threat Tracking Dashboard
                     </h1>
-                    <p className="max-w-3xl text-zinc-400 text-sm leading-relaxed">
-                        Keep one watchlist per chain, compare protocol momentum side-by-side, and jump into research or war-room simulations from the same surface.
+                    <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed">
+                        Compare TVL momentum side-by-side, inspect local and systemic anomalies in real-time, and route warning triggers directly into AI research audits.
                     </p>
                 </div>
                 {hasTestNetworkData && (
-                    <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                        You are viewing a test network. USD numbers here are learning estimates based on market feeds, not real money in your wallet.
+                    <div className="rounded-xs border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-xs font-mono text-amber-200/90">
+                        &gt; SYSTEM ADVISORY: STAGING ENVIRONMENT DEPLOYED. NUMERICAL TELEMETRY UTILIZES ESTIMATES.
                     </div>
                 )}
             </header>
-                <section id="live-basket" className="scroll-mt-24 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-                    <SpotlightCard spotlightColor="rgba(255, 255, 255, 0.02)" borderColor="rgba(255, 255, 255, 0.1)" className="border-zinc-800 bg-zinc-950/40 shadow-2xl shadow-black/20 backdrop-blur-xl !p-0">
-                        <CardHeader className="space-y-3 pb-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <div>
-                                    <CardTitle className="text-lg font-black text-white">Live anomaly feed</CardTitle>
-                                    <CardDescription className="text-zinc-400">
-                                        Real-time alerts from the protocol feed. The cards update automatically as market data refreshes.
-                                    </CardDescription>
-                                </div>
-                                <Badge variant="accent" className="gap-2">
-                                    <Activity className="h-3.5 w-3.5" />
-                                    {marketLoading ? 'Updating' : `${anomalyAlerts.length} signals`}
-                                </Badge>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {anomalyAlerts.length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-zinc-400">
-                                    No active anomalies right now. That usually means the tracked basket is stable or the latest refresh has not diverged enough to trigger a signal.
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {anomalyAlerts.map((alert) => (
-                                        <div key={alert.id} className="rounded-2xl border border-white/10 bg-zinc-900/65 p-4">
-                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                <div className="min-w-0 space-y-1">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={
-                                                                alert.severity === 'critical'
-                                                                    ? 'border-rose-400/20 bg-rose-400/10 text-rose-100'
-                                                                    : alert.severity === 'high'
-                                                                        ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
-                                                                        : 'border-zinc-800 bg-zinc-900/60 text-zinc-300'
-                                                            }
-                                                        >
-                                                            {alert.severity}
-                                                        </Badge>
-                                                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-                                                            {alert.type.replace(/_/g, ' ')}
-                                                        </span>
-                                                    </div>
-                                                    <h3 className="text-base font-black text-white">{alert.title}</h3>
-                                                    <p className="max-w-3xl text-sm leading-6 text-zinc-300">{alert.detail}</p>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    onClick={() => handleAnomalyAction(alert)}
-                                                    className="shrink-0 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-lg shadow-[0_0_12px_rgba(255,255,255,0.08)] hover:shadow-[0_0_18px_rgba(255,255,255,0.18)] transition-all"
-                                                >
-                                                    {alert.actionLabel}
-                                                    <ArrowRight className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </SpotlightCard>
- 
-                    <SpotlightCard spotlightColor="rgba(255, 255, 255, 0.02)" borderColor="rgba(255, 255, 255, 0.1)" className="border-zinc-800 bg-zinc-950/40 shadow-2xl shadow-black/20 backdrop-blur-xl !p-0">
-                        <CardHeader className="space-y-3 pb-3">
-                            <CardTitle className="text-lg font-black text-white">Signal coverage</CardTitle>
-                            <CardDescription className="text-zinc-400">A compact view of what the detector sees across the current basket.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Tracked TVL</p>
-                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot ? formatCompactUsd(currentAnomalySnapshot.totalTvl) : 'N/A'}</p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Dominant share</p>
-                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot ? formatSignedPct(currentAnomalySnapshot.dominantProtocolShare * 100) : 'N/A'}</p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Chains monitored</p>
-                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot?.chains.length ?? 0}</p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">Snapshot age</p>
-                                    <p className="mt-2 text-2xl font-black text-white">{currentAnomalySnapshot ? 'Live' : 'Waiting'}</p>
-                                </div>
-                            </div>
-                            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/10 p-4 text-sm text-zinc-400 font-medium">
-                                Alerts are generated from the live protocol feed and compared with the previous refresh, so the feed stays free and responsive.
-                            </div>
-                        </CardContent>
-                    </SpotlightCard>
-                </section>
-                <section className={`grid gap-4 ${compactWatchlistLayout ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
-                    {chainViews.map(({ chain, slugs, marketRows, riskyCount }) => (
-                        <article id={`chain-${makeAnchorId(chain.name)}`} key={chain.name} className="scroll-mt-24 rounded-2xl bg-zinc-950/40 p-5 backdrop-blur-md border border-zinc-800">
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <div className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ring-1 ${CHAIN_TONES[chain.type]}`}>{CHAIN_LABELS[chain.type]}</div>
-                                    <h2 className="mt-3 text-xl font-bold text-white">{chain.displayName}</h2>
-                                    <p className="mt-1 text-xs text-zinc-400 font-medium">{slugs.length} tracked protocol{slugs.length === 1 ? '' : 's'}</p>
-                                    {isTestNetwork(chain.environment) && (
-                                        <p className="mt-2 text-xs text-amber-200/90">Test network: USD values are estimates for practice only.</p>
-                                    )}
-                                </div>
-                                <div className="rounded-lg bg-zinc-900 border border-zinc-850 px-2.5 py-1 text-right text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
-                                    {riskyCount} flagged
-                                </div>
-                            </div>
 
-                            <div className="mt-4 space-y-3">
-                                {slugs.length === 0 ? (
-                                    <div className="rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-400">
-                                        Nothing tracked yet on {chain.displayName}. Add a protocol from Research to start comparing chains.
-                                    </div>
-                                ) : (
-                                    marketRows.map(({ slug, market, priceUsd, priceChange24h }) => {
-                                        const status = riskState(market)
-                                        return (
-                                            <div key={`${chain.name}:${slug}`} className="rounded-xl bg-zinc-900/10 p-4 border border-zinc-800/60">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <p className="break-words text-sm font-semibold capitalize leading-tight text-zinc-100">{slug}</p>
-                                                        <p className="mt-1 text-xs text-zinc-500">{market?.category ?? 'Chain-agnostic signal'}</p>
-                                                    </div>
-                                                    <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${status.tone}`}>{status.label}</span>
-                                                </div>
-
-                                                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
-                                                    <MiniMetric label={isTestNetwork(chain.environment) ? 'Est. Price*' : 'Price'} value={formatUsd(priceUsd)} tone={(priceChange24h ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
-                                                    <MiniMetric label="TVL" value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'} />
-                                                    <MiniMetric label="24h" value={formatPct(market?.change_1d)} tone={(market?.change_1d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
-                                                    <MiniMetric label="7d" value={formatPct(market?.change_7d)} tone={(market?.change_7d ?? 0) < 0 ? 'text-rose-200' : 'text-emerald-200'} />
-                                                </div>
-
-                                                <div className="mt-3 flex flex-wrap items-center gap-2">
-                                                    <Button asChild variant="outline" size="sm" className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-lg">
-                                                        <Link href={`/research?q=${slug}`}>
-                                                            Research <ExternalLink className="h-3 w-3 ml-1" />
-                                                        </Link>
-                                                    </Button>
-                                                    <Button asChild className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg h-8 px-3 text-xs">
-                                                        <Link href={`/war-room?protocol=${slug}`}>
-                                                            War room <ShieldAlert className="h-3 w-3 ml-1" />
-                                                        </Link>
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleRemove(chain.type, chain.environment, slug)}
-                                                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 border-rose-500/20 cursor-pointer"
-                                                    >
-                                                        Remove <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )
-                                    })
-                                )}
-                            </div>
-                        </article>
-                    ))}
-                </section>
-
-                <section className="grid gap-6">
-                    <div className="rounded-2xl bg-zinc-950/40 p-5 backdrop-blur-md border border-zinc-800">
+            {/* Anomaly Alerts Section */}
+            <section id="live-basket" className="scroll-mt-24 grid gap-4 xl:grid-cols-[1.1fr_0.9fr] text-left">
+                <SpotlightCard spotlightColor="rgba(6, 182, 212, 0.03)" borderColor="rgba(6, 182, 212, 0.15)" className="border-cyan-500/10 bg-zinc-950/40 shadow-2xl backdrop-blur-xl !p-5 corner-decor">
+                    <div className="space-y-3 pb-3 border-b border-zinc-900 mb-4">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Cross-chain flow</p>
-                                <h2 className="text-xl font-extrabold text-white">Comparative lens</h2>
+                                <h3 className="text-sm font-orbitron font-black text-white uppercase tracking-wider">Live Anomaly Feed</h3>
+                                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">&gt; System logs detecting TVL variances and liquidity compression spikes.</p>
                             </div>
-                            <div className="rounded-full border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-xs font-semibold text-zinc-400">
-                                {marketLoading ? 'Updating market feeds' : 'Live market data'}
+                            <Badge variant="accent" className="gap-1.5 bg-cyan-950/30 text-cyan-400 border-cyan-500/20 font-orbitron font-bold text-[9px] uppercase tracking-wider">
+                                <Activity className="h-3 w-3 animate-pulse" />
+                                {marketLoading ? 'CALCULATING' : `${anomalyAlerts.length} SIGNAL LOGS`}
+                            </Badge>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-3 font-mono text-xs">
+                        {anomalyAlerts.length === 0 ? (
+                            <div className="rounded-xs border border-dashed border-zinc-800 bg-zinc-950/20 p-6 text-center text-zinc-550">
+                                &gt; Telemetry baseline stable. 0 active anomalies captured.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {anomalyAlerts.map((alert) => (
+                                    <div key={alert.id} className="rounded-xs border border-zinc-900 bg-zinc-950/70 p-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="min-w-0 space-y-1">
+                                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={
+                                                            alert.severity === 'critical'
+                                                                ? 'border-rose-500/30 bg-rose-500/10 text-rose-300 font-mono text-[8px] uppercase tracking-wider font-bold animate-pulse'
+                                                                : alert.severity === 'high'
+                                                                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-300 font-mono text-[8px] uppercase tracking-wider font-bold'
+                                                                    : 'border-zinc-850 bg-zinc-900 text-zinc-400 font-mono text-[8px] uppercase tracking-wider'
+                                                        }
+                                                    >
+                                                        {alert.severity}
+                                                    </Badge>
+                                                    <span className="text-[8px] font-mono font-bold uppercase tracking-widest text-zinc-550">
+                                                        {alert.type.replace(/_/g, ' ')}
+                                                    </span>
+                                                </div>
+                                                <h3 className="text-sm font-orbitron font-bold text-white uppercase tracking-wider">{alert.title}</h3>
+                                                <p className="max-w-3xl text-xs leading-5 text-zinc-400 font-light">{alert.detail}</p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                onClick={() => handleAnomalyAction(alert)}
+                                                className="shrink-0 bg-white hover:bg-zinc-200 text-zinc-950 font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(255,255,255,0.15)] h-9 px-4"
+                                            >
+                                                {alert.actionLabel}
+                                                <ArrowRight className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </SpotlightCard>
+
+                {/* Signal stats panel and analytics dashboard */}
+                <div className="space-y-4">
+                    <SpotlightCard spotlightColor="rgba(6, 182, 212, 0.03)" borderColor="rgba(6, 182, 212, 0.15)" className="border-cyan-500/10 bg-zinc-950/40 shadow-2xl backdrop-blur-xl !p-5 corner-decor">
+                        <div className="space-y-3 pb-3 border-b border-zinc-900 mb-4">
+                            <h3 className="text-sm font-orbitron font-black text-white uppercase tracking-wider">Detector Coverage</h3>
+                            <p className="text-[10px] text-zinc-500 font-mono mt-0.5">&gt; System statistics monitoring active basket footprints.</p>
+                        </div>
+                        
+                        <div className="space-y-4 font-mono text-xs">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/60 p-4">
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">Basket TVL Sum</p>
+                                    <p className="mt-1.5 text-xl font-orbitron font-black text-white tracking-widest">{currentAnomalySnapshot ? formatCompactUsd(currentAnomalySnapshot.totalTvl) : 'N/A'}</p>
+                                </div>
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/60 p-4">
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">Top Dominator Share</p>
+                                    <p className="mt-1.5 text-xl font-orbitron font-black text-white tracking-widest">{currentAnomalySnapshot ? formatSignedPct(currentAnomalySnapshot.dominantProtocolShare * 100) : 'N/A'}</p>
+                                </div>
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/60 p-4">
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">Networks Tracked</p>
+                                    <p className="mt-1.5 text-xl font-orbitron font-black text-white tracking-widest">{currentAnomalySnapshot?.chains.length ?? 0}</p>
+                                </div>
+                                <div className="rounded-xs border border-zinc-900 bg-zinc-950/60 p-4">
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">Detector Health</p>
+                                    <p className="mt-1.5 text-xl font-orbitron font-black text-cyan-400 tracking-widest">STABLE</p>
+                                </div>
+                            </div>
+                            <div className="rounded-xs border border-cyan-500/10 bg-cyan-950/5 p-4 text-[11px] text-cyan-400/80 leading-relaxed">
+                                &gt; DETECTOR MODULE: Comparing telemetry values against local caches to bypass server RPC bottlenecks. Refresh values manually if pricing offsets diverge.
                             </div>
                         </div>
-                        <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            {comparisonChains.length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-950/40 px-4 py-5 text-sm text-zinc-400 md:col-span-2">
-                                    Add at least one protocol to a watchlist to see the comparison cards here.
+                    </SpotlightCard>
+
+                    <WatchlistAnalyticsPanel rows={watchlistMarketRows} />
+                </div>
+            </section>
+
+            {/* Monitored Chains lists */}
+            <section className={`grid gap-4 ${compactWatchlistLayout ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-3'} text-left`}>
+                {chainViews.map(({ chain, slugs, marketRows, riskyCount }) => (
+                    <article id={`chain-${makeAnchorId(chain.name)}`} key={chain.name} className="scroll-mt-24 rounded-xl bg-zinc-950/50 p-5 border border-cyan-500/10 corner-decor backdrop-blur-md relative shadow-xl">
+                        <div className="flex items-start justify-between gap-3 border-b border-zinc-900 pb-4">
+                            <div>
+                                <div className={`inline-flex rounded-xs border px-2.5 py-0.5 text-[9px] font-orbitron font-bold uppercase tracking-wider ${CHAIN_TONES[chain.type]}`}>{CHAIN_LABELS[chain.type]}</div>
+                                <h2 className="mt-3 text-lg font-orbitron font-bold text-white uppercase tracking-wider">{chain.displayName}</h2>
+                                <p className="mt-1 text-xs text-zinc-500 font-medium font-mono">{slugs.length} Monitored Vectors</p>
+                                {isTestNetwork(chain.environment) && (
+                                    <p className="mt-2 text-[10px] font-mono text-amber-200/90 leading-normal">&gt; ESTIMATED USD VALUES APPLIED</p>
+                                )}
+                            </div>
+                            <div className={`rounded-xs border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest ${riskyCount > 0 ? 'border-rose-500/30 bg-rose-500/10 text-rose-300 animate-pulse' : 'border-zinc-800 bg-zinc-900 text-zinc-400'}`}>
+                                {riskyCount} Flags
+                            </div>
+                        </div>
+
+                        <div className="mt-4 space-y-4">
+                            {slugs.length === 0 ? (
+                                <div className="rounded-xs border border-dashed border-zinc-850 bg-zinc-950/20 px-4 py-8 text-center text-zinc-550 font-mono text-xs">
+                                    &gt; Watch buffer empty. Deploy research queries to begin tracking.
                                 </div>
                             ) : (
-                                comparisonChains.map(({ chain, slugs: chainSlugs }) => {
-                                    const momentum = slugsMomentumScore(chain.type, chainSlugs, protocolsByChainType[chain.type] ?? [])
-                                    const label = momentum > 75 ? 'Hot' : momentum > 55 ? 'Balanced' : 'Quiet'
-
+                                marketRows.map(({ slug, market, priceUsd, priceChange24h }) => {
+                                    const status = riskState(market)
                                     return (
-                                        <div key={chain.name} className="rounded-xl bg-zinc-900/10 p-4 border border-zinc-800/60">
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div>
-                                                    <p className="text-sm font-semibold text-white">{chain.displayName}</p>
-                                                    <p className="text-xs text-zinc-500">{chainSlugs.length} tracked protocol{chainSlugs.length === 1 ? '' : 's'}</p>
+                                        <div key={`${chain.name}:${slug}`} className="rounded-xs border border-zinc-900 bg-zinc-950/60 p-4 space-y-3.5">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="break-words font-orbitron font-bold text-sm tracking-wider leading-tight text-white uppercase">{slug}</p>
+                                                    <p className="mt-1 text-[9px] font-mono text-zinc-500 uppercase">{market?.category ?? 'Cross-Chain Asset'}</p>
                                                 </div>
-                                                <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-300">{label}</span>
+                                                <span className={`inline-flex rounded-xs border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider ${status.tone}`}>{status.label}</span>
                                             </div>
-                                            <div className="mt-3 h-2 rounded-full bg-zinc-800/50 overflow-hidden">
-                                                <div className="h-full rounded-full bg-zinc-400" style={{ width: `${Math.min(100, momentum || 0)}%` }} />
+
+                                            <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+                                                <MiniMetric label={isTestNetwork(chain.environment) ? 'Est. Price*' : 'Price'} value={formatUsd(priceUsd)} tone={(priceChange24h ?? 0) < 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'} />
+                                                <MiniMetric label="TVL" value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'} />
+                                                <MiniMetric label="24h Change" value={formatPct(market?.change_1d)} tone={(market?.change_1d ?? 0) < 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'} />
+                                                <MiniMetric label="7d Change" value={formatPct(market?.change_7d)} tone={(market?.change_7d ?? 0) < 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'} />
                                             </div>
-                                            <p className="mt-2 text-xs text-zinc-400">
-                                                Suggested posture: {momentum > 75 ? 'trim exposure' : momentum > 55 ? 'monitor and compare' : 'accumulate selectively'}
-                                            </p>
+
+                                            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-900/60">
+                                                <Button asChild variant="outline" size="sm" className="border border-zinc-800 bg-zinc-900/40 text-zinc-450 hover:text-white hover:bg-zinc-800 rounded-xs h-7 text-[10px] font-mono font-bold uppercase tracking-wider flex-1">
+                                                    <Link href={`/research?q=${slug}`} className="flex items-center justify-center gap-1">
+                                                        Research <ExternalLink className="h-3 w-3" />
+                                                    </Link>
+                                                </Button>
+                                                <Button asChild variant="outline" size="sm" className="border border-zinc-800 bg-zinc-900/40 text-zinc-450 hover:text-white hover:bg-zinc-800 rounded-xs h-7 text-[10px] font-mono font-bold uppercase tracking-wider flex-1">
+                                                    <Link href={`/war-room?protocol=${slug}`} className="flex items-center justify-center gap-1">
+                                                        War Room <ShieldAlert className="h-3 w-3" />
+                                                    </Link>
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleRemove(chain.type, chain.environment, slug)}
+                                                    className="bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 border-rose-500/20 cursor-pointer h-7 text-[10px] font-mono font-bold uppercase tracking-wider px-2"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     )
                                 })
                             )}
                         </div>
-                    </div>
-                </section>
-
-                {watchlistsLoading ? (
-                    <div className="rounded-xl bg-zinc-900/55 px-4 py-3 text-sm text-zinc-300">
-                        Loading multichain watchlists...
-                    </div>
-                ) : null}
-            </div>
-    )
-}
-
-function StatPill({ label, value, tone }: { label: string; value: string; tone?: string }) {
-    return (
-        <div className="rounded-xl bg-zinc-950/70 px-3 py-2.5 text-center shadow-inner shadow-black/20 sm:px-4 sm:py-3">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500 sm:text-[10px]">{label}</p>
-            <p className={`mt-1 text-xl font-black leading-none sm:text-2xl ${tone ?? 'text-white'}`}>{value}</p>
+                    </article>
+                ))}
+            </section>
         </div>
     )
-}
-
-function slugsMomentumScore(
-    chainType: ChainType,
-    slugs: string[],
-    protocols: SolanaProtocol[]
-): number {
-    if (chainType !== ChainType.Solana) {
-        const score = 58 + slugs.length * 5
-        return Number.isFinite(score) ? score : 58
-    }
-
-    const marketSignals = slugs
-        .map((slug) => resolveProtocolFromList(normalizeProtocolSlug(slug), protocols))
-        .filter((market): market is SolanaProtocol => Boolean(market))
-
-    if (marketSignals.length === 0) return 55 + slugs.length * 4
-
-    let totalChange = 0
-    let count = 0
-    marketSignals.forEach((market) => {
-        const change1d = typeof market.change_1d === 'number' && Number.isFinite(market.change_1d) ? market.change_1d : 0
-        const change7d = typeof market.change_7d === 'number' && Number.isFinite(market.change_7d) ? market.change_7d : 0
-        totalChange += change1d + change7d / 2
-        count++
-    })
-
-    const averageChange = count > 0 ? totalChange / count : 0
-    const score = 62 + averageChange * 1.4 + slugs.length * 3
-    const finalScore = Number.isFinite(score) ? score : 55 + slugs.length * 4
-    return Math.max(20, Math.min(95, finalScore))
 }

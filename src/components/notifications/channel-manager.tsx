@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -247,126 +246,193 @@ export default function ChannelManager() {
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Notification channels</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="mb-4 text-sm text-zinc-400">Manage where alert summaries are delivered for your wallet identity.</div>
+            <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-4 shadow-2xl">
+                <div className="border-b border-cyan-500/10 pb-3">
+                    <h3 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">Notification Channels</h3>
+                </div>
+                <div className="space-y-4">
+                    <div className="text-xs font-mono text-zinc-450">&gt; Manage where alert summaries are delivered for your wallet identity.</div>
 
                     <div className="grid gap-3 lg:grid-cols-3">
-                        <Input placeholder="Channel name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-                        <select className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={type} onChange={(e) => {
-                            if (isChannelType(e.target.value)) setType(e.target.value)
-                        }}>
-                            <option value="DISCORD" className="bg-zinc-950 text-white">Discord webhook</option>
-                            <option value="TELEGRAM" className="bg-zinc-950 text-white">Telegram Bot</option>
+                        <Input
+                            placeholder="Channel name (optional)"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="h-9 text-xs bg-zinc-950 border-zinc-800 text-white font-mono rounded-xs focus:border-cyan-500/30"
+                        />
+                        <select
+                            className="flex h-9 w-full rounded-xs border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-white font-mono focus:border-cyan-500/30 transition-colors cursor-pointer"
+                            value={type}
+                            onChange={(e) => {
+                                if (isChannelType(e.target.value)) setType(e.target.value)
+                            }}
+                        >
+                            <option value="DISCORD" className="bg-zinc-950 text-white font-mono">Discord webhook</option>
+                            <option value="TELEGRAM" className="bg-zinc-950 text-white font-mono">Telegram Bot</option>
                         </select>
                         {type === 'DISCORD' && (
-                            <Input placeholder="Webhook URL" value={url} onChange={(e) => setUrl(e.target.value)} />
+                            <Input
+                                placeholder="Webhook URL"
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                className="h-9 text-xs bg-zinc-950 border-zinc-800 text-white font-mono rounded-xs focus:border-cyan-500/30"
+                            />
                         )}
                         {type === 'TELEGRAM' && (
-                            <Input placeholder="Telegram Bot Token" value={botToken} onChange={(e) => setBotToken(e.target.value)} />
+                            <Input
+                                placeholder="Telegram Bot Token"
+                                value={botToken}
+                                onChange={(e) => setBotToken(e.target.value)}
+                                className="h-9 text-xs bg-zinc-950 border-zinc-800 text-white font-mono rounded-xs focus:border-cyan-500/30"
+                            />
                         )}
                     </div>
 
                     {type === 'TELEGRAM' && (
                         <div className="mt-3 grid gap-3 lg:grid-cols-3">
-                            <Input placeholder="Telegram Chat ID" value={chatId} onChange={(e) => setChatId(e.target.value)} />
+                            <Input
+                                placeholder="Telegram Chat ID"
+                                value={chatId}
+                                onChange={(e) => setChatId(e.target.value)}
+                                className="h-9 text-xs bg-zinc-950 border-zinc-800 text-white font-mono rounded-xs focus:border-cyan-500/30"
+                            />
                             <div />
                             <div />
                         </div>
                     )}
 
                     <div className="mt-3">
-                        <Button onClick={createChannel}>Create channel</Button>
+                        <Button
+                            onClick={createChannel}
+                            className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all px-4 py-2 text-xs cursor-pointer"
+                        >
+                            Create channel
+                        </Button>
                     </div>
 
-                    <div className="mt-6 border-t pt-4">
-                        <p className="mb-2 text-sm text-zinc-400">End-to-end test: generate an AI summary for a protocol and deliver notifications to your configured channels.</p>
-                        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)_auto]">
-                            <Input className="min-w-0" placeholder="protocol slug (e.g. serum)" value={testProtocol} onChange={(e) => setTestProtocol(e.target.value)} />
-                            <select className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring focus:border-zinc-700 focus:ring-1 focus:ring-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 text-white" value={testChannelId} onChange={(e) => setTestChannelId(e.target.value)}>
-                                <option value="" className="bg-zinc-950 text-white">All enabled channels</option>
+                    <div className="mt-6 border-t border-zinc-900 pt-4 space-y-3">
+                        <p className="text-xs font-mono text-zinc-400">&gt; End-to-end test: generate an AI summary for a protocol and deliver notifications to your configured channels.</p>
+                        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)_auto] items-center">
+                            <Input
+                                className="min-w-0 h-9 text-xs bg-zinc-950 border-zinc-800 text-white font-mono rounded-xs focus:border-cyan-500/30"
+                                placeholder="protocol slug (e.g. serum)"
+                                value={testProtocol}
+                                onChange={(e) => setTestProtocol(e.target.value)}
+                            />
+                            <select
+                                className="flex h-9 w-full rounded-xs border border-zinc-800 bg-zinc-950 px-3 py-1 text-xs text-white font-mono focus:border-cyan-500/30 transition-colors cursor-pointer"
+                                value={testChannelId}
+                                onChange={(e) => setTestChannelId(e.target.value)}
+                            >
+                                <option value="" className="bg-zinc-950 text-white font-mono">All enabled channels</option>
                                 {channels.filter((channel) => channel.enabled).map((channel) => (
-                                    <option key={channel.id} value={channel.id} className="bg-zinc-950 text-white">{channel.name ?? channel.type}</option>
+                                    <option key={channel.id} value={channel.id} className="bg-zinc-950 text-white font-mono">{channel.name ?? channel.type}</option>
                                 ))}
                             </select>
-                            <Button onClick={async () => {
-                                if (testingRef.current) return
-                                if (!walletAddress) { toast.error('Wallet identity not ready'); return }
-                                if (!testProtocol) { toast.error('Enter a protocol slug'); return }
+                            <Button
+                                onClick={async () => {
+                                    if (testingRef.current) return
+                                    if (!walletAddress) { toast.error('Wallet identity not ready'); return }
+                                    if (!testProtocol) { toast.error('Enter a protocol slug'); return }
 
-                                const matched = resolveProtocolFromList(testProtocol.trim(), chainProtocols)
-                                if (!matched) {
-                                    toast.error(`"${testProtocol}" is not a protocol on ${activeChain.displayName}`)
-                                    return
-                                }
-
-                                testingRef.current = true
-                                setTesting(true)
-                                try {
-                                    const res = await fetch('/api/test/e2e', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ walletAddress, protocolSlug: matched.slug, channelId: testChannelId || undefined }),
-                                    })
-                                    const body = await res.json().catch(() => null)
-                                    if (!res.ok) throw new Error(body?.error ?? 'E2E test failed')
-                                    const sent = Number(body?.delivery?.sent ?? 0)
-                                    const failed = Number(body?.delivery?.failed ?? 0)
-                                    toast.success(`E2E test complete: ${sent} sent, ${failed} failed.`)
-                                    setTestProtocol('')
-                                    if (body?.eventId) {
-                                        // show small inline link
-                                        const el = document.getElementById('e2e-result')
-                                        if (el) el.textContent = `Event ID: ${body.eventId}`
+                                    const matched = resolveProtocolFromList(testProtocol.trim(), chainProtocols)
+                                    if (!matched) {
+                                        toast.error(`"${testProtocol}" is not a protocol on ${activeChain.displayName}`)
+                                        return
                                     }
-                                } catch (err) {
-                                    console.error(err)
-                                    toast.error((err instanceof Error) ? err.message : 'E2E test failed')
-                                } finally {
-                                    testingRef.current = false
-                                    setTesting(false)
-                                }
-                            }} disabled={testing}>{testing ? 'Running…' : 'Run E2E test'}</Button>
-                        </div>
-                        <div id="e2e-result" className="mt-2 text-xs text-zinc-400" />
-                    </div>
-                </CardContent>
-                <CardFooter />
-            </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Configured channels</CardTitle>
-                </CardHeader>
-                <CardContent>
+                                    testingRef.current = true
+                                    setTesting(true)
+                                    try {
+                                        const res = await fetch('/api/test/e2e', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ walletAddress, protocolSlug: matched.slug, channelId: testChannelId || undefined }),
+                                        })
+                                        const body = await res.json().catch(() => null)
+                                        if (!res.ok) throw new Error(body?.error ?? 'E2E test failed')
+                                        const sent = Number(body?.delivery?.sent ?? 0)
+                                        const failed = Number(body?.delivery?.failed ?? 0)
+                                        toast.success(`E2E test complete: ${sent} sent, ${failed} failed.`)
+                                        setTestProtocol('')
+                                        if (body?.eventId) {
+                                            // show small inline link
+                                            const el = document.getElementById('e2e-result')
+                                            if (el) el.textContent = `Event ID: ${body.eventId}`
+                                        }
+                                    } catch (err) {
+                                        console.error(err)
+                                        toast.error((err instanceof Error) ? err.message : 'E2E test failed')
+                                    } finally {
+                                        testingRef.current = false
+                                        setTesting(false)
+                                    }
+                                }}
+                                disabled={testing}
+                                className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all px-4 py-2 text-xs cursor-pointer"
+                            >
+                                {testing ? 'Running…' : 'Run E2E test'}
+                            </Button>
+                        </div>
+                        <div id="e2e-result" className="mt-2 text-xs font-mono text-cyan-400" />
+                    </div>
+                </div>
+            </div>
+
+            <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-4 shadow-2xl">
+                <div className="border-b border-cyan-500/10 pb-3">
+                    <h3 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">Configured Channels</h3>
+                </div>
+                <div className="space-y-4">
                     {loading ? (
-                        <div className="text-sm text-zinc-400">Loading…</div>
+                        <div className="text-xs font-mono text-zinc-450">&gt; Loading…</div>
                     ) : channels.length === 0 ? (
-                        <div className="text-sm text-zinc-400">No channels configured yet.</div>
+                        <div className="text-xs font-mono text-zinc-450">&gt; No channels configured yet.</div>
                     ) : (
                         <div className="space-y-3">
                             {channels.map((ch) => (
-                                <div key={ch.id} className="flex flex-col gap-3 rounded-md border p-3 md:flex-row md:items-center md:justify-between">
+                                <div key={ch.id} className="flex flex-col gap-3 rounded-xs border border-zinc-900 bg-zinc-950/80 p-3.5 md:flex-row md:items-center md:justify-between">
                                     <div className="min-w-0 flex-1">
-                                        <div className="font-semibold">{ch.name ?? ch.type}</div>
-                                        <div className="text-xs text-zinc-500">{ch.type} • {ch.enabled ? 'enabled' : 'disabled'}</div>
-                                        <div className="mt-1 break-all text-xs text-zinc-400 md:truncate md:max-w-xl">{maskChannelConfig(ch)}</div>
+                                        <div className="font-bold text-white text-sm font-orbitron tracking-wider">{ch.name ?? ch.type}</div>
+                                        <div className="text-xs font-mono text-zinc-400 mt-1">{ch.type} • {ch.enabled ? 'enabled' : 'disabled'}</div>
+                                        <div className="mt-1.5 break-all text-xs font-mono text-cyan-400 md:truncate md:max-w-xl">{maskChannelConfig(ch)}</div>
                                     </div>
                                     <div className="flex flex-wrap gap-2 md:justify-end">
-                                        <Button variant="outline" onClick={() => testSend(ch.id)}>Test</Button>
-                                        <Button variant="outline" onClick={() => editChannel(ch.id)}>Edit</Button>
-                                        <Button variant="ghost" onClick={() => toggleEnabled(ch.id, ch.enabled)}>{ch.enabled ? 'Disable' : 'Enable'}</Button>
-                                        <Button variant="destructive" onClick={() => deleteChannel(ch.id)}>Delete</Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => testSend(ch.id)}
+                                            className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
+                                        >
+                                            Test
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => editChannel(ch.id)}
+                                            className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
+                                        >
+                                            Edit
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => toggleEnabled(ch.id, ch.enabled)}
+                                            className="text-zinc-400 hover:text-white font-mono text-xs px-3 py-1.5 cursor-pointer"
+                                        >
+                                            {ch.enabled ? 'Disable' : 'Enable'}
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={() => deleteChannel(ch.id)}
+                                            className="border border-rose-500/20 bg-rose-500/10 text-rose-350 hover:bg-rose-500/20 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
+                                        >
+                                            Delete
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     )
 }
