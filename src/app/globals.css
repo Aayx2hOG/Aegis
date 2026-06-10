@@ -243,3 +243,13 @@
 .dark .wallet-adapter-button-trigger {
   @apply !bg-zinc-950/80;
 }
+
+/* Hide number input spin arrows globally */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}

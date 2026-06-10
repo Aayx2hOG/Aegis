@@ -445,7 +445,7 @@ function WarRoomContent() {
 
                 const chainsList: string[] = data.chains || []
                 const category: string = data.category || 'other'
-                const symbol: string = (data.symbol || protocolSlug).toUpperCase()
+                const symbol: string = (data.symbol && data.symbol !== '-' ? data.symbol : protocolSlug).toUpperCase()
                 const name: string = data.name || protocolSlug
 
                 // Resolve price
@@ -486,7 +486,29 @@ function WarRoomContent() {
                     }
                 }
 
-                // 2. Try CoinGecko ID fallback
+                // 2. Try contract address lookup via DexScreener Coins API fallback
+                if (tokenPrice === 0 && address) {
+                    const cleanAddress = address.includes(':') ? address.split(':')[1] : address;
+                    if (cleanAddress.startsWith('0x') || cleanAddress.length >= 32) {
+                        try {
+                            const dexscreenerRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${cleanAddress}`)
+                            if (dexscreenerRes.ok) {
+                                const dexscreenerData = await dexscreenerRes.json()
+                                const pairs = dexscreenerData.pairs || []
+                                if (pairs.length > 0) {
+                                    const bestPair = pairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
+                                    if (bestPair && bestPair.priceUsd) {
+                                        tokenPrice = Number(bestPair.priceUsd)
+                                    }
+                                }
+                            }
+                        } catch (dexErr) {
+                            console.error('Failed to fetch price from DexScreener by address:', dexErr)
+                        }
+                    }
+                }
+
+                // 3. Try CoinGecko ID fallback
                 if (tokenPrice === 0) {
                     // If gecko_id is not found in the protocol detail, try looking it up in the chain's protocol list
                     if (!geckoId && chainsList.length > 0) {
@@ -521,12 +543,32 @@ function WarRoomContent() {
                     }
                 }
 
-                // 3. Try token TVL weights fallback
+                // 4. Try token symbol search via DexScreener fallback
+                if (tokenPrice === 0 && symbol && symbol !== '-') {
+                    try {
+                        const dexscreenerRes = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`)
+                        if (dexscreenerRes.ok) {
+                            const dexscreenerData = await dexscreenerRes.json()
+                            const pairs = dexscreenerData.pairs || []
+                            const matchingPairs = pairs.filter((p: any) => p.baseToken?.symbol?.toUpperCase() === symbol.toUpperCase())
+                            if (matchingPairs.length > 0) {
+                                const bestPair = matchingPairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
+                                if (bestPair && bestPair.priceUsd) {
+                                    tokenPrice = Number(bestPair.priceUsd)
+                                }
+                            }
+                        }
+                    } catch (dexErr) {
+                        console.error('Failed to fetch price from DexScreener by symbol:', dexErr)
+                    }
+                }
+
+                // 5. Try token TVL weights fallback
                 if (tokenPrice === 0) {
                     tokenPrice = getLatestTokenPriceFromProtocolDetail(data) || 0;
                 }
 
-                // 4. Default fallback
+                // 6. Default fallback
                 if (tokenPrice === 0) {
                     tokenPrice = 1.0; // fallback unit price
                 }
@@ -823,7 +865,7 @@ function WarRoomContent() {
                                                 step="any"
                                                 value={pos.balance}
                                                 onChange={(e) => updateMultichainPositionBalance(idx, Number(e.target.value))}
-                                                className="h-8 text-xs font-mono bg-zinc-950 border-zinc-900 text-white"
+                                                className="h-8 text-xs font-mono bg-zinc-950 border-zinc-900 text-white px-2"
                                             />
                                         </div>
                                         <div className="sm:col-span-2 text-left">
@@ -831,9 +873,10 @@ function WarRoomContent() {
                                             <Input
                                                 type="number"
                                                 min={0}
+                                                step="any"
                                                 value={pos.usdValue}
                                                 onChange={(e) => updateMultichainPositionField(idx, 'usdValue', Number(e.target.value))}
-                                                className="h-8 text-xs font-mono bg-zinc-950 border-zinc-900 text-white"
+                                                className="h-8 text-xs font-mono bg-zinc-950 border-zinc-900 text-white px-2"
                                             />
                                         </div>
                                         <div className="sm:col-span-2 text-left">
@@ -1323,9 +1366,17 @@ function getRiskBand(score: number): { label: 'Low' | 'Medium' | 'High'; color: 
 }
 
 function formatCurrency(value: number): string {
+    const absValue = Math.abs(value);
+    let decimals = 0;
+    if (absValue > 0 && absValue < 1) {
+        decimals = 4;
+    } else if (absValue > 0 && absValue < 100) {
+        decimals = 2;
+    }
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
-        maximumFractionDigits: 0,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
     }).format(value)
 }
