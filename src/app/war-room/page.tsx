@@ -17,6 +17,8 @@ import { Input } from '@/components/ui/input'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
 import { TerminalExecutionModal, ExecutionAction } from '@/components/terminal-execution-modal'
 import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
+import { useWatchlist } from '@/hooks/use-watchlist'
+import { toast } from 'sonner'
 
 const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
     {
@@ -207,10 +209,10 @@ function RiskDial({ score, maxDrawdown }: { score: number; maxDrawdown: number }
   )
 }
 
-function BridgeThreatSimulator({ scenarioIdx }: { scenarioIdx: number }) {
-  const isLiquidityCrisis = scenarioIdx === 0
-  const isBridgeOutage = scenarioIdx === 1
-  const isSequencerDowntime = scenarioIdx === 2
+function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioConfig }) {
+  const isLiquidityCrisis = scenario.liquidityDropPct >= 50 && scenario.marketShockPct >= 30
+  const isBridgeOutage = (scenario.bridgeOutageDurationMinutes ?? 0) > 0
+  const isSequencerDowntime = scenario.oracleDelayMinutes >= 10 || (scenario.bridgeOutageDurationMinutes ?? 0) > 300
 
   // Status strings
   const getStatusText = () => {
@@ -227,24 +229,48 @@ function BridgeThreatSimulator({ scenarioIdx }: { scenarioIdx: number }) {
     return 'text-cyan-400'
   }
 
+  const isChainAffected = (nodeName: string) => {
+    if (!scenario.chainsAffected) return false
+    if (nodeName === 'Solana') return scenario.chainsAffected.includes(ChainType.Solana)
+    if (nodeName === 'Ethereum') return scenario.chainsAffected.includes(ChainType.Ethereum)
+    if (nodeName === 'Cosmos') return scenario.chainsAffected.includes(ChainType.Cosmos)
+    if (nodeName === 'L2') {
+      return scenario.chainsAffected.includes(ChainType.Arbitrum) ||
+             scenario.chainsAffected.includes(ChainType.Base) ||
+             scenario.chainsAffected.includes(ChainType.Optimism) ||
+             scenario.chainsAffected.includes(ChainType.Polygon)
+    }
+    return false
+  }
+
   const getNodeColor = (name: string) => {
-    if (isLiquidityCrisis) return 'fill-amber-500 stroke-amber-400'
-    if (name === 'L2' && isSequencerDowntime) return 'fill-rose-600 stroke-rose-500 shadow-rose-500'
-    if (isBridgeOutage && (name === 'Solana' || name === 'Cosmos' || name === 'L2')) return 'fill-rose-500 stroke-rose-400'
+    if (isLiquidityCrisis && isChainAffected(name)) return 'fill-amber-500 stroke-amber-400'
+    if (name === 'L2' && isSequencerDowntime && isChainAffected('L2')) return 'fill-rose-600 stroke-rose-500 shadow-rose-500'
+    if (isBridgeOutage && isChainAffected(name)) return 'fill-rose-500 stroke-rose-400'
     return 'fill-cyan-500 stroke-cyan-400'
   }
 
   const getLinkColorClass = (from: string, to: string) => {
-    if (isLiquidityCrisis) return 'stroke-amber-600/60 sweep-link-alert'
+    const fromAffected = isChainAffected(from)
+    const toAffected = isChainAffected(to)
+
+    if (isLiquidityCrisis) {
+      return (fromAffected || toAffected)
+        ? 'stroke-amber-600/80 sweep-link-alert'
+        : 'stroke-cyan-600/40 sweep-link-active'
+    }
     if (isBridgeOutage) {
-      if ((from === 'Solana' || to === 'Solana') || (from === 'Cosmos' || to === 'Cosmos')) {
+      if (fromAffected && toAffected) {
         return 'stroke-rose-600/80 stroke-[2px]'
+      }
+      if (fromAffected || toAffected) {
+        return 'stroke-rose-500/60 stroke-[1.5px]'
       }
       return 'stroke-cyan-600/40 sweep-link-active'
     }
     if (isSequencerDowntime) {
       if (from === 'L2' || to === 'L2') {
-        return 'stroke-rose-500/80 stroke-[2.5px] stroke-dasharray-none'
+        return 'stroke-rose-500/80 stroke-[2.5px] stroke-dasharray-none animate-pulse'
       }
       return 'stroke-cyan-500/80 sweep-link-active'
     }
@@ -292,13 +318,19 @@ function BridgeThreatSimulator({ scenarioIdx }: { scenarioIdx: number }) {
           <line x1="200" y1="25" x2="350" y2="70" className={getLinkColorClass('Ethereum', 'Cosmos')} strokeWidth="1.5" />
 
           {/* Node Rings / Pulse animations */}
-          {(isLiquidityCrisis || isBridgeOutage) && (
+          {isLiquidityCrisis && (
             <>
-              <circle cx="50" cy="70" r="14" fill="none" className="stroke-rose-500/40 animate-ping" strokeWidth="1.5" />
-              <circle cx="350" cy="70" r="14" fill="none" className="stroke-rose-500/40 animate-ping" strokeWidth="1.5" />
+              {isChainAffected('Solana') && <circle cx="50" cy="70" r="14" fill="none" className="stroke-amber-500/40 animate-ping" strokeWidth="1.5" />}
+              {isChainAffected('Cosmos') && <circle cx="350" cy="70" r="14" fill="none" className="stroke-amber-500/40 animate-ping" strokeWidth="1.5" />}
             </>
           )}
-          {isSequencerDowntime && (
+          {isBridgeOutage && (
+            <>
+              {isChainAffected('Solana') && <circle cx="50" cy="70" r="14" fill="none" className="stroke-rose-500/40 animate-ping" strokeWidth="1.5" />}
+              {isChainAffected('Cosmos') && <circle cx="350" cy="70" r="14" fill="none" className="stroke-rose-500/40 animate-ping" strokeWidth="1.5" />}
+            </>
+          )}
+          {isSequencerDowntime && isChainAffected('L2') && (
             <circle cx="200" cy="115" r="14" fill="none" className="stroke-rose-500 animate-ping" strokeWidth="1.5" />
           )}
 
@@ -317,15 +349,23 @@ function BridgeThreatSimulator({ scenarioIdx }: { scenarioIdx: number }) {
           {/* Text alert labels inside map */}
           {isBridgeOutage && (
             <>
-              <rect x="22" y="38" width="56" height="11" rx="2" fill="#09090b" stroke="#ef4444" strokeWidth="0.8" />
-              <text x="50" y="46" fill="#ef4444" fontSize="5.5" fontWeight="bold" textAnchor="middle">BRIDGE DROP</text>
+              {isChainAffected('Solana') && (
+                <>
+                  <rect x="22" y="38" width="56" height="11" rx="2" fill="#09090b" stroke="#ef4444" strokeWidth="0.8" />
+                  <text x="50" y="46" fill="#ef4444" fontSize="5.5" fontWeight="bold" textAnchor="middle">BRIDGE DROP</text>
+                </>
+              )}
 
-              <rect x="322" y="38" width="56" height="11" rx="2" fill="#09090b" stroke="#ef4444" strokeWidth="0.8" />
-              <text x="350" y="46" fill="#ef4444" fontSize="5.5" fontWeight="bold" textAnchor="middle">BRIDGE DROP</text>
+              {isChainAffected('Cosmos') && (
+                <>
+                  <rect x="322" y="38" width="56" height="11" rx="2" fill="#09090b" stroke="#ef4444" strokeWidth="0.8" />
+                  <text x="350" y="46" fill="#ef4444" fontSize="5.5" fontWeight="bold" textAnchor="middle">BRIDGE DROP</text>
+                </>
+              )}
             </>
           )}
 
-          {isSequencerDowntime && (
+          {isSequencerDowntime && isChainAffected('L2') && (
             <>
               <rect x="160" y="93" width="80" height="11" rx="2" fill="#09090b" stroke="#ef4444" strokeWidth="0.8" />
               <text x="200" y="101" fill="#ef4444" fontSize="5.5" fontWeight="bold" textAnchor="middle">SEQ ERROR (503)</text>
@@ -399,14 +439,234 @@ export default function WarRoomPage() {
     )
 }
 
+async function fetchAndBuildPositions(protocolSlug: string): Promise<ChainPortfolioPosition[]> {
+    const res = await fetch(`/api/defillama/protocol?slug=${encodeURIComponent(protocolSlug)}`)
+    if (!res.ok) throw new Error(`Status ${res.status}`)
+    const data = await res.json()
+
+    if (data.error) {
+        throw new Error(data.error)
+    }
+
+    // Map chain names from DefiLlama to Aegis ChainType
+    const MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE: Record<string, ChainType> = {
+        solana: ChainType.Solana,
+        ethereum: ChainType.Ethereum,
+        polygon: ChainType.Polygon,
+        arbitrum: ChainType.Arbitrum,
+        optimism: ChainType.Optimism,
+        cosmos: ChainType.Cosmos,
+        base: ChainType.Base,
+    }
+
+    const chainsList: string[] = data.chains || []
+    const category: string = data.category || 'other'
+    const symbol: string = (data.symbol && data.symbol !== '-' ? data.symbol : protocolSlug).toUpperCase()
+    const name: string = data.name || protocolSlug
+
+    // Resolve price
+    let tokenPrice = 0
+    let geckoId = data.gecko_id || data.geckoId
+    const address = data.address
+
+    // 1. Try contract address query via DeFiLlama Coins API
+    if (address) {
+        try {
+            const priceRes = await fetch(`https://coins.llama.fi/prices/current/${address}`)
+            if (priceRes.ok) {
+                const priceData = await priceRes.json()
+                const coinInfo = priceData.coins?.[address]
+                if (coinInfo && coinInfo.price != null) {
+                    tokenPrice = coinInfo.price
+                }
+            }
+        } catch (addressErr) {
+            console.error('Failed to fetch price by address:', addressErr)
+        }
+    }
+
+    // If address had no prefix, try prefixing it with the primary chain
+    if (tokenPrice === 0 && address && !address.includes(':') && chainsList.length > 0) {
+        const formattedAddress = `${chainsList[0].toLowerCase()}:${address}`
+        try {
+            const priceRes = await fetch(`https://coins.llama.fi/prices/current/${formattedAddress}`)
+            if (priceRes.ok) {
+                const priceData = await priceRes.json()
+                const coinInfo = priceData.coins?.[formattedAddress]
+                if (coinInfo && coinInfo.price != null) {
+                    tokenPrice = coinInfo.price
+                }
+            }
+        } catch (addressErr) {
+            console.error('Failed to fetch price by formatted address:', addressErr)
+        }
+    }
+
+    // 2. Try contract address lookup via DexScreener Coins API fallback
+    if (tokenPrice === 0 && address) {
+        const cleanAddress = address.includes(':') ? address.split(':')[1] : address;
+        if (cleanAddress.startsWith('0x') || cleanAddress.length >= 32) {
+            try {
+                const dexscreenerRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${cleanAddress}`)
+                if (dexscreenerRes.ok) {
+                    const dexscreenerData = await dexscreenerRes.json()
+                    const pairs = dexscreenerData.pairs || []
+                    if (pairs.length > 0) {
+                        const bestPair = pairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
+                        if (bestPair && bestPair.priceUsd) {
+                            tokenPrice = Number(bestPair.priceUsd)
+                        }
+                    }
+                }
+            } catch (dexErr) {
+                console.error('Failed to fetch price from DexScreener by address:', dexErr)
+            }
+        }
+    }
+
+    // 3. Try CoinGecko ID fallback
+    if (tokenPrice === 0) {
+        // If gecko_id is not found in the protocol detail, try looking it up in the chain's protocol list
+        if (!geckoId && chainsList.length > 0) {
+            const primaryChain = chainsList[0].toLowerCase()
+            const mappedChain = MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE[primaryChain]
+            if (mappedChain) {
+                try {
+                    const listRes = await fetch(`/api/defillama?chain=${encodeURIComponent(mappedChain)}`)
+                    if (listRes.ok) {
+                        const listData = await listRes.json()
+                        const matched = resolveProtocolFromList(protocolSlug, listData)
+                        if (matched) {
+                            geckoId = (matched as any).gecko_id || (matched as any).geckoId
+                        }
+                    }
+                } catch (listErr) {
+                    console.error('Failed to fetch chain protocols list for lookup:', listErr)
+                }
+            }
+        }
+
+        if (geckoId) {
+            try {
+                const priceRes = await fetch(`/api/coingecko?id=${encodeURIComponent(geckoId)}`)
+                if (priceRes.ok) {
+                    const priceData = await priceRes.json()
+                    tokenPrice = priceData.market_data?.current_price?.usd || 0
+                }
+            } catch (priceErr) {
+                console.error('Failed to fetch price from CoinGecko:', priceErr)
+            }
+        }
+    }
+
+    // 4. Try token symbol search via DexScreener fallback
+    if (tokenPrice === 0 && symbol && symbol !== '-') {
+        try {
+            const dexscreenerRes = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`)
+            if (dexscreenerRes.ok) {
+                const dexscreenerData = await dexscreenerRes.json()
+                const pairs = dexscreenerData.pairs || []
+                const matchingPairs = pairs.filter((p: any) => p.baseToken?.symbol?.toUpperCase() === symbol.toUpperCase())
+                if (matchingPairs.length > 0) {
+                    const bestPair = matchingPairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
+                    if (bestPair && bestPair.priceUsd) {
+                        tokenPrice = Number(bestPair.priceUsd)
+                    }
+                }
+            }
+        } catch (dexErr) {
+            console.error('Failed to fetch price from DexScreener by symbol:', dexErr)
+        }
+    }
+
+    // 5. Try token TVL weights fallback
+    if (tokenPrice === 0) {
+        tokenPrice = getLatestTokenPriceFromProtocolDetail(data) || 0;
+    }
+
+    // 6. Default fallback
+    if (tokenPrice === 0) {
+        tokenPrice = 1.0; // fallback unit price
+    }
+
+    // Resolve chain-specific TVLs
+    const parsedPositions: ChainPortfolioPosition[] = []
+    let totalTvl = 0
+
+    const chainDataList = chainsList.map(chainName => {
+        const normalizedChain = chainName.trim().toLowerCase()
+        const chainType = MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE[normalizedChain]
+        if (!chainType) return null
+
+        // Find latest TVL for this chain
+        let chainTvl = 0
+        if (data.chainTvls && data.chainTvls[chainName]) {
+            const history = data.chainTvls[chainName].tvl || []
+            if (history.length > 0) {
+                chainTvl = history[history.length - 1].totalLiquidity || 0
+            }
+        }
+        if (chainTvl === 0 && data.tvl) {
+            // fallback to total tvl if only one chain
+            const history = data.tvl || []
+            if (history.length > 0) {
+                chainTvl = history[history.length - 1].totalLiquidity || 0
+            }
+        }
+
+        return { chainType, chainTvl, rawChainName: chainName }
+    }).filter((c): c is NonNullable<typeof c> => c !== null)
+
+    // Sum up supported chains TVL
+    chainDataList.forEach(c => {
+        totalTvl += c.chainTvl
+    })
+
+    // Create position for each supported chain
+    chainDataList.forEach(c => {
+        // Estimate volatility and liquidity score
+        const volatility = getVolatility(category)
+        const liquidityScore = getLiquidityScore(c.chainTvl)
+
+        parsedPositions.push({
+            chain: c.chainType,
+            kind: mapCategoryToKind(category),
+            symbol: symbol,
+            protocol: protocolSlug.toLowerCase(),
+            balance: 1, // exactly 1 unit of protocol token
+            usdValue: tokenPrice, // value is exactly the price
+            volatility: volatility,
+            liquidityScore: liquidityScore,
+        })
+    })
+
+    return parsedPositions
+}
+
 function WarRoomContent() {
     const wallet = useWallet()
     const [simpleMode, setSimpleMode] = useState(false)
     const searchParams = useSearchParams()
 
+    // Watchlist
+    const { watchlist } = useWatchlist()
+    const [isImportingWatchlist, setIsImportingWatchlist] = useState(false)
+
     // Multichain states
     const [multichainPositions, setMultichainPositions] = useState<ChainPortfolioPosition[]>(DEFAULT_MULTICHAIN_POSITIONS)
     const [selectedMultichainScenarioIdx, setSelectedMultichainScenarioIdx] = useState(0)
+
+    // Custom Scenario state
+    const [useCustomScenario, setUseCustomScenario] = useState(false)
+    const [customScenario, setCustomScenario] = useState<ChainScenarioConfig>({
+        marketShockPct: 20,
+        liquidityDropPct: 30,
+        protocolExploitSeverity: 10,
+        oracleDelayMinutes: 0,
+        bridgeOutageDurationMinutes: 0,
+        chainsAffected: [ChainType.Solana, ChainType.Ethereum, ChainType.Arbitrum, ChainType.Base, ChainType.Optimism, ChainType.Polygon, ChainType.Cosmos]
+    })
+
     const [multichainResult, setMultichainResult] = useState<ComparativeSimulationResult | null>(null)
     const [multichainLoading, setMultichainLoading] = useState(false)
     const [multichainError, setMultichainError] = useState<string | null>(null)
@@ -420,217 +680,20 @@ function WarRoomContent() {
         const protocolSlug = protocolParam
 
         let active = true
-        async function fetchProtocolDetails() {
+        async function loadParamProtocol() {
             setMultichainImportStatus(`Resolving contract telemetry for ${protocolSlug.toUpperCase()}...`)
             try {
-                const res = await fetch(`/api/defillama/protocol?slug=${encodeURIComponent(protocolSlug)}`)
-                if (!res.ok) throw new Error(`Status ${res.status}`)
-                const data = await res.json()
+                const positions = await fetchAndBuildPositions(protocolSlug)
                 if (!active) return
 
-                if (data.error) {
-                    throw new Error(data.error)
-                }
-
-                // Map chain names from DefiLlama to Aegis ChainType
-                const MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE: Record<string, ChainType> = {
-                    solana: ChainType.Solana,
-                    ethereum: ChainType.Ethereum,
-                    polygon: ChainType.Polygon,
-                    arbitrum: ChainType.Arbitrum,
-                    optimism: ChainType.Optimism,
-                    cosmos: ChainType.Cosmos,
-                    base: ChainType.Base,
-                }
-
-                const chainsList: string[] = data.chains || []
-                const category: string = data.category || 'other'
-                const symbol: string = (data.symbol && data.symbol !== '-' ? data.symbol : protocolSlug).toUpperCase()
-                const name: string = data.name || protocolSlug
-
-                // Resolve price
-                let tokenPrice = 0
-                let geckoId = data.gecko_id || data.geckoId
-                const address = data.address
-
-                // 1. Try contract address query via DeFiLlama Coins API
-                if (address) {
-                    try {
-                        const priceRes = await fetch(`https://coins.llama.fi/prices/current/${address}`)
-                        if (priceRes.ok) {
-                            const priceData = await priceRes.json()
-                            const coinInfo = priceData.coins?.[address]
-                            if (coinInfo && coinInfo.price != null) {
-                                tokenPrice = coinInfo.price
-                            }
-                        }
-                    } catch (addressErr) {
-                        console.error('Failed to fetch price by address:', addressErr)
-                    }
-                }
-
-                // If address had no prefix, try prefixing it with the primary chain
-                if (tokenPrice === 0 && address && !address.includes(':') && chainsList.length > 0) {
-                    const formattedAddress = `${chainsList[0].toLowerCase()}:${address}`
-                    try {
-                        const priceRes = await fetch(`https://coins.llama.fi/prices/current/${formattedAddress}`)
-                        if (priceRes.ok) {
-                            const priceData = await priceRes.json()
-                            const coinInfo = priceData.coins?.[formattedAddress]
-                            if (coinInfo && coinInfo.price != null) {
-                                tokenPrice = coinInfo.price
-                            }
-                        }
-                    } catch (addressErr) {
-                        console.error('Failed to fetch price by formatted address:', addressErr)
-                    }
-                }
-
-                // 2. Try contract address lookup via DexScreener Coins API fallback
-                if (tokenPrice === 0 && address) {
-                    const cleanAddress = address.includes(':') ? address.split(':')[1] : address;
-                    if (cleanAddress.startsWith('0x') || cleanAddress.length >= 32) {
-                        try {
-                            const dexscreenerRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${cleanAddress}`)
-                            if (dexscreenerRes.ok) {
-                                const dexscreenerData = await dexscreenerRes.json()
-                                const pairs = dexscreenerData.pairs || []
-                                if (pairs.length > 0) {
-                                    const bestPair = pairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
-                                    if (bestPair && bestPair.priceUsd) {
-                                        tokenPrice = Number(bestPair.priceUsd)
-                                    }
-                                }
-                            }
-                        } catch (dexErr) {
-                            console.error('Failed to fetch price from DexScreener by address:', dexErr)
-                        }
-                    }
-                }
-
-                // 3. Try CoinGecko ID fallback
-                if (tokenPrice === 0) {
-                    // If gecko_id is not found in the protocol detail, try looking it up in the chain's protocol list
-                    if (!geckoId && chainsList.length > 0) {
-                        const primaryChain = chainsList[0].toLowerCase()
-                        const mappedChain = MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE[primaryChain]
-                        if (mappedChain) {
-                            try {
-                                const listRes = await fetch(`/api/defillama?chain=${encodeURIComponent(mappedChain)}`)
-                                if (listRes.ok) {
-                                    const listData = await listRes.json()
-                                    const matched = resolveProtocolFromList(protocolSlug, listData)
-                                    if (matched) {
-                                        geckoId = (matched as any).gecko_id || (matched as any).geckoId
-                                    }
-                                }
-                            } catch (listErr) {
-                                console.error('Failed to fetch chain protocols list for lookup:', listErr)
-                            }
-                        }
-                    }
-
-                    if (geckoId) {
-                        try {
-                            const priceRes = await fetch(`/api/coingecko?id=${encodeURIComponent(geckoId)}`)
-                            if (priceRes.ok) {
-                                const priceData = await priceRes.json()
-                                tokenPrice = priceData.market_data?.current_price?.usd || 0
-                            }
-                        } catch (priceErr) {
-                            console.error('Failed to fetch price from CoinGecko:', priceErr)
-                        }
-                    }
-                }
-
-                // 4. Try token symbol search via DexScreener fallback
-                if (tokenPrice === 0 && symbol && symbol !== '-') {
-                    try {
-                        const dexscreenerRes = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(symbol)}`)
-                        if (dexscreenerRes.ok) {
-                            const dexscreenerData = await dexscreenerRes.json()
-                            const pairs = dexscreenerData.pairs || []
-                            const matchingPairs = pairs.filter((p: any) => p.baseToken?.symbol?.toUpperCase() === symbol.toUpperCase())
-                            if (matchingPairs.length > 0) {
-                                const bestPair = matchingPairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
-                                if (bestPair && bestPair.priceUsd) {
-                                    tokenPrice = Number(bestPair.priceUsd)
-                                }
-                            }
-                        }
-                    } catch (dexErr) {
-                        console.error('Failed to fetch price from DexScreener by symbol:', dexErr)
-                    }
-                }
-
-                // 5. Try token TVL weights fallback
-                if (tokenPrice === 0) {
-                    tokenPrice = getLatestTokenPriceFromProtocolDetail(data) || 0;
-                }
-
-                // 6. Default fallback
-                if (tokenPrice === 0) {
-                    tokenPrice = 1.0; // fallback unit price
-                }
-
-                // Resolve chain-specific TVLs
-                const parsedPositions: ChainPortfolioPosition[] = []
-                let totalTvl = 0
-
-                const chainDataList = chainsList.map(chainName => {
-                    const normalizedChain = chainName.trim().toLowerCase()
-                    const chainType = MAP_DEFILLAMA_CHAIN_TO_CHAIN_TYPE[normalizedChain]
-                    if (!chainType) return null
-
-                    // Find latest TVL for this chain
-                    let chainTvl = 0
-                    if (data.chainTvls && data.chainTvls[chainName]) {
-                        const history = data.chainTvls[chainName].tvl || []
-                        if (history.length > 0) {
-                            chainTvl = history[history.length - 1].totalLiquidity || 0
-                        }
-                    }
-                    if (chainTvl === 0 && data.tvl) {
-                        // fallback to total tvl if only one chain
-                        const history = data.tvl || []
-                        if (history.length > 0) {
-                            chainTvl = history[history.length - 1].totalLiquidity || 0
-                        }
-                    }
-
-                    return { chainType, chainTvl, rawChainName: chainName }
-                }).filter((c): c is NonNullable<typeof c> => c !== null)
-
-                // Sum up supported chains TVL
-                chainDataList.forEach(c => {
-                    totalTvl += c.chainTvl
-                })
-
-                // Create position for each supported chain
-                chainDataList.forEach(c => {
-                    // Estimate volatility and liquidity score
-                    const volatility = getVolatility(category)
-                    const liquidityScore = getLiquidityScore(c.chainTvl)
-
-                    parsedPositions.push({
-                        chain: c.chainType,
-                        kind: mapCategoryToKind(category),
-                        symbol: symbol,
-                        protocol: protocolSlug.toLowerCase(),
-                        balance: 1, // exactly 1 unit of protocol token
-                        usdValue: tokenPrice, // value is exactly the price
-                        volatility: volatility,
-                        liquidityScore: liquidityScore,
-                    })
-                })
-
-                if (parsedPositions.length === 0) {
-                    setMultichainImportStatus(`Protocol ${name} fetched, but it is not deployed on any Aegis-supported networks.`)
+                if (positions.length === 0) {
+                    setMultichainImportStatus(`Protocol ${protocolSlug.toUpperCase()} fetched, but it is not deployed on any Aegis-supported networks.`)
                     return
                 }
 
-                setMultichainPositions(parsedPositions)
-                setMultichainImportStatus(`Successfully loaded ${name} deployments across ${parsedPositions.length} network(s). Live Unit Price: $${tokenPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}.`)
+                const price = positions[0].usdValue
+                setMultichainPositions(positions)
+                setMultichainImportStatus(`Successfully loaded ${protocolSlug.toUpperCase()} deployments across ${positions.length} network(s). Live Unit Price: $${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}.`)
             } catch (err) {
                 if (!active) return
                 console.error('Failed to load protocol from URL parameter:', err)
@@ -638,11 +701,65 @@ function WarRoomContent() {
             }
         }
 
-        void fetchProtocolDetails()
+        void loadParamProtocol()
         return () => {
             active = false
         }
     }, [searchParams])
+
+    async function handleImportWatchlist() {
+        if (!watchlist || watchlist.length === 0) {
+            setMultichainImportStatus("Watchlist is empty. Go to Research to add protocols.")
+            return
+        }
+
+        setIsImportingWatchlist(true)
+        setMultichainImportStatus(`Importing ${watchlist.length} protocols from watchlist...`)
+        
+        let importedCount = 0
+        let failedCount = 0
+        const allNewPositions: ChainPortfolioPosition[] = []
+
+        for (const slug of watchlist) {
+            setMultichainImportStatus(`Resolving telemetry for watchlisted protocol ${slug.toUpperCase()}...`)
+            try {
+                const positions = await fetchAndBuildPositions(slug)
+                if (positions.length > 0) {
+                    allNewPositions.push(...positions)
+                    importedCount++
+                } else {
+                    failedCount++
+                }
+            } catch (err) {
+                console.error(`Failed to resolve watchlist protocol ${slug}:`, err)
+                failedCount++
+            }
+        }
+
+        if (allNewPositions.length > 0) {
+            setMultichainPositions((current) => {
+                const existing = [...current]
+                allNewPositions.forEach(newPos => {
+                    const duplicateIndex = existing.findIndex(
+                        p => p.chain === newPos.chain && 
+                             p.symbol.toUpperCase() === newPos.symbol.toUpperCase() && 
+                             p.protocol.toLowerCase() === newPos.protocol.toLowerCase()
+                    )
+                    if (duplicateIndex >= 0) {
+                        existing[duplicateIndex] = newPos
+                    } else {
+                        existing.push(newPos)
+                    }
+                })
+                return existing
+            })
+            setMultichainResult(null)
+            setMultichainImportStatus(`Watchlist import complete. Imported ${importedCount} protocols (${allNewPositions.length} positions total).${failedCount > 0 ? ` Failed: ${failedCount}.` : ''}`)
+        } else {
+            setMultichainImportStatus(`Watchlist import failed. Could not resolve any watchlisted protocols.`)
+        }
+        setIsImportingWatchlist(false)
+    }
 
     function handleExecuteAction(action: ExecutionAction) {
         setExecAction(action)
@@ -653,7 +770,6 @@ function WarRoomContent() {
         if (!execAction) return
         setMultichainPositions((current) => {
             return current.map((pos) => {
-                // Find matching position
                 const isMatch = pos.symbol.toLowerCase() === execAction.assetSymbol.toLowerCase() &&
                                 pos.chain === execAction.fromChain;
                 if (isMatch) {
@@ -758,7 +874,7 @@ function WarRoomContent() {
         setMultichainLoading(true)
         setMultichainError(null)
 
-        const scenarioPreset = MULTICHAIN_SCENARIOS[selectedMultichainScenarioIdx]
+        const activeScenario = useCustomScenario ? customScenario : MULTICHAIN_SCENARIOS[selectedMultichainScenarioIdx]
         const portfolioPayload: MultiChainPortfolio = {
             walletAddress: wallet.publicKey?.toString() || 'guest-multichain-wallet',
             positions: multichainPositions,
@@ -771,7 +887,7 @@ function WarRoomContent() {
             const res = await fetch('/api/war-room/simulate-comparative', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ portfolio: portfolioPayload, scenario: scenarioPreset }),
+                body: JSON.stringify({ portfolio: portfolioPayload, scenario: activeScenario }),
             })
 
             if (!res.ok) {
@@ -834,7 +950,18 @@ function WarRoomContent() {
                     {/* Left Panel: Portfolio Holdings mixing board */}
                     <div className="lg:col-span-3 rounded-xl bg-zinc-950/50 border border-cyan-500/10 p-5 backdrop-blur-md space-y-5 corner-decor shadow-2xl">
                         <div className="flex flex-wrap items-center justify-between border-b border-cyan-500/10 pb-3 gap-3">
-                            <h2 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">Cross-Chain Portfolio Holdings</h2>
+                            <div className="flex items-center gap-3">
+                                <h2 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">Cross-Chain Portfolio Holdings</h2>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={isImportingWatchlist}
+                                    onClick={handleImportWatchlist}
+                                    className="h-6 text-[9px] font-mono text-cyan-400 border-cyan-500/20 bg-cyan-950/20 hover:bg-cyan-500/15 rounded-xs px-2 py-0.5 gap-1"
+                                >
+                                    {isImportingWatchlist ? 'Importing...' : `Import Watchlist (${watchlist.length})`}
+                                </Button>
+                            </div>
                             <span className="text-xs font-mono font-bold text-cyan-400">
                                 Total Base Value: {formatCurrency(multichainPositions.reduce((acc, p) => acc + p.usdValue, 0))}
                             </span>
@@ -1038,7 +1165,7 @@ function WarRoomContent() {
                     {/* Right Panel: Scenario presetter */}
                     <div className="lg:col-span-2 rounded-xl bg-zinc-950/50 border border-cyan-500/10 p-5 backdrop-blur-md space-y-5 corner-decor shadow-2xl">
                         <div className="flex justify-between items-center border-b border-cyan-500/10 pb-3 gap-3">
-                            <h2 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">Cross-Chain Threat Preset</h2>
+                            <h2 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">Cross-Chain Threat Deck</h2>
                             <button
                                 type="button"
                                 onClick={() => setSimpleMode(!simpleMode)}
@@ -1050,38 +1177,170 @@ function WarRoomContent() {
                                 {simpleMode ? 'Lingo: Simplified' : 'Lingo: Technical'}
                             </button>
                         </div>
-                        <div className="space-y-2">
-                            {MULTICHAIN_SCENARIOS.map((sc, idx) => {
-                                const info = MULTICHAIN_SCENARIO_INFO[idx]
-                                return (
-                                    <button
-                                        key={info.title}
-                                        type="button"
-                                        onClick={() => setSelectedMultichainScenarioIdx(idx)}
-                                        className={`w-full rounded-xs px-3.5 py-3 text-left transition border ${idx === selectedMultichainScenarioIdx
-                                            ? 'bg-cyan-950/15 border-cyan-500/35 text-white shadow-[0_0_12px_rgba(6,182,212,0.06)]'
-                                            : 'bg-zinc-950/40 border-zinc-900 text-zinc-450 hover:bg-zinc-950 hover:text-zinc-200'
-                                            }`}
-                                    >
-                                        <p className="text-xs font-orbitron font-bold tracking-wider uppercase">{simpleMode ? info.beginnerLabel : info.title}</p>
-                                        <p className="text-[10px] text-zinc-400 mt-1 leading-normal">
-                                            {simpleMode ? info.beginnerSummary : info.description}
-                                        </p>
-                                        {!simpleMode && (
-                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                <span className="rounded-xs bg-zinc-950/80 px-1.5 py-0.5 text-[8px] text-cyan-500 border border-zinc-900 font-mono font-semibold">Shock: -{sc.marketShockPct}%</span>
-                                                <span className="rounded-xs bg-zinc-950/80 px-1.5 py-0.5 text-[8px] text-cyan-500 border border-zinc-900 font-mono font-semibold">Liquidity: -{sc.liquidityDropPct}%</span>
-                                                {sc.bridgeOutageDurationMinutes && sc.bridgeOutageDurationMinutes > 0 ? (
-                                                    <span className="rounded-xs bg-rose-500/10 text-rose-300 border border-rose-500/15 px-1.5 py-0.5 text-[8px] font-mono font-bold">Bridge Outage: {sc.bridgeOutageDurationMinutes}m</span>
-                                                ) : null}
-                                            </div>
-                                        )}
-                                    </button>
-                                )
-                            })}
+
+                        <div className="flex border-b border-cyan-500/10 pb-1.5 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setUseCustomScenario(false)}
+                                className={`flex-1 text-center py-1.5 text-[10px] font-orbitron font-bold uppercase tracking-wider border transition-all ${
+                                    !useCustomScenario
+                                        ? 'bg-cyan-950/20 border-cyan-500/30 text-cyan-400 font-black'
+                                        : 'bg-zinc-950/30 border-transparent text-zinc-500 hover:text-zinc-350'
+                                }`}
+                            >
+                                Presets
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setUseCustomScenario(true)}
+                                className={`flex-1 text-center py-1.5 text-[10px] font-orbitron font-bold uppercase tracking-wider border transition-all ${
+                                    useCustomScenario
+                                        ? 'bg-cyan-950/20 border-cyan-500/30 text-cyan-400 font-black'
+                                        : 'bg-zinc-950/30 border-transparent text-zinc-500 hover:text-zinc-350'
+                                }`}
+                            >
+                                Custom Injector
+                            </button>
                         </div>
 
-                        <BridgeThreatSimulator scenarioIdx={selectedMultichainScenarioIdx} />
+                        {!useCustomScenario ? (
+                            <div className="space-y-2">
+                                {MULTICHAIN_SCENARIOS.map((sc, idx) => {
+                                    const info = MULTICHAIN_SCENARIO_INFO[idx]
+                                    return (
+                                        <button
+                                            key={info.title}
+                                            type="button"
+                                            onClick={() => setSelectedMultichainScenarioIdx(idx)}
+                                            className={`w-full rounded-xs px-3.5 py-3 text-left transition border ${idx === selectedMultichainScenarioIdx
+                                                ? 'bg-cyan-950/15 border-cyan-500/35 text-white shadow-[0_0_12px_rgba(6,182,212,0.06)]'
+                                                : 'bg-zinc-950/40 border-zinc-900 text-zinc-450 hover:bg-zinc-950 hover:text-zinc-200'
+                                                }`}
+                                        >
+                                            <p className="text-xs font-orbitron font-bold tracking-wider uppercase">{simpleMode ? info.beginnerLabel : info.title}</p>
+                                            <p className="text-[10px] text-zinc-400 mt-1 leading-normal">
+                                                {simpleMode ? info.beginnerSummary : info.description}
+                                            </p>
+                                            {!simpleMode && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    <span className="rounded-xs bg-zinc-950/80 px-1.5 py-0.5 text-[8px] text-cyan-500 border border-zinc-900 font-mono font-semibold">Shock: -{sc.marketShockPct}%</span>
+                                                    <span className="rounded-xs bg-zinc-950/80 px-1.5 py-0.5 text-[8px] text-cyan-500 border border-zinc-900 font-mono font-semibold">Liquidity: -{sc.liquidityDropPct}%</span>
+                                                    {sc.bridgeOutageDurationMinutes && sc.bridgeOutageDurationMinutes > 0 ? (
+                                                        <span className="rounded-xs bg-rose-500/10 text-rose-300 border border-rose-500/15 px-1.5 py-0.5 text-[8px] font-mono font-bold">Bridge Outage: {sc.bridgeOutageDurationMinutes}m</span>
+                                                    ) : null}
+                                                </div>
+                                            )}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        ) : (
+                            <div className="space-y-4 rounded-xs border border-cyan-500/10 bg-zinc-950/45 p-4 text-xs font-mono text-left">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                        <span className="text-zinc-400">MARKET SHOCK</span>
+                                        <span className="text-cyan-400">-{customScenario.marketShockPct}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        value={customScenario.marketShockPct}
+                                        onChange={(e) => setCustomScenario({ ...customScenario, marketShockPct: Number(e.target.value) })}
+                                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                        <span className="text-zinc-400">LIQUIDITY DROP</span>
+                                        <span className="text-cyan-400">-{customScenario.liquidityDropPct}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        value={customScenario.liquidityDropPct}
+                                        onChange={(e) => setCustomScenario({ ...customScenario, liquidityDropPct: Number(e.target.value) })}
+                                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                        <span className="text-zinc-400">PROTOCOL EXPLOIT SEVERITY</span>
+                                        <span className="text-cyan-400">{customScenario.protocolExploitSeverity}% Risk</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        value={customScenario.protocolExploitSeverity}
+                                        onChange={(e) => setCustomScenario({ ...customScenario, protocolExploitSeverity: Number(e.target.value) })}
+                                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                        <span className="text-zinc-400">ORACLE DELAY</span>
+                                        <span className="text-cyan-400">{customScenario.oracleDelayMinutes} mins</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={120}
+                                        value={customScenario.oracleDelayMinutes}
+                                        onChange={(e) => setCustomScenario({ ...customScenario, oracleDelayMinutes: Number(e.target.value) })}
+                                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center text-[10px] font-bold">
+                                        <span className="text-zinc-400">BRIDGE OUTAGE DURATION</span>
+                                        <span className="text-cyan-400">{customScenario.bridgeOutageDurationMinutes} mins</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={1440}
+                                        step={30}
+                                        value={customScenario.bridgeOutageDurationMinutes}
+                                        onChange={(e) => setCustomScenario({ ...customScenario, bridgeOutageDurationMinutes: Number(e.target.value) })}
+                                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                    />
+                                </div>
+
+                                <div className="space-y-2 border-t border-zinc-900 pt-3">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-550 block mb-1">Chains Affected</span>
+                                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                        {Object.values(ChainType).map((c) => {
+                                            const isChecked = customScenario.chainsAffected?.includes(c) ?? false
+                                            return (
+                                                <label key={c} className="flex items-center gap-2 cursor-pointer text-zinc-350 hover:text-white transition-colors">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => {
+                                                            const currentChains = customScenario.chainsAffected ?? []
+                                                            const newChains = currentChains.includes(c)
+                                                                ? currentChains.filter((x) => x !== c)
+                                                                : [...currentChains, c]
+                                                            setCustomScenario({ ...customScenario, chainsAffected: newChains })
+                                                        }}
+                                                        className="rounded-xs border-zinc-850 bg-zinc-950 text-cyan-500 focus:ring-0 cursor-pointer h-3.5 w-3.5 animate-none"
+                                                    />
+                                                    <span className="uppercase">{c}</span>
+                                                </label>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <BridgeThreatSimulator scenario={useCustomScenario ? customScenario : MULTICHAIN_SCENARIOS[selectedMultichainScenarioIdx]} />
 
                         <Button
                             onClick={runMultichainSimulation}
