@@ -2,7 +2,7 @@
 
 import { useWallet } from '@solana/wallet-adapter-react'
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { RefreshCw } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
@@ -94,7 +94,7 @@ export function AccountTokens({ address }: { address: PublicKey }) {
           <h2 className="text-2xl font-bold">Token Accounts</h2>
           <div className="space-x-2">
             {query.isLoading ? (
-              <span className="loading loading-spinner"></span>
+              <Loader2 size={16} className="animate-spin text-cyan-500" />
             ) : (
               <Button
                 variant="outline"
@@ -184,7 +184,7 @@ export function AccountTransactions({ address }: { address: PublicKey }) {
         <h2 className="text-2xl font-bold">Transaction History</h2>
         <div className="space-x-2">
           {query.isLoading ? (
-            <span className="loading loading-spinner"></span>
+            <Loader2 size={16} className="animate-spin text-cyan-500" />
           ) : (
             <Button variant="outline" onClick={() => query.refetch()}>
               <RefreshCw size={16} />

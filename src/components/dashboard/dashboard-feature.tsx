@@ -263,8 +263,23 @@ export function DashboardFeature() {
           >
             <div className="mt-3">
               {flattenedWatchlist.length === 0 ? (
-                <div className="rounded-xs border border-dashed border-zinc-800 bg-zinc-950/50 p-6 text-center text-xs text-zinc-550 font-mono">
-                  &gt; Watchlist buffer empty. Search and add a protocol from the Research portal.
+                <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center space-y-3">
+                  <ShieldCheck className="h-6 w-6 text-zinc-600 stroke-[1.5]" />
+                  <div className="space-y-0.5">
+                    <p className="text-[11px] font-bold text-zinc-350 font-orbitron uppercase tracking-wider">
+                      Watchlist Buffer Empty
+                    </p>
+                    <p className="text-[9px] text-zinc-550 font-mono">
+                      No active protocol threat telemetry feeds currently monitored.
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    size="sm"
+                    className="border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-400 text-[9px] uppercase tracking-wider font-orbitron font-bold h-7 rounded-xs px-4"
+                  >
+                    <Link href="/research">Browse Research</Link>
+                  </Button>
                 </div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-3">

@@ -11,7 +11,7 @@ import { useChainProtocols } from '@/lib/hooks/use-defillama'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Star, Swords, RefreshCw, Terminal } from 'lucide-react'
+import { Star, Swords, RefreshCw, Terminal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useMultiChain } from '@/components/chain/chain-provider'
@@ -129,7 +129,7 @@ export default function ResearchPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#070b13] flex items-center justify-center">
-          <span className="loading loading-spinner loading-lg text-cyan-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
         </div>
       }
     >

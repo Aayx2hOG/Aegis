@@ -20,6 +20,7 @@ import { TerminalExecutionModal, ExecutionAction } from '@/components/ui/termina
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { useWatchlist } from '@/lib/hooks/use-watchlist'
 import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 
 const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
   {
@@ -229,8 +230,8 @@ function RiskDial({ score, maxDrawdown }: { score: number; maxDrawdown: number }
 
 function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioConfig }) {
   const isLiquidityCrisis = scenario.liquidityDropPct >= 50 && scenario.marketShockPct >= 30
-  const isBridgeOutage = (scenario.bridgeOutageDurationMinutes ?? 0) > 0
-  const isSequencerDowntime = scenario.oracleDelayMinutes >= 10 || (scenario.bridgeOutageDurationMinutes ?? 0) > 300
+  const isBridgeOutage = (scenario.bridgeOutageDurationMinutes ?? 0) >= 60
+  const isSequencerDowntime = scenario.oracleDelayMinutes >= 15 || (scenario.bridgeOutageDurationMinutes ?? 0) >= 360
 
   // Status strings
   const getStatusText = () => {
@@ -550,7 +551,7 @@ export default function WarRoomPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#070b13] flex items-center justify-center">
-          <span className="loading loading-spinner loading-lg text-cyan-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
         </div>
       }
     >
@@ -1561,6 +1562,33 @@ function WarRoomContent() {
                       )
                     })}
                   </div>
+                </div>
+
+                <div className="border-t border-zinc-900 pt-3 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      setCustomScenario({
+                        marketShockPct: 0,
+                        liquidityDropPct: 0,
+                        protocolExploitSeverity: 0,
+                        oracleDelayMinutes: 0,
+                        bridgeOutageDurationMinutes: 0,
+                        chainsAffected: [
+                          ChainType.Solana,
+                          ChainType.Ethereum,
+                          ChainType.Arbitrum,
+                          ChainType.Base,
+                          ChainType.Optimism,
+                          ChainType.Polygon,
+                          ChainType.Cosmos,
+                        ],
+                      })
+                    }
+                    className="border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/15 text-cyan-400 text-[9px] uppercase tracking-wider font-orbitron font-bold h-7 rounded-xs px-3"
+                  >
+                    Reset to Stable
+                  </Button>
                 </div>
               </div>
             )}

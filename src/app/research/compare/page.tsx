@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, Suspense, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Swords, ArrowLeft, Zap, Search, ChevronDown, Check, Terminal, RefreshCw } from 'lucide-react'
+import { Swords, ArrowLeft, Zap, Search, ChevronDown, Check, Terminal, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useMultiChain } from '@/components/chain/chain-provider'
@@ -44,7 +44,7 @@ export default function ComparePage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#070b13] flex items-center justify-center">
-          <span className="loading loading-spinner loading-lg text-cyan-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
         </div>
       }
     >
