@@ -112,10 +112,6 @@ export function Sparkles({
   }, [maxSize, minSize, particleColor, particleDensity])
 
   return (
-    <canvas
-      ref={canvasRef}
-      id={id}
-      className={`absolute inset-0 w-full h-full pointer-events-none z-0 ${className}`}
-    />
+    <canvas ref={canvasRef} id={id} className={`absolute inset-0 w-full h-full pointer-events-none z-0 ${className}`} />
   )
 }

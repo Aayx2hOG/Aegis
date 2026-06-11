@@ -5,9 +5,9 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Bell, Menu, X } from 'lucide-react'
-import { ThemeSelect } from '@/components/theme-select'
+import { ThemeSelect } from '@/components/ui/theme-select'
 import { WalletButton } from '@/components/solana/solana-provider'
-import { ChainUiSelect } from './chain/chain-ui'
+import { ChainUiSelect } from '@/components/chain/chain-ui'
 
 export function AppHeader({
   links = [],
@@ -20,10 +20,7 @@ export function AppHeader({
   const [showMenu, setShowMenu] = useState(false)
 
   // Merge Alerts into main links list, keep Notifications for the right-side bell icon
-  const mainNavLinks = [
-    ...links,
-    ...utilityLinks.filter((item) => item.label === 'Alerts'),
-  ]
+  const mainNavLinks = [...links, ...utilityLinks.filter((item) => item.label === 'Alerts')]
 
   function isActive(path: string) {
     return path === '/' ? pathname === '/' : pathname.startsWith(path)
@@ -64,9 +61,7 @@ export function AppHeader({
                 <li key={path}>
                   <Link
                     className={`relative text-xs font-orbitron font-bold uppercase tracking-widest transition-colors duration-200 py-1.5 ${
-                      isActive(path)
-                        ? 'text-white'
-                        : 'text-zinc-450 hover:text-cyan-400'
+                      isActive(path) ? 'text-white' : 'text-zinc-450 hover:text-cyan-400'
                     }`}
                     href={path}
                   >

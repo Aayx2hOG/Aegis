@@ -1,14 +1,14 @@
-import { getTokenPrice } from '@/server/api/birdeye';
-import { NextRequest } from 'next/server';
+import { getTokenPrice } from '@/server/api/birdeye'
+import { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
-  const address = req.nextUrl.searchParams.get('address');
-  if (!address) return Response.json({ error: 'address required' }, { status: 400 });
+  const address = req.nextUrl.searchParams.get('address')
+  if (!address) return Response.json({ error: 'address required' }, { status: 400 })
 
   try {
-    const price = await getTokenPrice(address);
-    return Response.json(price);
+    const price = await getTokenPrice(address)
+    return Response.json(price)
   } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
+    return Response.json({ error: String(err) }, { status: 500 })
   }
 }

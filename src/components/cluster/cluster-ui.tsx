@@ -9,7 +9,7 @@ import { ReactNode } from 'react'
 import { useCluster } from './cluster-data-access'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { AppAlert } from '@/components/app-alert'
+import { AppAlert } from '@/components/layout/app-alert'
 
 export function ExplorerLink({ path, label, className }: { path: string; label: string; className?: string }) {
   const { getExplorerUrl } = useCluster()

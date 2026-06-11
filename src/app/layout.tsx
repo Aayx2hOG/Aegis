@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { AppProviders } from '@/components/app-providers'
-import { AppLayout } from '@/components/app-layout'
+import { AppProviders } from '@/components/providers/app-providers'
+import { AppLayout } from '@/components/layout/app-layout'
 import type { ReactNode } from 'react'
 import '@/lib/polyfills/bigint-json'
 
@@ -27,7 +27,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html lang="en" suppressHydrationWarning>
       <body className={`antialiased`}>
         <AppProviders>
-          <AppLayout links={links} utilityLinks={utilityLinks}>{children}</AppLayout>
+          <AppLayout links={links} utilityLinks={utilityLinks}>
+            {children}
+          </AppLayout>
         </AppProviders>
       </body>
     </html>

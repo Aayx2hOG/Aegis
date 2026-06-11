@@ -35,7 +35,7 @@ async function runEvaluationCycle() {
         const result = await evaluateAlertsForWallet(walletAddress)
         console.log(
           `[scheduler-worker] wallet ${walletAddress} evaluation completed. ` +
-          `totalRules=${result.totalRules}, triggered=${result.triggered}, skipped=${result.skipped}`
+            `totalRules=${result.totalRules}, triggered=${result.triggered}, skipped=${result.skipped}`,
         )
       } catch (walletErr) {
         console.error(`[scheduler-worker] error evaluating alerts for wallet ${walletAddress}:`, walletErr)
@@ -48,7 +48,9 @@ async function runEvaluationCycle() {
 
 async function startScheduler() {
   console.log(`[scheduler-worker] starting scheduler...`)
-  console.log(`[scheduler-worker] evaluation interval set to: ${EVALUATION_INTERVAL_MS}ms (${(EVALUATION_INTERVAL_MS / 1000).toFixed(1)}s)`)
+  console.log(
+    `[scheduler-worker] evaluation interval set to: ${EVALUATION_INTERVAL_MS}ms (${(EVALUATION_INTERVAL_MS / 1000).toFixed(1)}s)`,
+  )
 
   // Run the first evaluation cycle immediately on startup
   await runEvaluationCycle()

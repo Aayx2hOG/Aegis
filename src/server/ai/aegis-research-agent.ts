@@ -1,94 +1,98 @@
-import Groq from 'groq-sdk';
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/resources/chat/completions';
-import { ChainType } from '@/lib/chain/types';
-import { TOOLS, executeTool } from './aegis-tools';
-import { SYSTEM_PROMPT } from './aegis-prompts';
-import type { ResearchBrief } from '@/shared/types';
+import Groq from 'groq-sdk'
+import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/resources/chat/completions'
+import { ChainType } from '@/lib/chain/types'
+import { TOOLS, executeTool } from './aegis-tools'
+import { SYSTEM_PROMPT } from './aegis-prompts'
+import type { ResearchBrief } from '@/lib/types'
 
 function getGroqClient() {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) {
-    throw new Error('GROQ_API_KEY is not set. Configure it in your deployment environment.');
+    throw new Error('GROQ_API_KEY is not set. Configure it in your deployment environment.')
   }
-  return new Groq({ apiKey });
+  return new Groq({ apiKey })
 }
 
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = 'llama-3.3-70b-versatile'
 
-const MAX_ITERATIONS = 6;
+const MAX_ITERATIONS = 6
 
 function safeJsonParse(value: string): Record<string, unknown> {
   try {
-    return JSON.parse(value) as Record<string, unknown>;
+    return JSON.parse(value) as Record<string, unknown>
   } catch {
-    return {};
+    return {}
   }
 }
 
 function summarizeValue(value: unknown): string {
-  if (value == null) return 'Unavailable';
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'Unavailable';
-  if (typeof value === 'string') return value || 'Unavailable';
-  return 'Unavailable';
+  if (value == null) return 'Unavailable'
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'Unavailable'
+  if (typeof value === 'string') return value || 'Unavailable'
+  return 'Unavailable'
 }
 
 function usd(value: unknown): string {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return 'Unavailable';
-  return `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const num = Number(value)
+  if (!Number.isFinite(num)) return 'Unavailable'
+  return `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 }
 
 function formatFallbackMetric(value: unknown, fallbackText: string): string {
-  const num = Number(value);
-  if (Number.isFinite(num)) return String(num);
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  return fallbackText;
+  const num = Number(value)
+  if (Number.isFinite(num)) return String(num)
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return fallbackText
 }
 
 function displayText(value: unknown, fallbackText: string): string {
-  if (value == null) return fallbackText;
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : fallbackText;
-  if (typeof value === 'string') return value.trim() ? value.trim() : fallbackText;
-  return fallbackText;
+  if (value == null) return fallbackText
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : fallbackText
+  if (typeof value === 'string') return value.trim() ? value.trim() : fallbackText
+  return fallbackText
 }
 
 function text(value: unknown): string {
-  if (value == null) return 'Unavailable';
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'Unavailable';
-  if (typeof value === 'string') return value.trim() ? value : 'Unavailable';
-  return 'Unavailable';
+  if (value == null) return 'Unavailable'
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'Unavailable'
+  if (typeof value === 'string') return value.trim() ? value : 'Unavailable'
+  return 'Unavailable'
 }
 
 function buildChainLabel(chainType?: ChainType): string {
   switch (chainType) {
     case ChainType.Ethereum:
-      return 'Ethereum';
+      return 'Ethereum'
     case ChainType.Polygon:
-      return 'Polygon';
+      return 'Polygon'
     case ChainType.Arbitrum:
-      return 'Arbitrum';
+      return 'Arbitrum'
     case ChainType.Optimism:
-      return 'Optimism';
+      return 'Optimism'
     case ChainType.Base:
-      return 'Base';
+      return 'Base'
     case ChainType.Cosmos:
-      return 'Cosmos';
+      return 'Cosmos'
     case ChainType.Solana:
     default:
-      return 'Solana';
+      return 'Solana'
   }
 }
 
-async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['toolCalls'], chainType?: ChainType): Promise<ResearchBrief> {
+async function buildFallbackBrief(
+  protocol: string,
+  toolCalls: ResearchBrief['toolCalls'],
+  chainType?: ChainType,
+): Promise<ResearchBrief> {
   const [snapshot, tvl, metadata] = await Promise.allSettled([
     executeTool('get_protocol_snapshot', { slug: protocol }),
     executeTool('get_protocol_tvl', { slug: protocol }),
     executeTool('get_protocol_metadata', { slug: protocol }),
-  ]);
+  ])
 
-  const snapshotOutput = snapshot.status === 'fulfilled' ? snapshot.value : { error: String(snapshot.reason) };
-  const tvlOutput = tvl.status === 'fulfilled' ? tvl.value : { error: String(tvl.reason) };
-  const metadataOutput = metadata.status === 'fulfilled' ? metadata.value : { error: String(metadata.reason) };
+  const snapshotOutput = snapshot.status === 'fulfilled' ? snapshot.value : { error: String(snapshot.reason) }
+  const tvlOutput = tvl.status === 'fulfilled' ? tvl.value : { error: String(tvl.reason) }
+  const metadataOutput = metadata.status === 'fulfilled' ? metadata.value : { error: String(metadata.reason) }
 
   toolCalls.push(
     {
@@ -112,48 +116,51 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
       durationMs: 0,
       error: metadata.status === 'rejected' ? String(metadata.reason) : undefined,
     },
-  );
+  )
 
-  const s = snapshot.status === 'fulfilled' ? (snapshot.value as Record<string, unknown>) : {};
-  const t = tvl.status === 'fulfilled' ? (tvl.value as Record<string, unknown>) : {};
-  const m = metadata.status === 'fulfilled' ? (metadata.value as Record<string, unknown>) : {};
-  const tokenPrice = (s.tokenPrice ?? {}) as Record<string, unknown>;
-  const marketFallback = (s.marketFallback ?? {}) as Record<string, unknown>;
+  const s = snapshot.status === 'fulfilled' ? (snapshot.value as Record<string, unknown>) : {}
+  const t = tvl.status === 'fulfilled' ? (tvl.value as Record<string, unknown>) : {}
+  const m = metadata.status === 'fulfilled' ? (metadata.value as Record<string, unknown>) : {}
+  const tokenPrice = (s.tokenPrice ?? {}) as Record<string, unknown>
+  const marketFallback = (s.marketFallback ?? {}) as Record<string, unknown>
   const recentTransactions = Array.isArray(s.recentTransactions)
     ? (s.recentTransactions as Record<string, unknown>[])
-    : [];
-  const txFallback = (s.txFallback ?? {}) as Record<string, unknown>;
+    : []
+  const txFallback = (s.txFallback ?? {}) as Record<string, unknown>
 
-  const protocolName = text(s.name ?? m.name) || protocol;
-  const protocolDescription = displayText(s.description ?? m.description, 'No description found yet.');
-  const protocolWebsite = displayText(s.url ?? m.url, 'Not listed');
-  const protocolTwitter = displayText(s.twitter ?? m.twitter, 'Not listed');
-  const protocolLogo = displayText(s.logo ?? m.logo, 'Not listed');
-  const protocolSymbol = displayText(s.symbol ?? m.symbol, protocol.toUpperCase());
+  const protocolName = text(s.name ?? m.name) || protocol
+  const protocolDescription = displayText(s.description ?? m.description, 'No description found yet.')
+  const protocolWebsite = displayText(s.url ?? m.url, 'Not listed')
+  const protocolTwitter = displayText(s.twitter ?? m.twitter, 'Not listed')
+  const protocolLogo = displayText(s.logo ?? m.logo, 'Not listed')
+  const protocolSymbol = displayText(s.symbol ?? m.symbol, protocol.toUpperCase())
 
-  const resolvedPrice = tokenPrice.price ?? marketFallback.price;
-  const resolvedVolume = tokenPrice.volume24h ?? marketFallback.volume24h;
-  const resolvedMarketCap = tokenPrice.marketCap ?? marketFallback.marketCap;
-  const resolvedPriceChange = tokenPrice.priceChange24h ?? marketFallback.priceChange24h;
+  const resolvedPrice = tokenPrice.price ?? marketFallback.price
+  const resolvedVolume = tokenPrice.volume24h ?? marketFallback.volume24h
+  const resolvedMarketCap = tokenPrice.marketCap ?? marketFallback.marketCap
+  const resolvedPriceChange = tokenPrice.priceChange24h ?? marketFallback.priceChange24h
 
-  const priceNote = s.mint || s.geckoId || protocolSymbol !== 'Unavailable'
-    ? 'Not available from the live market feed for this protocol'
-    : 'Not listed for this protocol';
+  const priceNote =
+    s.mint || s.geckoId || protocolSymbol !== 'Unavailable'
+      ? 'Not available from the live market feed for this protocol'
+      : 'Not listed for this protocol'
 
   const txSummary =
     recentTransactions.length > 0
       ? recentTransactions
-        .slice(0, 3)
-        .map((tx) => `- ${summarizeValue(tx.type)} | ${summarizeValue(tx.signature)} | fee: ${summarizeValue(tx.fee)}`)
-        .join('\n')
-      : `- No parsed Helius tx available; fallback activity proxy (TVL trend 1d): ${displayText(txFallback.delta1dPct, 'Not listed')}%`;
+          .slice(0, 3)
+          .map(
+            (tx) => `- ${summarizeValue(tx.type)} | ${summarizeValue(tx.signature)} | fee: ${summarizeValue(tx.fee)}`,
+          )
+          .join('\n')
+      : `- No parsed Helius tx available; fallback activity proxy (TVL trend 1d): ${displayText(txFallback.delta1dPct, 'Not listed')}%`
 
   const formatPct = (value: unknown, fallbackText: string) => {
-    const num = Number(value);
-    if (Number.isFinite(num)) return `${num.toFixed(2)}%`;
-    if (typeof value === 'string' && value.trim()) return value.trim();
-    return fallbackText;
-  };
+    const num = Number(value)
+    if (Number.isFinite(num)) return `${num.toFixed(2)}%`
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    return fallbackText
+  }
 
   const fallback = [
     '### Overview',
@@ -179,19 +186,19 @@ async function buildFallbackBrief(protocol: string, toolCalls: ResearchBrief['to
     '',
     '### Summary Verdict',
     'Use this as a baseline brief; verify critical entries with independent sources before execution.',
-  ].join('\n');
+  ].join('\n')
 
   return {
     protocol,
     brief: fallback,
     toolCalls,
-  };
+  }
 }
 
 export async function runResearchAgent(protocol: string, chainType?: ChainType): Promise<ResearchBrief> {
-  const groq = getGroqClient();
-  const toolCalls: ResearchBrief['toolCalls'] = [];
-  const chainLabel = buildChainLabel(chainType);
+  const groq = getGroqClient()
+  const toolCalls: ResearchBrief['toolCalls'] = []
+  const chainLabel = buildChainLabel(chainType)
 
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -199,42 +206,42 @@ export async function runResearchAgent(protocol: string, chainType?: ChainType):
       role: 'user',
       content: `Generate a research brief for the ${chainLabel} DeFi protocol: "${protocol}". Use your tools to gather live data first.`,
     },
-  ];
+  ]
 
-  let iterations = 0;
+  let iterations = 0
   try {
     while (iterations < MAX_ITERATIONS) {
-      iterations++;
+      iterations++
 
       const response = await groq.chat.completions.create({
         model: MODEL,
         messages,
         tools: TOOLS as ChatCompletionTool[],
         tool_choice: 'auto',
-      });
+      })
 
-      const choice = response.choices[0];
-      const msg = choice.message;
+      const choice = response.choices[0]
+      const msg = choice.message
 
-      messages.push(msg as ChatCompletionMessageParam);
+      messages.push(msg as ChatCompletionMessageParam)
 
       if (!msg.tool_calls || msg.tool_calls.length === 0) {
-        return { protocol, brief: msg.content ?? '', toolCalls };
+        return { protocol, brief: msg.content ?? '', toolCalls }
       }
 
       for (const call of msg.tool_calls) {
-        const name = call.function.name;
-        const input = safeJsonParse(call.function.arguments);
+        const name = call.function.name
+        const input = safeJsonParse(call.function.arguments)
 
-        const start = Date.now();
-        let output: unknown;
-        let error: string | undefined;
+        const start = Date.now()
+        let output: unknown
+        let error: string | undefined
 
         try {
-          output = await executeTool(name, input);
+          output = await executeTool(name, input)
         } catch (err) {
-          error = String(err);
-          output = { error };
+          error = String(err)
+          output = { error }
         }
 
         toolCalls.push({
@@ -243,19 +250,19 @@ export async function runResearchAgent(protocol: string, chainType?: ChainType):
           output,
           durationMs: Date.now() - start,
           error,
-        });
+        })
 
         messages.push({
           role: 'tool',
           tool_call_id: call.id,
           content: JSON.stringify(output),
-        });
+        })
       }
     }
   } catch (err) {
-    console.error('[runResearchAgent] tool loop failed, using fallback brief', err);
-    return buildFallbackBrief(protocol, toolCalls, chainType);
+    console.error('[runResearchAgent] tool loop failed, using fallback brief', err)
+    return buildFallbackBrief(protocol, toolCalls, chainType)
   }
 
-  return buildFallbackBrief(protocol, toolCalls, chainType);
+  return buildFallbackBrief(protocol, toolCalls, chainType)
 }

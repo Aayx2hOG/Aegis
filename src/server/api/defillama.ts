@@ -1,5 +1,5 @@
 import { ChainType } from '@/lib/chain/types'
-import type { SolanaProtocol } from '@/shared/types'
+import type { SolanaProtocol } from '@/lib/types'
 import Redis from 'ioredis'
 
 const BASE = 'https://api.llama.fi'
@@ -46,7 +46,7 @@ async function trySetCachedProtocols(chainType: ChainType, protocols: SolanaProt
   try {
     await withTimeout(
       redis.set(`${PROTOCOLS_CACHE_KEY_PREFIX}${chainType}`, JSON.stringify(protocols), 'EX', PROTOCOLS_TTL),
-      REDIS_COMMAND_TIMEOUT_MS
+      REDIS_COMMAND_TIMEOUT_MS,
     )
   } catch {
     // Cache write failures should never block API responses.
@@ -103,7 +103,7 @@ export async function getProtocolsByChain(chainType: ChainType): Promise<SolanaP
     try {
       const res = await fetch(`${BASE}/protocols`, { signal: controller.signal })
       if (!res.ok) throw new Error(`DeFiLlama error: ${res.status}`)
-      const all = await res.json() as SolanaProtocol[]
+      const all = (await res.json()) as SolanaProtocol[]
       protocols = all.filter((protocol) => matchesChain(protocol.chains, chainType))
     } finally {
       clearTimeout(timeout)

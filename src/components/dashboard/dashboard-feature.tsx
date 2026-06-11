@@ -2,17 +2,10 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
-import {
-  Layers3,
-  Network,
-  Cpu,
-  ShieldCheck,
-  TrendingUp,
-  Activity,
-} from 'lucide-react'
+import { Layers3, Network, Cpu, ShieldCheck, TrendingUp, Activity } from 'lucide-react'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
-import { useMultiChainWatchlist } from '@/hooks/use-multichain-watchlist'
+import { useMultiChainWatchlist } from '@/lib/hooks/use-multichain-watchlist'
 import { ChainType } from '@/lib/chain/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,7 +22,7 @@ const SIMULATED_LOGS = [
   'SCANNING: Base network RPC latency stable at 38ms.',
   'MONITOR: Portfolio stress index low (24/100).',
   'DETECTION: Uniswap V3 Ethereum liquidity depth matches catalog.',
-  'SCANNING: Kamino lending rate delta verified.'
+  'SCANNING: Kamino lending rate delta verified.',
 ]
 
 function RadarScanner() {
@@ -39,42 +32,46 @@ function RadarScanner() {
       <div className="absolute w-32 h-32 border border-cyan-500/10 rounded-full" />
       <div className="absolute w-20 h-20 border border-cyan-500/15 rounded-full" />
       <div className="absolute w-10 h-10 border border-cyan-500/20 rounded-full" />
-      
+
       {/* Crosshairs */}
       <div className="absolute w-full h-[1px] bg-cyan-500/10" />
       <div className="absolute h-full w-[1px] bg-cyan-500/10" />
-      
+
       {/* Blinking Targets */}
       <span className="absolute top-10 left-8 w-2 h-2 rounded-full bg-emerald-500 animate-ping duration-1000" />
       <span className="absolute top-10 left-8 w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-      
+
       <span className="absolute bottom-12 right-12 w-2 h-2 rounded-full bg-cyan-500 animate-ping duration-700" />
       <span className="absolute bottom-12 right-12 w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#06b6d4]" />
-      
+
       <span className="absolute top-20 right-10 w-2 h-2 rounded-full bg-amber-500 animate-ping duration-1500" />
       <span className="absolute top-20 right-10 w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
 
       {/* Sweep line */}
-      <div 
-        className="absolute inset-0 origin-center bg-[conic-gradient(from_0deg,rgba(6,182,212,0.15)_0deg,transparent_90deg)] rounded-full animate-spin" 
+      <div
+        className="absolute inset-0 origin-center bg-[conic-gradient(from_0deg,rgba(6,182,212,0.15)_0deg,transparent_90deg)] rounded-full animate-spin"
         style={{ animationDuration: '6s' }}
       />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(7,11,19,0.9)_95%)] pointer-events-none" />
-      <span className="absolute bottom-1.5 left-0 right-0 text-center text-[7px] font-mono text-cyan-500/35 uppercase tracking-widest">MONITOR STATE</span>
+      <span className="absolute bottom-1.5 left-0 right-0 text-center text-[7px] font-mono text-cyan-500/35 uppercase tracking-widest">
+        MONITOR STATE
+      </span>
     </div>
   )
 }
 
 function ActiveTicker() {
-  const [logs, setLogs] = useState<string[]>([
-    'AEGIS system initialization...',
-    'Connecting telemetry feeds...'
-  ])
+  const [logs, setLogs] = useState<string[]>(['AEGIS system initialization...', 'Connecting telemetry feeds...'])
 
   useEffect(() => {
     const interval = setInterval(() => {
       const randomLog = SIMULATED_LOGS[Math.floor(Math.random() * SIMULATED_LOGS.length)]
-      const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      const timestamp = new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
       setLogs((prev) => [`[${timestamp}] ${randomLog}`, ...prev.slice(0, 2)])
     }, 4500)
     return () => clearInterval(interval)
@@ -83,12 +80,18 @@ function ActiveTicker() {
   return (
     <div className="console-panel rounded-md p-3 font-mono text-[10px] text-cyan-400 space-y-1 select-none border border-cyan-500/10 min-h-[92px] shadow-[inset_0_0_15px_rgba(0,0,0,0.85)] bg-zinc-950/90 w-full">
       <div className="flex items-center justify-between border-b border-cyan-500/10 pb-1.5 mb-1.5">
-        <span className="font-bold flex items-center gap-1.5 tracking-wider uppercase"><span className="h-1 w-1 bg-cyan-400 animate-ping rounded-full" />AEGIS TELEMETRY GRID</span>
+        <span className="font-bold flex items-center gap-1.5 tracking-wider uppercase">
+          <span className="h-1 w-1 bg-cyan-400 animate-ping rounded-full" />
+          AEGIS TELEMETRY GRID
+        </span>
         <span className="text-zinc-550 uppercase text-[8px] tracking-widest font-black">SYS SCANNER</span>
       </div>
       <div className="space-y-1 text-left">
         {logs.map((log, idx) => (
-          <div key={idx} className="truncate tracking-wide opacity-90 first:opacity-100 first:text-white transition-opacity duration-300">
+          <div
+            key={idx}
+            className="truncate tracking-wide opacity-90 first:opacity-100 first:text-white transition-opacity duration-300"
+          >
             {log}
           </div>
         ))}
@@ -113,12 +116,12 @@ export function DashboardFeature() {
   const { data: watchlistsByChainData } = useMultiChainWatchlist()
   const watchlistsByChain = useMemo<Partial<Record<ChainType, string[]>>>(
     () => watchlistsByChainData ?? {},
-    [watchlistsByChainData]
+    [watchlistsByChainData],
   )
 
   const flattenedWatchlist = useMemo(
     () => Array.from(new Set(Object.values(watchlistsByChain).flat())),
-    [watchlistsByChain]
+    [watchlistsByChain],
   )
   const previewSlugs = useMemo(() => flattenedWatchlist.slice(0, 3), [flattenedWatchlist])
   const recentWatchlist = useMemo(
@@ -129,7 +132,7 @@ export function DashboardFeature() {
           .filter(([, slugs]) => slugs.includes(slug))
           .map(([chainType]) => chainType),
       })),
-    [previewSlugs, watchlistsByChain]
+    [previewSlugs, watchlistsByChain],
   )
 
   return (
@@ -159,8 +162,8 @@ export function DashboardFeature() {
                 .
               </h1>
               <p className="max-w-xl text-xs sm:text-sm leading-relaxed text-zinc-400 font-medium">
-                Keep the active chain, threat watchlist, and research vectors in one workspace.
-                Synthesize briefings or stress-test mock scenarios directly from a secure command terminal.
+                Keep the active chain, threat watchlist, and research vectors in one workspace. Synthesize briefings or
+                stress-test mock scenarios directly from a secure command terminal.
               </p>
             </div>
 
@@ -200,7 +203,9 @@ export function DashboardFeature() {
             <span className="h-2 w-2 rounded-full bg-cyan-500 animate-ping" />
             Active Telemetry Feed
           </h2>
-          <p className="text-xs text-zinc-500 font-medium">Real-time state and threat items across multichain assets.</p>
+          <p className="text-xs text-zinc-500 font-medium">
+            Real-time state and threat items across multichain assets.
+          </p>
         </div>
 
         <BentoGrid>
@@ -233,9 +238,7 @@ export function DashboardFeature() {
           >
             <div className="mt-4 grid grid-cols-2 gap-4">
               <div className="rounded-xs bg-zinc-950 border border-zinc-800/80 p-4 shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]">
-                <p className="text-[8px] font-mono font-bold uppercase tracking-wider text-zinc-550">
-                  Chain Coverage
-                </p>
+                <p className="text-[8px] font-mono font-bold uppercase tracking-wider text-zinc-550">Chain Coverage</p>
                 <p className="mt-1 text-xl font-orbitron font-bold text-cyan-400 font-black">
                   {activeChainConnections.length || 1} LINKED
                 </p>
@@ -301,10 +304,10 @@ export function DashboardFeature() {
           >
             <div className="mt-4 flex flex-col justify-between h-[5.5rem]">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-orbitron font-black text-white">
-                  {flattenedWatchlist.length}
+                <span className="text-3xl font-orbitron font-black text-white">{flattenedWatchlist.length}</span>
+                <span className="text-[8px] text-zinc-500 font-mono font-black uppercase tracking-widest">
+                  Active Channels
                 </span>
-                <span className="text-[8px] text-zinc-500 font-mono font-black uppercase tracking-widest">Active Channels</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-zinc-400 font-semibold tracking-wider uppercase">System state</span>

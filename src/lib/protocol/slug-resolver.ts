@@ -1,4 +1,4 @@
-import type { SolanaProtocol } from '@/shared/types'
+import type { SolanaProtocol } from '@/lib/types'
 
 export const PROTOCOL_SLUG_ALIASES: Record<string, string[]> = {
   raydium: ['raydium-amm'],
@@ -40,6 +40,6 @@ export function resolveProtocolFromList(input: string, protocols: SolanaProtocol
       const slug = p.slug.toLowerCase()
       const name = p.name.toLowerCase().replace(/\s+/g, '-')
       return slug.includes(normalized) || name.includes(normalized)
-    })
+    }),
   )
 }

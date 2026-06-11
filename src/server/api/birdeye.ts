@@ -1,4 +1,4 @@
-import type { TokenPrice } from '@/shared/types'
+import type { TokenPrice } from '@/lib/types'
 
 const BASE = 'https://public-api.birdeye.so'
 const KEY = process.env.BIRDEYE_API_KEY!

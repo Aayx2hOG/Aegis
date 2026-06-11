@@ -4,13 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { motion, useTransform, useScroll, useSpring } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
-export function TracingBeam({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
+export function TracingBeam({ children, className }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -61,12 +55,7 @@ export function TracingBeam({
           className="absolute left-0 top-0 block"
           aria-hidden="true"
         >
-          <path
-            d={`M 10 0 V ${svgHeight}`}
-            fill="none"
-            stroke="rgba(255,255,255,0.06)"
-            strokeWidth="2"
-          />
+          <path d={`M 10 0 V ${svgHeight}`} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2" />
           <motion.path
             d={`M 10 0 V ${svgHeight}`}
             fill="none"

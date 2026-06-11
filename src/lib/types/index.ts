@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { ChainType } from '@/lib/chain/types';
+import { z } from 'zod'
+import { ChainType } from '@/lib/chain/types'
 
 // ==========================================
 // 1. Agent State & Tool Call Records
@@ -12,19 +12,19 @@ export const ToolCallRecordSchema = z.object({
   output: z.unknown(),
   durationMs: z.number(),
   error: z.string().optional(),
-});
-export type ToolCallRecord = z.infer<typeof ToolCallRecordSchema>;
+})
+export type ToolCallRecord = z.infer<typeof ToolCallRecordSchema>
 
-export const AgentStatusSchema = z.enum(['idle', 'thinking', 'done', 'error']);
-export type AgentStatus = z.infer<typeof AgentStatusSchema>;
+export const AgentStatusSchema = z.enum(['idle', 'thinking', 'done', 'error'])
+export type AgentStatus = z.infer<typeof AgentStatusSchema>
 
 export const AgentStateSchema = z.object({
   status: AgentStatusSchema,
   currentTool: z.string().nullable(),
   toolCalls: z.array(ToolCallRecordSchema),
   error: z.string().nullable(),
-});
-export type AgentState = z.infer<typeof AgentStateSchema>;
+})
+export type AgentState = z.infer<typeof AgentStateSchema>
 
 // ==========================================
 // 2. Protocols, Tokens, & Transactions
@@ -38,8 +38,8 @@ export const SolanaProtocolSchema = z.object({
   change_7d: z.number().nullable().optional(),
   chains: z.array(z.string()).optional(),
   category: z.string().optional(),
-});
-export type SolanaProtocol = z.infer<typeof SolanaProtocolSchema>;
+})
+export type SolanaProtocol = z.infer<typeof SolanaProtocolSchema>
 
 export const TokenPriceSchema = z.object({
   address: z.string(),
@@ -49,8 +49,8 @@ export const TokenPriceSchema = z.object({
   volume24h: z.number().nullable().optional(),
   marketCap: z.number().nullable().optional(),
   liquidity: z.number().nullable().optional(),
-});
-export type TokenPrice = z.infer<typeof TokenPriceSchema>;
+})
+export type TokenPrice = z.infer<typeof TokenPriceSchema>
 
 export const ParsedTransactionSchema = z.object({
   signature: z.string(),
@@ -58,8 +58,8 @@ export const ParsedTransactionSchema = z.object({
   timestamp: z.number(),
   fee: z.number(),
   source: z.string(),
-});
-export type ParsedTransaction = z.infer<typeof ParsedTransactionSchema>;
+})
+export type ParsedTransaction = z.infer<typeof ParsedTransactionSchema>
 
 // ==========================================
 // 3. AI Research Briefs
@@ -69,15 +69,15 @@ export const ResearchBriefSchema = z.object({
   protocol: z.string(),
   brief: z.string(),
   toolCalls: z.array(ToolCallRecordSchema),
-});
-export type ResearchBrief = z.infer<typeof ResearchBriefSchema>;
+})
+export type ResearchBrief = z.infer<typeof ResearchBriefSchema>
 
 export const ResearchResponseSchema = z.object({
   brief: ResearchBriefSchema.nullable(),
   loading: z.boolean(),
   error: z.string().nullable(),
-});
-export type ResearchResponse = z.infer<typeof ResearchResponseSchema>;
+})
+export type ResearchResponse = z.infer<typeof ResearchResponseSchema>
 
 // ==========================================
 // 4. War Room Simulation (Single Chain)
@@ -93,8 +93,8 @@ export const PortfolioPositionSchema = z.object({
   collateralFactor: z.number().optional(),
   volatility: z.number(),
   liquidityScore: z.number(),
-});
-export type PortfolioPosition = z.infer<typeof PortfolioPositionSchema>;
+})
+export type PortfolioPosition = z.infer<typeof PortfolioPositionSchema>
 
 export const ScenarioConfigSchema = z.object({
   type: z.enum(['market-crash', 'stablecoin-depeg', 'smart-contract-incident']),
@@ -106,8 +106,8 @@ export const ScenarioConfigSchema = z.object({
   liquidityDropPct: z.number(),
   oracleDelayMinutes: z.number(),
   protocolExploitSeverity: z.number(),
-});
-export type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>;
+})
+export type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>
 
 export const RiskBreakdownSchema = z.object({
   marketRisk: z.number(),
@@ -115,8 +115,8 @@ export const RiskBreakdownSchema = z.object({
   concentrationRisk: z.number(),
   liquidationRisk: z.number(),
   smartContractRisk: z.number(),
-});
-export type RiskBreakdown = z.infer<typeof RiskBreakdownSchema>;
+})
+export type RiskBreakdown = z.infer<typeof RiskBreakdownSchema>
 
 export const RiskActionSchema = z.object({
   id: z.string(),
@@ -127,8 +127,8 @@ export const RiskActionSchema = z.object({
     estimatedCostUsd: z.number(),
     confidence: z.number(),
   }),
-});
-export type RiskAction = z.infer<typeof RiskActionSchema>;
+})
+export type RiskAction = z.infer<typeof RiskActionSchema>
 
 export const SimulationResultSchema = z.object({
   scenario: ScenarioConfigSchema,
@@ -144,14 +144,14 @@ export const SimulationResultSchema = z.object({
   riskBreakdown: RiskBreakdownSchema,
   topActions: z.array(RiskActionSchema),
   generatedAt: z.string(),
-});
-export type SimulationResult = z.infer<typeof SimulationResultSchema>;
+})
+export type SimulationResult = z.infer<typeof SimulationResultSchema>
 
 export const SimulationRequestSchema = z.object({
   positions: z.array(PortfolioPositionSchema),
   scenario: ScenarioConfigSchema,
-});
-export type SimulationRequest = z.infer<typeof SimulationRequestSchema>;
+})
+export type SimulationRequest = z.infer<typeof SimulationRequestSchema>
 
 // ==========================================
 // 5. Comparative War Room (Multi-Chain)
@@ -168,8 +168,8 @@ export const ChainPortfolioPositionSchema = z.object({
   liquidityScore: z.number(),
   collateralFactor: z.number().optional(),
   apy: z.number().optional(),
-});
-export type ChainPortfolioPosition = z.infer<typeof ChainPortfolioPositionSchema>;
+})
+export type ChainPortfolioPosition = z.infer<typeof ChainPortfolioPositionSchema>
 
 export const MultiChainPortfolioSchema = z.object({
   walletAddress: z.string(),
@@ -177,8 +177,8 @@ export const MultiChainPortfolioSchema = z.object({
   totalUsdValue: z.number(),
   chains: z.array(z.nativeEnum(ChainType)),
   lastUpdated: z.date().or(z.string().transform((val) => new Date(val))),
-});
-export type MultiChainPortfolio = z.infer<typeof MultiChainPortfolioSchema>;
+})
+export type MultiChainPortfolio = z.infer<typeof MultiChainPortfolioSchema>
 
 export const ChainScenarioConfigSchema = z.object({
   marketShockPct: z.number(),
@@ -187,8 +187,8 @@ export const ChainScenarioConfigSchema = z.object({
   oracleDelayMinutes: z.number(),
   bridgeOutageDurationMinutes: z.number().optional(),
   chainsAffected: z.array(z.nativeEnum(ChainType)).optional(),
-});
-export type ChainScenarioConfig = z.infer<typeof ChainScenarioConfigSchema>;
+})
+export type ChainScenarioConfig = z.infer<typeof ChainScenarioConfigSchema>
 
 export const ChainRiskBreakdownSchema = z.object({
   chain: z.nativeEnum(ChainType),
@@ -199,8 +199,8 @@ export const ChainRiskBreakdownSchema = z.object({
   smartContractRisk: z.number(),
   bridgeRisk: z.number().optional(),
   aggregateRisk: z.number(),
-});
-export type ChainRiskBreakdown = z.infer<typeof ChainRiskBreakdownSchema>;
+})
+export type ChainRiskBreakdown = z.infer<typeof ChainRiskBreakdownSchema>
 
 export const RebalancingRecommendationSchema = z.object({
   action: z.enum(['move', 'liquidate', 'increase']),
@@ -211,8 +211,8 @@ export const RebalancingRecommendationSchema = z.object({
   amount: z.number(),
   rationale: z.string(),
   expectedRiskReduction: z.number(),
-});
-export type RebalancingRecommendation = z.infer<typeof RebalancingRecommendationSchema>;
+})
+export type RebalancingRecommendation = z.infer<typeof RebalancingRecommendationSchema>
 
 export const ArbitrageOpportunitySchema = z.object({
   assetSymbol: z.string(),
@@ -223,8 +223,8 @@ export const ArbitrageOpportunitySchema = z.object({
   profitMargin: z.number(),
   riskLevel: z.enum(['low', 'medium', 'high']),
   rationale: z.string(),
-});
-export type ArbitrageOpportunity = z.infer<typeof ArbitrageOpportunitySchema>;
+})
+export type ArbitrageOpportunity = z.infer<typeof ArbitrageOpportunitySchema>
 
 export const ComparativeSimulationResultSchema = z.object({
   scenario: ChainScenarioConfigSchema,
@@ -241,8 +241,8 @@ export const ComparativeSimulationResultSchema = z.object({
   rebalancingRecommendations: z.array(RebalancingRecommendationSchema),
   crossChainArbitrageOpportunities: z.array(ArbitrageOpportunitySchema),
   aiBriefing: z.string().optional(),
-});
-export type ComparativeSimulationResult = z.infer<typeof ComparativeSimulationResultSchema>;
+})
+export type ComparativeSimulationResult = z.infer<typeof ComparativeSimulationResultSchema>
 
 export const ChainComparisonMetricsSchema = z.object({
   chain: z.nativeEnum(ChainType),
@@ -252,5 +252,5 @@ export const ChainComparisonMetricsSchema = z.object({
   bridgeLiquidity: z.number(),
   averageBlockTime: z.number(),
   validatorHealth: z.number(),
-});
-export type ChainComparisonMetrics = z.infer<typeof ChainComparisonMetricsSchema>;
+})
+export type ChainComparisonMetrics = z.infer<typeof ChainComparisonMetricsSchema>

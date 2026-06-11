@@ -2,10 +2,10 @@ import { AlertDirection, AlertMetric } from '@prisma/client'
 import { prisma } from '@/server/db/prisma'
 import { getSolanaProtocols } from '@/server/api/defillama'
 import { enqueueSummary } from '@/server/queue/summary-queue'
-import { resolveProtocolFromList } from '@/shared/protocol/slug-resolver'
+import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { publishAlertEvent } from '@/server/db/redis'
 import { executeTool } from '@/server/ai/aegis-tools'
-import type { SolanaProtocol } from '@/shared/types'
+import type { SolanaProtocol } from '@/lib/types'
 
 const EVENT_DEDUP_MS = 1000 * 60 * 60 * 6
 
@@ -18,7 +18,12 @@ function formatMetricValue(metric: AlertMetric, value: number): string {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact' }).format(value)
   }
   if (metric === AlertMetric.PRICE_USD) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(value)
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    }).format(value)
   }
   return `${value.toFixed(2)}%`
 }
@@ -232,4 +237,3 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
     results,
   }
 }
-

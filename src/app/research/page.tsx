@@ -1,27 +1,27 @@
-'use client';
+'use client'
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { useAtom } from 'jotai';
-import { agentStateAtom } from '@/store/research-store';
-import type { ResearchBrief } from '@/shared/types';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useAtom } from 'jotai'
+import { agentStateAtom } from '@/lib/store/research-store'
+import type { ResearchBrief } from '@/lib/types'
 
-import { useWatchlist } from '@/hooks/use-watchlist';
-import { useChainProtocols } from '@/hooks/use-defillama';
+import { useWatchlist } from '@/lib/hooks/use-watchlist'
+import { useChainProtocols } from '@/lib/hooks/use-defillama'
 
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-import Link from 'next/link';
-import { Star, Swords, RefreshCw, Terminal } from 'lucide-react';
-import { toast } from 'sonner';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useMultiChain } from '@/components/chain/chain-provider';
-import { normalizeProtocolSlug } from '@/shared/protocol/slug-resolver';
-import type { SolanaProtocol } from '@/shared/types';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
+import Link from 'next/link'
+import { Star, Swords, RefreshCw, Terminal } from 'lucide-react'
+import { toast } from 'sonner'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { useMultiChain } from '@/components/chain/chain-provider'
+import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
+import type { SolanaProtocol } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 
-import { TracingBeam } from '@/components/ui/tracing-beam';
+import { TracingBeam } from '@/components/ui/tracing-beam'
 
 const RELEVANT_PROTOCOL_CATEGORIES = new Set([
   'AMM',
@@ -47,7 +47,7 @@ const RELEVANT_PROTOCOL_CATEGORIES = new Set([
   'Vault',
   'Yield',
   'Yield Aggregator',
-]);
+])
 
 const EXCLUDED_PROTOCOL_CATEGORIES = new Set([
   'CEX',
@@ -57,125 +57,131 @@ const EXCLUDED_PROTOCOL_CATEGORIES = new Set([
   'Portfolio Tracker',
   'Risk Curators',
   'Wallet',
-]);
+])
 
-const INITIAL_VISIBLE_PROTOCOLS = 60;
+const INITIAL_VISIBLE_PROTOCOLS = 60
 
 function formatProtocolName(name: string): string {
-  if (!name) return '';
+  if (!name) return ''
   return name
     .split(/[-\s]+/)
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+    .join(' ')
 }
 
 function buildSupportedProtocolCatalog(protocols: SolanaProtocol[]) {
-  const deduped = new Map<string, SolanaProtocol>();
+  const deduped = new Map<string, SolanaProtocol>()
 
   protocols.forEach((protocol) => {
-    const slug = normalizeProtocolSlug(protocol.slug);
-    if (!slug || deduped.has(slug)) return;
-    deduped.set(slug, protocol);
-  });
+    const slug = normalizeProtocolSlug(protocol.slug)
+    if (!slug || deduped.has(slug)) return
+    deduped.set(slug, protocol)
+  })
 
   return Array.from(deduped.values())
     .map((protocol) => {
-      const raw = protocol as { tvl?: number; tvlUsd?: number; category?: string };
-      const tvlNum: number | null = typeof raw.tvl === 'number' ? raw.tvl : typeof raw.tvlUsd === 'number' ? raw.tvlUsd : null;
-      return { protocol, tvlNum };
+      const raw = protocol as { tvl?: number; tvlUsd?: number; category?: string }
+      const tvlNum: number | null =
+        typeof raw.tvl === 'number' ? raw.tvl : typeof raw.tvlUsd === 'number' ? raw.tvlUsd : null
+      return { protocol, tvlNum }
     })
     .filter(({ tvlNum }) => tvlNum != null && tvlNum > 0)
     .filter(({ protocol }) => {
-      const category = (protocol as { category?: string }).category?.trim() ?? 'Uncategorized';
-      if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false;
-      if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true;
-      return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized';
+      const category = (protocol as { category?: string }).category?.trim() ?? 'Uncategorized'
+      if (EXCLUDED_PROTOCOL_CATEGORIES.has(category)) return false
+      if (RELEVANT_PROTOCOL_CATEGORIES.size === 0) return true
+      return RELEVANT_PROTOCOL_CATEGORIES.has(category) || category === 'Uncategorized'
     })
     .sort((a, b) => (b.tvlNum ?? 0) - (a.tvlNum ?? 0))
     .map(({ protocol, tvlNum }) => ({
       slug: normalizeProtocolSlug(protocol.slug),
       label: protocol.name || formatProtocolName(protocol.slug),
       category: (protocol as { category?: string }).category ?? 'Uncategorized',
-      tvl: typeof tvlNum === 'number' ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(tvlNum) : 'N/A',
-    }));
+      tvl:
+        typeof tvlNum === 'number'
+          ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(tvlNum)
+          : 'N/A',
+    }))
 }
 
 function matchesProtocolSearch(protocol: { slug: string; label: string; category: string }, query: string) {
-  if (!query) return true;
-  const normalizedQuery = query.toLowerCase();
+  if (!query) return true
+  const normalizedQuery = query.toLowerCase()
   return (
     protocol.slug.toLowerCase().includes(normalizedQuery) ||
     protocol.label.toLowerCase().includes(normalizedQuery) ||
     protocol.category.toLowerCase().includes(normalizedQuery)
-  );
+  )
 }
 
 // Category Badge Color helper
 function getCategoryTone(category: string) {
-  const cat = category.toLowerCase();
-  if (cat.includes('lending') || cat.includes('cdp')) return 'border-cyan-500/35 bg-cyan-500/5 text-cyan-400';
-  if (cat.includes('amm') || cat.includes('dex')) return 'border-emerald-500/35 bg-emerald-500/5 text-emerald-400';
-  if (cat.includes('yield') || cat.includes('staking')) return 'border-amber-500/35 bg-amber-500/5 text-amber-400';
-  return 'border-rose-500/35 bg-rose-500/5 text-rose-400';
+  const cat = category.toLowerCase()
+  if (cat.includes('lending') || cat.includes('cdp')) return 'border-cyan-500/35 bg-cyan-500/5 text-cyan-400'
+  if (cat.includes('amm') || cat.includes('dex')) return 'border-emerald-500/35 bg-emerald-500/5 text-emerald-400'
+  if (cat.includes('yield') || cat.includes('staking')) return 'border-amber-500/35 bg-amber-500/5 text-amber-400'
+  return 'border-rose-500/35 bg-rose-500/5 text-rose-400'
 }
 
 export default function ResearchPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#070b13] flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-cyan-500" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#070b13] flex items-center justify-center">
+          <span className="loading loading-spinner loading-lg text-cyan-500" />
+        </div>
+      }
+    >
       <ResearchContent />
     </Suspense>
-  );
+  )
 }
 
 function ResearchContent() {
-  const wallet = useWallet();
-  const searchParams = useSearchParams();
-  const { activeChain } = useMultiChain();
-  const [brief, setBrief] = useState<ResearchBrief | null>(null);
-  const [, setAgentState] = useAtom(agentStateAtom);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [protocolSearch, setProtocolSearch] = useState('');
-  const [visibleProtocols, setVisibleProtocols] = useState(INITIAL_VISIBLE_PROTOCOLS);
-  const { isWatched, toggle, isConnected } = useWatchlist();
-  const { data: chainProtocols = [], isLoading: protocolsLoading } = useChainProtocols(activeChain.type);
+  const wallet = useWallet()
+  const searchParams = useSearchParams()
+  const { activeChain } = useMultiChain()
+  const [brief, setBrief] = useState<ResearchBrief | null>(null)
+  const [, setAgentState] = useAtom(agentStateAtom)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [protocolSearch, setProtocolSearch] = useState('')
+  const [visibleProtocols, setVisibleProtocols] = useState(INITIAL_VISIBLE_PROTOCOLS)
+  const { isWatched, toggle, isConnected } = useWatchlist()
+  const { data: chainProtocols = [], isLoading: protocolsLoading } = useChainProtocols(activeChain.type)
 
-  const [simulatedLogs, setSimulatedLogs] = useState<string[]>([]);
+  const [simulatedLogs, setSimulatedLogs] = useState<string[]>([])
 
-  const supportedProtocols = useMemo(() => buildSupportedProtocolCatalog(chainProtocols), [chainProtocols]);
-  const deferredProtocolSearch = useDeferredValue(protocolSearch.trim());
+  const supportedProtocols = useMemo(() => buildSupportedProtocolCatalog(chainProtocols), [chainProtocols])
+  const deferredProtocolSearch = useDeferredValue(protocolSearch.trim())
   const filteredProtocols = useMemo(
     () => supportedProtocols.filter((protocol) => matchesProtocolSearch(protocol, deferredProtocolSearch)),
-    [deferredProtocolSearch, supportedProtocols]
-  );
+    [deferredProtocolSearch, supportedProtocols],
+  )
   const visibleFilteredProtocols = useMemo(
     () => filteredProtocols.slice(0, visibleProtocols),
-    [filteredProtocols, visibleProtocols]
-  );
+    [filteredProtocols, visibleProtocols],
+  )
 
   useEffect(() => {
-    setVisibleProtocols(INITIAL_VISIBLE_PROTOCOLS);
-  }, [activeChain.type, deferredProtocolSearch]);
+    setVisibleProtocols(INITIAL_VISIBLE_PROTOCOLS)
+  }, [activeChain.type, deferredProtocolSearch])
 
   // Auto-run if query param exists
   useEffect(() => {
-    const q = searchParams.get('q');
+    const q = searchParams.get('q')
     if (q) {
-      void runResearch(q);
+      void runResearch(q)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams])
 
   // Loading console log simulation
   useEffect(() => {
     if (!loading) {
-      setSimulatedLogs([]);
-      return;
+      setSimulatedLogs([])
+      return
     }
     const rawLogs = [
       `Initializing secure Aegis node proxy for ${activeChain.displayName.toUpperCase()}...`,
@@ -185,32 +191,32 @@ function ResearchContent() {
       `[AI-AGENT] Scanning on-chain liquidity depth and slippage parameters...`,
       `[AI-AGENT] Resolving recent security incidents and audits...`,
       `[AI-AGENT] Synthesizing dossier metrics into markdown report...`,
-      `[SYSTEM] Structuring research brief. Outputting classification card...`
-    ];
+      `[SYSTEM] Structuring research brief. Outputting classification card...`,
+    ]
 
-    setSimulatedLogs([`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] ${rawLogs[0]}`]);
-    let nextIdx = 1;
+    setSimulatedLogs([`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] ${rawLogs[0]}`])
+    let nextIdx = 1
     const timer = setInterval(() => {
       if (nextIdx < rawLogs.length) {
-        const currentLog = rawLogs[nextIdx];
-        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
-        setSimulatedLogs((old) => [...old, `[${timestamp}] ${currentLog}`]);
-        nextIdx++;
+        const currentLog = rawLogs[nextIdx]
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false })
+        setSimulatedLogs((old) => [...old, `[${timestamp}] ${currentLog}`])
+        nextIdx++
       } else {
-        clearInterval(timer);
+        clearInterval(timer)
       }
-    }, 2200);
+    }, 2200)
 
-    return () => clearInterval(timer);
-  }, [loading, activeChain]);
+    return () => clearInterval(timer)
+  }, [loading, activeChain])
 
   async function runResearch(protocol: string) {
-    const normalizedProtocol = normalizeProtocolSlug(protocol);
-    if (!normalizedProtocol) return;
-    setLoading(true);
-    setError(null);
-    setBrief(null);
-    setAgentState({ status: 'thinking', currentTool: null, toolCalls: [], error: null });
+    const normalizedProtocol = normalizeProtocolSlug(protocol)
+    if (!normalizedProtocol) return
+    setLoading(true)
+    setError(null)
+    setBrief(null)
+    setAgentState({ status: 'thinking', currentTool: null, toolCalls: [], error: null })
 
     try {
       const res = await fetch('/api/research', {
@@ -221,10 +227,10 @@ function ResearchContent() {
           chainType: activeChain.type,
           walletAddress: wallet.publicKey?.toBase58(),
         }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data: ResearchBrief = await res.json();
-      setBrief(data);
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const data: ResearchBrief = await res.json()
+      setBrief(data)
       setAgentState({
         status: 'done',
         currentTool: null,
@@ -233,16 +239,16 @@ function ResearchContent() {
           toolName: tc.tool,
           input: tc.input,
           output: tc.output,
-          durationMs: tc.durationMs
+          durationMs: tc.durationMs,
         })),
         error: null,
-      });
+      })
     } catch (err) {
-      const msg = String(err);
-      setError(msg);
-      setAgentState({ status: 'error', currentTool: null, toolCalls: [], error: msg });
+      const msg = String(err)
+      setError(msg)
+      setAgentState({ status: 'error', currentTool: null, toolCalls: [], error: msg })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -252,17 +258,30 @@ function ResearchContent() {
       <header className="space-y-4 text-left">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Badge variant="accent" className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20">
+            <Badge
+              variant="accent"
+              className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20"
+            >
               Aegis Research Analyst
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="border-cyan-500/10 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/15 hover:text-white font-orbitron font-bold uppercase tracking-wider rounded-xs transition-all">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="border-cyan-500/10 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/15 hover:text-white font-orbitron font-bold uppercase tracking-wider rounded-xs transition-all"
+            >
               <Link href="/research/compare" className="flex items-center gap-1.5">
                 <Swords className="w-3.5 h-3.5" /> Protocol Battleground
               </Link>
             </Button>
-            <Button asChild variant="outline" size="sm" className="border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900 text-zinc-300 font-orbitron font-bold uppercase tracking-wider rounded-xs">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900 text-zinc-300 font-orbitron font-bold uppercase tracking-wider rounded-xs"
+            >
               <Link href="/watchlist" className="flex items-center gap-1.5">
                 Watchlist <Star className="w-3.5 h-3.5 fill-current text-cyan-400" />
               </Link>
@@ -274,7 +293,8 @@ function ResearchContent() {
             {activeChain.displayName} <span className="text-cyan-400 font-black">Research</span>
           </h1>
           <p className="max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-400">
-            Autonomous AI analyst extracting on-chain contract intelligence, governance data, and multi-chain TVL trends in real-time.
+            Autonomous AI analyst extracting on-chain contract intelligence, governance data, and multi-chain TVL trends
+            in real-time.
           </p>
         </div>
       </header>
@@ -294,25 +314,28 @@ function ResearchContent() {
                 </div>
                 <div className="flex gap-2">
                   {brief?.protocol && (
-                    <Button asChild size="sm" className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_10px_rgba(6,182,212,0.25)]">
-                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>
-                        Run War Room Simulation
-                      </Link>
+                    <Button
+                      asChild
+                      size="sm"
+                      className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_10px_rgba(6,182,212,0.25)]"
+                    >
+                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>Run War Room Simulation</Link>
                     </Button>
                   )}
                   <Button
                     onClick={() => {
-                      const slug = brief.protocol.toLowerCase();
-                      toggle(slug);
+                      const slug = brief.protocol.toLowerCase()
+                      toggle(slug)
                       if (!isWatched(slug)) {
-                        toast.success(`${slug} added to watchlist.`);
+                        toast.success(`${slug} added to watchlist.`)
                       }
                     }}
                     variant={isWatched(brief.protocol.toLowerCase()) ? 'outline' : 'default'}
                     size="sm"
-                    className={isWatched(brief.protocol.toLowerCase())
-                      ? 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 rounded-xs'
-                      : 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xs transition-all'
+                    className={
+                      isWatched(brief.protocol.toLowerCase())
+                        ? 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 rounded-xs'
+                        : 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xs transition-all'
                     }
                   >
                     {isWatched(brief.protocol.toLowerCase()) ? '★ Active monitor' : '☆ Watch Protocol'}
@@ -334,7 +357,9 @@ function ResearchContent() {
 
             {/* Footer Tip */}
             <div className="text-center py-8">
-              <p className="text-zinc-650 text-xs font-mono">&gt; DECRYPTION COMPLETE. AUDIT COMPLIANCE STANDARDS APPLIED.</p>
+              <p className="text-zinc-650 text-xs font-mono">
+                &gt; DECRYPTION COMPLETE. AUDIT COMPLIANCE STANDARDS APPLIED.
+              </p>
             </div>
           </TracingBeam>
         </div>
@@ -344,8 +369,12 @@ function ResearchContent() {
       {loading && (
         <div className="animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-xl bg-zinc-950 border border-cyan-500/15 backdrop-blur-md duration-500 relative min-h-[18rem] flex flex-col justify-between shadow-2xl shadow-cyan-500/5 corner-decor">
           <div className="border-b border-cyan-500/15 bg-zinc-900/50 px-4 py-2 flex items-center justify-between text-cyan-400/80 font-mono text-xs">
-            <span className="flex items-center gap-2"><Terminal className="w-3.5 h-3.5" /> AEGIS SECURE CONSOLE LOGS</span>
-            <span className="text-zinc-550 flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> PROCESS: ACTIVE</span>
+            <span className="flex items-center gap-2">
+              <Terminal className="w-3.5 h-3.5" /> AEGIS SECURE CONSOLE LOGS
+            </span>
+            <span className="text-zinc-550 flex items-center gap-1.5">
+              <RefreshCw className="w-3 h-3 animate-spin" /> PROCESS: ACTIVE
+            </span>
           </div>
 
           <div className="p-6 flex-1 flex flex-col justify-start space-y-2 font-mono text-xs text-left overflow-y-auto">
@@ -359,9 +388,11 @@ function ResearchContent() {
               <span className="h-3 w-1.5 bg-white inline-block animate-caret" />
             </div>
           </div>
-          
+
           <div className="border-t border-cyan-500/10 p-3 bg-cyan-950/5 text-center">
-            <p className="text-[10px] uppercase font-orbitron font-bold tracking-widest text-cyan-500/60">SCANNING HIGH-DIMENSIONAL DATA PIPELINES</p>
+            <p className="text-[10px] uppercase font-orbitron font-bold tracking-widest text-cyan-500/60">
+              SCANNING HIGH-DIMENSIONAL DATA PIPELINES
+            </p>
           </div>
         </div>
       )}
@@ -385,7 +416,8 @@ function ResearchContent() {
               {supportedProtocols.length} verified network protocols
             </h2>
             <p className="max-w-2xl text-xs text-zinc-400 leading-relaxed font-medium">
-              Live catalog derived from active chain telemetry. Displaying active protocols sorted by liquidity scale (TVL).
+              Live catalog derived from active chain telemetry. Displaying active protocols sorted by liquidity scale
+              (TVL).
             </p>
           </div>
           <div className="rounded-xs border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs text-zinc-400 font-mono">
@@ -420,7 +452,8 @@ function ResearchContent() {
         <div className="mt-6 max-h-[28rem] overflow-auto rounded-xs border border-zinc-850 bg-zinc-950/20 p-4 scrollbar-thin">
           <div className="mb-3 flex items-center justify-between gap-3 px-1 text-[10px] font-mono text-zinc-500">
             <span>
-              DISPLAYING {Math.min(visibleProtocols, filteredProtocols.length)} OF {filteredProtocols.length} REGISTERED TARGETS
+              DISPLAYING {Math.min(visibleProtocols, filteredProtocols.length)} OF {filteredProtocols.length} REGISTERED
+              TARGETS
             </span>
             {deferredProtocolSearch && (
               <button
@@ -438,15 +471,19 @@ function ResearchContent() {
                 key={protocol.slug}
                 type="button"
                 onClick={() => {
-                  void runResearch(protocol.slug);
+                  void runResearch(protocol.slug)
                 }}
                 className="flex items-center justify-between gap-3 rounded-xs border border-zinc-850 bg-zinc-950/60 px-4 py-3 text-left transition hover:border-cyan-500/30 hover:bg-zinc-950 hover:shadow-[0_0_12px_rgba(6,182,212,0.03)] cursor-pointer group"
                 style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
                 disabled={loading}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-orbitron font-bold tracking-wider text-white group-hover:text-cyan-400 transition-colors uppercase">{protocol.label}</p>
-                  <span className={`inline-block mt-1.5 rounded-xs px-2 py-0.5 text-[8px] font-mono uppercase tracking-wider border ${getCategoryTone(protocol.category)}`}>
+                  <p className="truncate text-xs font-orbitron font-bold tracking-wider text-white group-hover:text-cyan-400 transition-colors uppercase">
+                    {protocol.label}
+                  </p>
+                  <span
+                    className={`inline-block mt-1.5 rounded-xs px-2 py-0.5 text-[8px] font-mono uppercase tracking-wider border ${getCategoryTone(protocol.category)}`}
+                  >
                     {protocol.category}
                   </span>
                 </div>
@@ -466,7 +503,11 @@ function ResearchContent() {
             <div className="mt-4 flex justify-center">
               <Button
                 type="button"
-                onClick={() => setVisibleProtocols((current) => Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length))}
+                onClick={() =>
+                  setVisibleProtocols((current) =>
+                    Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length),
+                  )
+                }
                 variant="outline"
                 size="sm"
                 className="font-orbitron font-bold border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white rounded-xs uppercase tracking-wider text-xs"
@@ -480,28 +521,42 @@ function ResearchContent() {
 
       <style jsx global>{`
         @keyframes progress-fast {
-          0% { width: 0%; left: 0; }
-          40% { width: 70%; left: 0; }
-          100% { width: 0%; left: 100%; }
+          0% {
+            width: 0%;
+            left: 0;
+          }
+          40% {
+            width: 70%;
+            left: 0;
+          }
+          100% {
+            width: 0%;
+            left: 100%;
+          }
         }
         .animate-progress-fast {
           animation: progress-fast 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
           position: absolute;
         }
         @keyframes caret {
-          0%, 100% { opacity: 0; }
-          50% { opacity: 1; }
+          0%,
+          100% {
+            opacity: 0;
+          }
+          50% {
+            opacity: 1;
+          }
         }
         .animate-caret {
           animation: caret 1s step-end infinite;
         }
       `}</style>
     </div>
-  );
+  )
 }
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 function MarkdownBrief({ content }: { content: string }) {
   return (
@@ -525,15 +580,9 @@ function MarkdownBrief({ content }: { content: string }) {
             </h3>
           ),
           p: ({ children }) => (
-            <p className="mb-4 text-xs sm:text-sm leading-relaxed text-zinc-300 font-medium">
-              {children}
-            </p>
+            <p className="mb-4 text-xs sm:text-sm leading-relaxed text-zinc-300 font-medium">{children}</p>
           ),
-          ul: ({ children }) => (
-            <ul className="mb-6 space-y-2.5 font-sans">
-              {children}
-            </ul>
-          ),
+          ul: ({ children }) => <ul className="mb-6 space-y-2.5 font-sans">{children}</ul>,
           li: ({ children }) => (
             <li className="group ml-1 flex items-start gap-2 text-zinc-300 text-xs sm:text-sm">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-cyan-500/50 border border-cyan-500/70" />
@@ -542,9 +591,7 @@ function MarkdownBrief({ content }: { content: string }) {
           ),
           table: ({ children }) => (
             <div className="overflow-x-auto my-6 rounded-xs bg-zinc-950 border border-zinc-850 shadow-inner">
-              <table className="w-full text-xs text-left border-collapse font-mono">
-                {children}
-              </table>
+              <table className="w-full text-xs text-left border-collapse font-mono">{children}</table>
             </div>
           ),
           thead: ({ children }) => (
@@ -552,21 +599,9 @@ function MarkdownBrief({ content }: { content: string }) {
               {children}
             </thead>
           ),
-          th: ({ children }) => (
-            <th className="px-5 py-3 font-bold text-cyan-400">
-              {children}
-            </th>
-          ),
-          td: ({ children }) => (
-            <td className="px-5 py-3 text-zinc-300 border-b border-zinc-900">
-              {children}
-            </td>
-          ),
-          strong: ({ children }) => (
-            <strong className="font-bold text-white">
-              {children}
-            </strong>
-          ),
+          th: ({ children }) => <th className="px-5 py-3 font-bold text-cyan-400">{children}</th>,
+          td: ({ children }) => <td className="px-5 py-3 text-zinc-300 border-b border-zinc-900">{children}</td>,
+          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
           code: ({ children }) => (
             <code className="rounded-xs bg-cyan-950/20 border border-cyan-500/15 px-1.5 py-0.5 font-mono text-[11px] text-cyan-300 font-bold">
               {children}
@@ -577,5 +612,5 @@ function MarkdownBrief({ content }: { content: string }) {
         {content}
       </ReactMarkdown>
     </div>
-  );
+  )
 }

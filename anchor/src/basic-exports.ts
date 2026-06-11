@@ -36,10 +36,7 @@ export const BasicIDL: Basic = {
     },
     {
       name: 'initialize',
-      docs: [
-        "Creates a new Watchlist PDA for the caller's wallet.",
-        'Must be called once before add/remove.',
-      ],
+      docs: ["Creates a new Watchlist PDA for the caller's wallet.", 'Must be called once before add/remove.'],
       discriminator: [175, 175, 109, 31, 13, 152, 155, 237],
       accounts: [
         {

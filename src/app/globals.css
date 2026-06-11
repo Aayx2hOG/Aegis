@@ -124,7 +124,12 @@
     @apply bg-background text-foreground font-sans tracking-wide;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-orbitron uppercase tracking-wider;
   }
 
@@ -153,7 +158,7 @@
   /* Cyber Grid Background overlay */
   .cyber-grid {
     background-size: 30px 30px;
-    background-image: 
+    background-image:
       linear-gradient(to right, rgba(6, 182, 212, 0.035) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(6, 182, 212, 0.035) 1px, transparent 1px);
   }
@@ -164,13 +169,20 @@
     overflow: hidden;
   }
   .cyber-scanline::after {
-    content: " ";
+    content: ' ';
     display: block;
     position: absolute;
-    top: 0; left: 0; bottom: 0; right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background:
+      linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+      linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
     z-index: 2;
-    background-size: 100% 3px, 6px 100%;
+    background-size:
+      100% 3px,
+      6px 100%;
     pointer-events: none;
     opacity: 0.35;
   }
@@ -200,8 +212,12 @@
 
   /* Animated telemetry scanning bar */
   @keyframes scan-v {
-    0% { transform: translateY(-100%); }
-    100% { transform: translateY(100%); }
+    0% {
+      transform: translateY(-100%);
+    }
+    100% {
+      transform: translateY(100%);
+    }
   }
   .scanner-bar {
     animation: scan-v 4s linear infinite;
@@ -211,7 +227,8 @@
   .corner-decor {
     position: relative;
   }
-  .corner-decor::before, .corner-decor::after {
+  .corner-decor::before,
+  .corner-decor::after {
     content: '';
     position: absolute;
     width: 6px;
@@ -221,11 +238,13 @@
     pointer-events: none;
   }
   .corner-decor::before {
-    top: 0; left: 0;
+    top: 0;
+    left: 0;
     border-width: 1px 0 0 1px;
   }
   .corner-decor::after {
-    bottom: 0; right: 0;
+    bottom: 0;
+    right: 0;
     border-width: 0 1px 1px 0;
   }
 }

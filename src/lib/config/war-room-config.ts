@@ -31,11 +31,11 @@ export const ORACLE_DELAY_MIN_MULT = 0.25
 export const SMART_CONTRACT_BASE_MULT = 0.5
 
 export const AGG_WEIGHTS = {
-    market: 0.28,
-    liquidity: 0.2,
-    concentration: 0.17,
-    liquidation: 0.2,
-    smart: 0.15,
+  market: 0.28,
+  liquidity: 0.2,
+  concentration: 0.17,
+  liquidation: 0.2,
+  smart: 0.15,
 }
 
 export const EXPLOIT_LOSS_FACTOR = 0.08
@@ -46,26 +46,26 @@ export const LIQUIDITY_SLIPPAGE_MULT = 0.35
 
 // Action impact multipliers and cost estimates
 export const ACTIONS = {
-    hedgeRiskReduction: 0.25,
-    hedgeCostMultiplier: 0.004,
-    rebalanceRiskReduction: 0.3,
-    rebalanceCostMultiplier: 0.0025,
-    raiseCollateralRiskReduction: 0.35,
-    raiseCollateralCostMultiplier: 0.0018,
-    emergencyRiskReduction: 0.15,
+  hedgeRiskReduction: 0.25,
+  hedgeCostMultiplier: 0.004,
+  rebalanceRiskReduction: 0.3,
+  rebalanceCostMultiplier: 0.0025,
+  raiseCollateralRiskReduction: 0.35,
+  raiseCollateralCostMultiplier: 0.0018,
+  emergencyRiskReduction: 0.15,
 }
 
 export const DEFAULT_CONFIDENCES = {
-    hedge: 0.83,
-    rebalance: 0.79,
-    collateral: 0.87,
-    emergency: 0.74,
+  hedge: 0.83,
+  rebalance: 0.79,
+  collateral: 0.87,
+  emergency: 0.74,
 }
 
 export const UI_DISCLAIMER = `War Room outputs are illustrative heuristics — not financial advice. Results are based on simple, tunable formulas and should be validated against your own analysis.`
 
 export default {
-    POSITION_SCALE,
-    POSITION_MIN_USD,
-    POSITION_MAX_USD,
+  POSITION_SCALE,
+  POSITION_MIN_USD,
+  POSITION_MAX_USD,
 }
