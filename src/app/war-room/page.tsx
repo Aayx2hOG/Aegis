@@ -21,6 +21,9 @@ import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { useWatchlist } from '@/lib/hooks/use-watchlist'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useAtom } from 'jotai'
+import { beginnerModeAtom } from '@/lib/store/research-store'
+import { DeFiTooltip, BeginnerOnboardingCard } from '@/components/ui/defi-helper'
 
 const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
   {
@@ -770,7 +773,7 @@ async function fetchAndBuildPositions(protocolSlug: string): Promise<ChainPortfo
 
 function WarRoomContent() {
   const wallet = useWallet()
-  const [simpleMode, setSimpleMode] = useState(false)
+  const [simpleMode, setSimpleMode] = useAtom(beginnerModeAtom)
   const searchParams = useSearchParams()
 
   // Watchlist
@@ -1043,6 +1046,18 @@ function WarRoomContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 py-6 px-2 cyber-grid">
+      {simpleMode && (
+        <BeginnerOnboardingCard
+          title="DeFi Risk Simulator Guide (War Room)"
+          steps={[
+            "This simulator allows you to 'stress-test' your tokens and yields under different worst-case market scenarios.",
+            "You can choose a Preset Scenario (such as a Trapped Assets Bridge Outage or a Network Freeze).",
+            "The Risk Evaluation Dial shows the safety rating of your portfolio (1-100) under the selected shock scenario. Lower is safer.",
+            "Hover over dotted terms like TVL, LTV, Volatility, or Sequencer Downtime to view their beginner explanations.",
+            "Click on 'Custom Injector' to manually change shock numbers and test your own theories."
+          ]}
+        />
+      )}
       <header className="space-y-4 text-left">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Badge
@@ -1185,7 +1200,11 @@ function WarRoomContent() {
                     </div>
                     <div className="sm:col-span-2 text-left">
                       <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">
-                        Volatility %
+                        {simpleMode ? (
+                          <DeFiTooltip term="Volatility">Volatility %</DeFiTooltip>
+                        ) : (
+                          'Volatility %'
+                        )}
                       </label>
                       <input
                         type="range"
@@ -1201,7 +1220,11 @@ function WarRoomContent() {
                     </div>
                     <div className="sm:col-span-2 text-left">
                       <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">
-                        Liquidity
+                        {simpleMode ? (
+                          <DeFiTooltip term="Liquidity Score">Liquidity</DeFiTooltip>
+                        ) : (
+                          'Liquidity'
+                        )}
                       </label>
                       <input
                         type="range"
@@ -1374,11 +1397,10 @@ function WarRoomContent() {
               <button
                 type="button"
                 onClick={() => setSimpleMode(!simpleMode)}
-                className={`rounded-xs px-3 py-1 text-[8px] font-mono font-bold uppercase tracking-wider border transition-all duration-200 ${
-                  simpleMode
+                className={`rounded-xs px-3 py-1 text-[8px] font-mono font-bold uppercase tracking-wider border transition-all duration-200 ${simpleMode
                     ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
                     : 'bg-zinc-950 border-zinc-850 text-zinc-500 hover:text-zinc-350'
-                }`}
+                  }`}
               >
                 {simpleMode ? 'Lingo: Simplified' : 'Lingo: Technical'}
               </button>
@@ -1388,22 +1410,20 @@ function WarRoomContent() {
               <button
                 type="button"
                 onClick={() => setUseCustomScenario(false)}
-                className={`flex-1 text-center py-1.5 text-[10px] font-orbitron font-bold uppercase tracking-wider border transition-all ${
-                  !useCustomScenario
+                className={`flex-1 text-center py-1.5 text-[10px] font-orbitron font-bold uppercase tracking-wider border transition-all ${!useCustomScenario
                     ? 'bg-cyan-950/20 border-cyan-500/30 text-cyan-400 font-black'
                     : 'bg-zinc-950/30 border-transparent text-zinc-500 hover:text-zinc-350'
-                }`}
+                  }`}
               >
                 Presets
               </button>
               <button
                 type="button"
                 onClick={() => setUseCustomScenario(true)}
-                className={`flex-1 text-center py-1.5 text-[10px] font-orbitron font-bold uppercase tracking-wider border transition-all ${
-                  useCustomScenario
+                className={`flex-1 text-center py-1.5 text-[10px] font-orbitron font-bold uppercase tracking-wider border transition-all ${useCustomScenario
                     ? 'bg-cyan-950/20 border-cyan-500/30 text-cyan-400 font-black'
                     : 'bg-zinc-950/30 border-transparent text-zinc-500 hover:text-zinc-350'
-                }`}
+                  }`}
               >
                 Custom Injector
               </button>
@@ -1418,11 +1438,10 @@ function WarRoomContent() {
                       key={info.title}
                       type="button"
                       onClick={() => setSelectedMultichainScenarioIdx(idx)}
-                      className={`w-full rounded-xs px-3.5 py-3 text-left transition border ${
-                        idx === selectedMultichainScenarioIdx
+                      className={`w-full rounded-xs px-3.5 py-3 text-left transition border ${idx === selectedMultichainScenarioIdx
                           ? 'bg-cyan-950/15 border-cyan-500/35 text-white shadow-[0_0_12px_rgba(6,182,212,0.06)]'
                           : 'bg-zinc-950/40 border-zinc-900 text-zinc-450 hover:bg-zinc-950 hover:text-zinc-200'
-                      }`}
+                        }`}
                     >
                       <p className="text-xs font-orbitron font-bold tracking-wider uppercase">
                         {simpleMode ? info.beginnerLabel : info.title}
@@ -1453,7 +1472,13 @@ function WarRoomContent() {
               <div className="space-y-4 rounded-xs border border-cyan-500/10 bg-zinc-950/45 p-4 text-xs font-mono text-left">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] font-bold">
-                    <span className="text-zinc-400">MARKET SHOCK</span>
+                    <span className="text-zinc-400">
+                      {simpleMode ? (
+                        <DeFiTooltip term="Market Shock">MARKET SHOCK</DeFiTooltip>
+                      ) : (
+                        'MARKET SHOCK'
+                      )}
+                    </span>
                     <span className="text-cyan-400">-{customScenario.marketShockPct}%</span>
                   </div>
                   <input
@@ -1468,7 +1493,13 @@ function WarRoomContent() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] font-bold">
-                    <span className="text-zinc-400">LIQUIDITY DROP</span>
+                    <span className="text-zinc-400">
+                      {simpleMode ? (
+                        <DeFiTooltip term="Liquidity Score">LIQUIDITY DROP</DeFiTooltip>
+                      ) : (
+                        'LIQUIDITY DROP'
+                      )}
+                    </span>
                     <span className="text-cyan-400">-{customScenario.liquidityDropPct}%</span>
                   </div>
                   <input
@@ -1500,7 +1531,13 @@ function WarRoomContent() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] font-bold">
-                    <span className="text-zinc-400">ORACLE DELAY</span>
+                    <span className="text-zinc-400">
+                      {simpleMode ? (
+                        <DeFiTooltip term="Oracle Delay">ORACLE DELAY</DeFiTooltip>
+                      ) : (
+                        'ORACLE DELAY'
+                      )}
+                    </span>
                     <span className="text-cyan-400">{customScenario.oracleDelayMinutes} mins</span>
                   </div>
                   <input
@@ -1517,7 +1554,13 @@ function WarRoomContent() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] font-bold">
-                    <span className="text-zinc-400">BRIDGE OUTAGE DURATION</span>
+                    <span className="text-zinc-400">
+                      {simpleMode ? (
+                        <DeFiTooltip term="Bridge Outage">BRIDGE OUTAGE DURATION</DeFiTooltip>
+                      ) : (
+                        'BRIDGE OUTAGE DURATION'
+                      )}
+                    </span>
                     <span className="text-cyan-400">{customScenario.bridgeOutageDurationMinutes} mins</span>
                   </div>
                   <input

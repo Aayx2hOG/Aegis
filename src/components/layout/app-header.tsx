@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useAtom } from 'jotai'
+import { beginnerModeAtom } from '@/lib/store/research-store'
 import { Button } from '@/components/ui/button'
 import { Bell, Menu, X } from 'lucide-react'
 import { ThemeSelect } from '@/components/ui/theme-select'
@@ -18,6 +20,7 @@ export function AppHeader({
 }) {
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
+  const [beginnerMode, setBeginnerMode] = useAtom(beginnerModeAtom)
 
   // Merge Alerts into main links list, keep Notifications for the right-side bell icon
   const mainNavLinks = [...links, ...utilityLinks.filter((item) => item.label === 'Alerts')]
@@ -60,16 +63,14 @@ export function AppHeader({
               {mainNavLinks.map(({ label, path }) => (
                 <li key={path}>
                   <Link
-                    className={`relative text-[11px] font-orbitron font-bold uppercase tracking-wider transition-colors duration-200 py-1.5 ${
-                      isActive(path) ? 'text-white' : 'text-zinc-450 hover:text-cyan-400'
-                    }`}
+                    className={`relative text-[11px] font-orbitron font-bold uppercase tracking-wider transition-colors duration-200 py-1.5 ${isActive(path) ? 'text-white' : 'text-zinc-450 hover:text-cyan-400'
+                      }`}
                     href={path}
                   >
                     {label}
                     <span
-                      className={`absolute bottom-0 left-0 w-full h-[2px] bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] transition-all duration-300 origin-center ${
-                        isActive(path) ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-50 pointer-events-none'
-                      }`}
+                      className={`absolute bottom-0 left-0 w-full h-[2px] bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] transition-all duration-300 origin-center ${isActive(path) ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-50 pointer-events-none'
+                        }`}
                     />
                   </Link>
                 </li>
@@ -79,15 +80,27 @@ export function AppHeader({
         </div>
 
         {/* Right Side Controls */}
-        <div className="hidden lg:flex items-center gap-3 xl:gap-4">
+        <div className="hidden lg:flex items-center gap-3 xl:gap-4 ml-4 lg:ml-8">
+          {/* Beginner Mode Toggle */}
+          <button
+            onClick={() => setBeginnerMode(!beginnerMode)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 mr-1 rounded-xs border transition-all duration-300 text-[9px] font-orbitron font-bold uppercase tracking-wider cursor-pointer ${beginnerMode
+                ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)] animate-pulse'
+                : 'bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+              }`}
+            title="Toggle Beginner / Pro Mode"
+          >
+            <span className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-650'}`} />
+            <span>{beginnerMode ? 'Beginner Mode' : 'Pro Mode'}</span>
+          </button>
+
           {/* Notifications Bell */}
           <Link
             href="/settings/notifications"
-            className={`p-2 rounded-xs transition-all border ${
-              isActive('/settings/notifications')
+            className={`p-2 rounded-xs transition-all border ${isActive('/settings/notifications')
                 ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
                 : 'border-transparent text-zinc-400 hover:bg-zinc-900/60 hover:text-cyan-400'
-            }`}
+              }`}
             title="Notifications Settings"
           >
             <Bell className="h-4 w-4" />
@@ -122,9 +135,8 @@ export function AppHeader({
               {mainNavLinks.map(({ label, path }) => (
                 <Link
                   key={path}
-                  className={`block py-2 text-sm font-orbitron font-semibold uppercase tracking-widest transition-colors ${
-                    isActive(path) ? 'text-cyan-400' : 'text-zinc-400 hover:text-white'
-                  }`}
+                  className={`block py-2 text-sm font-orbitron font-semibold uppercase tracking-widest transition-colors ${isActive(path) ? 'text-cyan-400' : 'text-zinc-440 hover:text-white'
+                    }`}
                   href={path}
                   onClick={() => setShowMenu(false)}
                 >
@@ -142,6 +154,19 @@ export function AppHeader({
               <div className="flex flex-col gap-3">
                 <WalletButton />
                 <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500 uppercase font-semibold">Workspace:</span>
+                  <button
+                    onClick={() => setBeginnerMode(!beginnerMode)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xs border transition-all duration-300 text-[10px] font-orbitron font-bold uppercase tracking-wider ${beginnerMode
+                        ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
+                        : 'bg-zinc-900/40 border-zinc-800 text-zinc-500'
+                      }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-650'}`} />
+                    <span>{beginnerMode ? 'Beginner' : 'Pro'}</span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500 uppercase font-semibold">Chain:</span>
                   <ChainUiSelect />
                 </div>
@@ -152,6 +177,7 @@ export function AppHeader({
               </div>
             </div>
           </div>
+
 
           <div className="pb-4">
             <Link
