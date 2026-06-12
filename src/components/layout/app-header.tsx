@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useAtom } from 'jotai'
@@ -19,15 +19,23 @@ export function AppHeader({
   utilityLinks: { label: string; path: string }[]
 }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [showMenu, setShowMenu] = useState(false)
   const [beginnerMode, setBeginnerMode] = useAtom(beginnerModeAtom)
+
+  const activeTab = searchParams.get('tab')
 
   // Merge Alerts into main links list, keep Notifications for the right-side bell icon
   const mainNavLinks = [...links, ...utilityLinks.filter((item) => item.label === 'Alerts')]
 
-  function isActive(path: string) {
+  function isLinkActive(path: string) {
+    if (path === '/alerts') {
+      return pathname === '/alerts' && activeTab !== 'channels'
+    }
     return path === '/' ? pathname === '/' : pathname.startsWith(path)
   }
+
+  const isBellActive = pathname === '/settings/notifications' || (pathname === '/alerts' && activeTab === 'channels')
 
   return (
     <header className="sticky top-0 z-50 border-b border-cyan-500/10 bg-zinc-950/85 backdrop-blur-md py-3.5 px-4 md:px-8 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
@@ -63,13 +71,13 @@ export function AppHeader({
               {mainNavLinks.map(({ label, path }) => (
                 <li key={path}>
                   <Link
-                    className={`relative text-[11px] font-orbitron font-bold uppercase tracking-wider transition-colors duration-200 py-1.5 ${isActive(path) ? 'text-white' : 'text-zinc-450 hover:text-cyan-400'
+                    className={`relative text-[11px] font-orbitron font-bold uppercase tracking-wider transition-colors duration-200 py-1.5 ${isLinkActive(path) ? 'text-white' : 'text-zinc-450 hover:text-cyan-400'
                       }`}
                     href={path}
                   >
                     {label}
                     <span
-                      className={`absolute bottom-0 left-0 w-full h-[2px] bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] transition-all duration-300 origin-center ${isActive(path) ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-50 pointer-events-none'
+                      className={`absolute bottom-0 left-0 w-full h-[2px] bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] transition-all duration-300 origin-center ${isLinkActive(path) ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-50 pointer-events-none'
                         }`}
                     />
                   </Link>
@@ -85,26 +93,14 @@ export function AppHeader({
           <button
             onClick={() => setBeginnerMode(!beginnerMode)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 mr-1 rounded-xs border transition-all duration-300 text-[9px] font-orbitron font-bold uppercase tracking-wider cursor-pointer ${beginnerMode
-                ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)] animate-pulse'
-                : 'bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+              ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)] animate-pulse'
+              : 'bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
               }`}
             title="Toggle Beginner / Pro Mode"
           >
             <span className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-650'}`} />
             <span>{beginnerMode ? 'Beginner Mode' : 'Pro Mode'}</span>
           </button>
-
-          {/* Notifications Bell */}
-          <Link
-            href="/settings/notifications"
-            className={`p-2 rounded-xs transition-all border ${isActive('/settings/notifications')
-                ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
-                : 'border-transparent text-zinc-400 hover:bg-zinc-900/60 hover:text-cyan-400'
-              }`}
-            title="Notifications Settings"
-          >
-            <Bell className="h-4 w-4" />
-          </Link>
 
           <div className="border-l border-zinc-800 h-5 my-auto mx-1" />
 
@@ -135,7 +131,7 @@ export function AppHeader({
               {mainNavLinks.map(({ label, path }) => (
                 <Link
                   key={path}
-                  className={`block py-2 text-sm font-orbitron font-semibold uppercase tracking-widest transition-colors ${isActive(path) ? 'text-cyan-400' : 'text-zinc-440 hover:text-white'
+                  className={`block py-2 text-sm font-orbitron font-semibold uppercase tracking-widest transition-colors ${isLinkActive(path) ? 'text-cyan-400' : 'text-zinc-440 hover:text-white'
                     }`}
                   href={path}
                   onClick={() => setShowMenu(false)}
@@ -158,8 +154,8 @@ export function AppHeader({
                   <button
                     onClick={() => setBeginnerMode(!beginnerMode)}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xs border transition-all duration-300 text-[10px] font-orbitron font-bold uppercase tracking-wider ${beginnerMode
-                        ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
-                        : 'bg-zinc-900/40 border-zinc-800 text-zinc-500'
+                      ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
+                      : 'bg-zinc-900/40 border-zinc-800 text-zinc-500'
                       }`}
                   >
                     <span className={`h-1.5 w-1.5 rounded-full ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-650'}`} />
@@ -167,11 +163,11 @@ export function AppHeader({
                   </button>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500 uppercase font-semibold">Chain:</span>
+                  <span className="text-xs text-zinc-550 uppercase font-semibold">Chain:</span>
                   <ChainUiSelect />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500 uppercase font-semibold">Theme:</span>
+                  <span className="text-xs text-zinc-550 uppercase font-semibold">Theme:</span>
                   <ThemeSelect />
                 </div>
               </div>
@@ -181,7 +177,7 @@ export function AppHeader({
 
           <div className="pb-4">
             <Link
-              href="/settings/notifications"
+              href="/alerts?tab=channels"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xs border border-zinc-800 bg-zinc-900/40 text-sm font-semibold text-zinc-350 hover:bg-zinc-900 hover:text-cyan-400 transition-colors"
               onClick={() => setShowMenu(false)}
             >

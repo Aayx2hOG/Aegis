@@ -12,21 +12,33 @@ type Tab = {
 
 export function Tabs({
   tabs: propTabs,
+  activeTabValue,
+  onTabChange,
   containerClassName,
   activeTabClassName,
   tabClassName,
   contentClassName,
 }: {
   tabs: Tab[]
+  activeTabValue?: string
+  onTabChange?: (value: string) => void
   containerClassName?: string
   activeTabClassName?: string
   tabClassName?: string
   contentClassName?: string
 }) {
-  const [active, setActive] = useState<Tab>(propTabs[0])
+  const [activeInternal, setActiveInternal] = useState<Tab>(propTabs[0])
+
+  const active = activeTabValue
+    ? (propTabs.find((t) => t.value === activeTabValue) || propTabs[0])
+    : activeInternal
 
   const handlePress = (tab: Tab) => {
-    setActive(tab)
+    if (onTabChange) {
+      onTabChange(tab.value)
+    } else {
+      setActiveInternal(tab)
+    }
   }
 
   return (
