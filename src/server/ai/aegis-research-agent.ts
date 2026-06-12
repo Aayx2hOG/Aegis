@@ -38,12 +38,6 @@ function usd(value: unknown): string {
   return `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 }
 
-function formatFallbackMetric(value: unknown, fallbackText: string): string {
-  const num = Number(value)
-  if (Number.isFinite(num)) return String(num)
-  if (typeof value === 'string' && value.trim()) return value.trim()
-  return fallbackText
-}
 
 function displayText(value: unknown, fallbackText: string): string {
   if (value == null) return fallbackText
@@ -130,9 +124,6 @@ async function buildFallbackBrief(
 
   const protocolName = text(s.name ?? m.name) || protocol
   const protocolDescription = displayText(s.description ?? m.description, 'No description found yet.')
-  const protocolWebsite = displayText(s.url ?? m.url, 'Not listed')
-  const protocolTwitter = displayText(s.twitter ?? m.twitter, 'Not listed')
-  const protocolLogo = displayText(s.logo ?? m.logo, 'Not listed')
   const protocolSymbol = displayText(s.symbol ?? m.symbol, protocol.toUpperCase())
 
   const resolvedPrice = tokenPrice.price ?? marketFallback.price

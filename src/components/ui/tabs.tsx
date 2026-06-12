@@ -24,7 +24,6 @@ export function Tabs({
   contentClassName?: string
 }) {
   const [active, setActive] = useState<Tab>(propTabs[0])
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
   const handlePress = (tab: Tab) => {
     setActive(tab)
@@ -38,13 +37,11 @@ export function Tabs({
           containerClassName,
         )}
       >
-        {propTabs.map((tab, idx) => {
+        {propTabs.map((tab) => {
           const isActive = tab.value === active.value
           return (
             <button
               key={tab.value}
-              onMouseEnter={() => setHoveredIdx(idx)}
-              onMouseLeave={() => setHoveredIdx(null)}
               onClick={() => handlePress(tab)}
               className={cn(
                 'relative px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors duration-200 cursor-pointer',

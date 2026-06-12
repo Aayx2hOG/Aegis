@@ -1,10 +1,9 @@
-import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
 
 // Delete test artifacts older than TTL (ms)
 const TTL_MS = Number(process.env.TEST_ARTIFACT_TTL_MS ?? String(1000 * 60 * 60 * 24)) // default 24h
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   if (!prisma) return new Response(JSON.stringify({ error: 'Database not configured' }), { status: 503 })
 
   try {

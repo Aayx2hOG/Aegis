@@ -64,8 +64,11 @@ export const DEFAULT_CONFIDENCES = {
 
 export const UI_DISCLAIMER = `War Room outputs are illustrative heuristics — not financial advice. Results are based on simple, tunable formulas and should be validated against your own analysis.`
 
-export default {
+const warRoomConfig = {
   POSITION_SCALE,
   POSITION_MIN_USD,
   POSITION_MAX_USD,
 }
+
+export default warRoomConfig
+

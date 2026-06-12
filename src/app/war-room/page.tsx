@@ -19,7 +19,6 @@ import { SpotlightCard } from '@/components/ui/spotlight-card'
 import { TerminalExecutionModal, ExecutionAction } from '@/components/ui/terminal-execution-modal'
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { useWatchlist } from '@/lib/hooks/use-watchlist'
-import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { beginnerModeAtom } from '@/lib/store/research-store'
@@ -586,7 +585,6 @@ async function fetchAndBuildPositions(protocolSlug: string): Promise<ChainPortfo
   const chainsList: string[] = data.chains || []
   const category: string = data.category || 'other'
   const symbol: string = (data.symbol && data.symbol !== '-' ? data.symbol : protocolSlug).toUpperCase()
-  const name: string = data.name || protocolSlug
 
   // Resolve price
   let tokenPrice = 0
@@ -717,7 +715,6 @@ async function fetchAndBuildPositions(protocolSlug: string): Promise<ChainPortfo
 
   // Resolve chain-specific TVLs
   const parsedPositions: ChainPortfolioPosition[] = []
-  let totalTvl = 0
 
   const chainDataList = chainsList
     .map((chainName) => {
@@ -745,10 +742,6 @@ async function fetchAndBuildPositions(protocolSlug: string): Promise<ChainPortfo
     })
     .filter((c): c is NonNullable<typeof c> => c !== null)
 
-  // Sum up supported chains TVL
-  chainDataList.forEach((c) => {
-    totalTvl += c.chainTvl
-  })
 
   // Create position for each supported chain
   chainDataList.forEach((c) => {

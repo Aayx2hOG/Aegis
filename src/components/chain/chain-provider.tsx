@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, ReactNode, useContext, useMemo } from 'react'
-import { atom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { Chain, ChainType, ChainEnvironment } from '@/lib/chain/types'
 

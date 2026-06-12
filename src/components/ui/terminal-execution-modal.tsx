@@ -2,9 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useRef } from 'react'
-import { Terminal, Loader2, CheckCircle2, AlertTriangle, ExternalLink, X } from 'lucide-react'
+import { Terminal, Loader2, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
 
 export interface ExecutionAction {
   id?: string

@@ -1,25 +1,6 @@
 import { ChainType } from '@/lib/chain/types'
 import type { ParsedTransaction, TokenPrice } from '@/lib/types'
 
-const BLOCKSCOUT_SUBDOMAINS: Record<ChainType, string> = {
-  [ChainType.Ethereum]: 'eth',
-  [ChainType.Arbitrum]: 'arbitrum',
-  [ChainType.Optimism]: 'optimism',
-  [ChainType.Base]: 'base',
-  [ChainType.Polygon]: 'polygon',
-  [ChainType.Solana]: 'eth', // Solana not EVM, default to eth
-  [ChainType.Cosmos]: 'eth',
-}
-
-const LLAMA_CHAIN_KEYS: Record<ChainType, string> = {
-  [ChainType.Ethereum]: 'ethereum',
-  [ChainType.Arbitrum]: 'arbitrum',
-  [ChainType.Optimism]: 'optimism',
-  [ChainType.Base]: 'base',
-  [ChainType.Polygon]: 'polygon',
-  [ChainType.Solana]: 'solana',
-  [ChainType.Cosmos]: 'cosmos',
-}
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 6000) {
   const controller = new AbortController()
@@ -144,7 +125,6 @@ export async function getEvmTokenMetadata(address: string, chainType?: ChainType
  * Fetch token pricing from DexScreener with DeFiLlama and Blockscout fallbacks
  */
 export async function getEvmTokenPrice(address: string, chainType?: ChainType | string): Promise<TokenPrice> {
-  const subdomain = getSubdomain(chainType)
   const llamaChain = getLlamaChain(chainType)
 
   // 1. Try DexScreener first
