@@ -254,7 +254,7 @@ export function useWatchlist() {
       const slugs = watchlist ?? []
       const mapped = slugs.map((slug) => {
         const resolved = resolveProtocolFromList(slug, chainProtocols)
-        const geckoId = (resolved as ProtocolWithGeckoId | undefined)?.gecko_id ?? null
+        const geckoId = (resolved as ProtocolWithGeckoId | undefined)?.gecko_id ?? slug
         return {
           slug,
           name: resolved?.name ?? slug,
@@ -306,6 +306,7 @@ export function useWatchlist() {
     },
     enabled: Array.isArray(chainProtocols) && watchlist !== undefined,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['watchlist', cluster.name, walletAddress ?? 'guest'] })

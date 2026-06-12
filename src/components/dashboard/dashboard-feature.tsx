@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
 import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
+import { Meteors } from '@/components/ui/meteors'
+import { Sparkles } from '@/components/ui/sparkles'
 
 // Simulated logs list for active ticker feed
 const SIMULATED_LOGS = [
@@ -28,6 +30,7 @@ const SIMULATED_LOGS = [
 function RadarScanner() {
   return (
     <div className="relative w-40 h-40 mx-auto border border-cyan-500/20 rounded-full flex items-center justify-center bg-zinc-950/80 shadow-[0_0_15px_rgba(6,182,212,0.1)] overflow-hidden shrink-0">
+      <Sparkles id="radar-sparkles" particleDensity={30} minSize={0.4} maxSize={1.2} particleColor="#06b6d4" className="opacity-30" />
       {/* Concentric circles */}
       <div className="absolute w-32 h-32 border border-cyan-500/10 rounded-full" />
       <div className="absolute w-20 h-20 border border-cyan-500/15 rounded-full" />
@@ -143,6 +146,7 @@ export function DashboardFeature() {
         borderColor="rgba(6, 182, 212, 0.2)"
         className="relative overflow-hidden rounded-xl border border-cyan-500/15 bg-zinc-950/20 p-8 shadow-[0_24px_80px_rgba(0,0,0,0.8)] md:p-10 corner-decor"
       >
+        <Meteors number={15} />
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           <div className="lg:col-span-8 flex flex-col gap-5 text-left">
             <Badge

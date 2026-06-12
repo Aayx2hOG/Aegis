@@ -23,6 +23,8 @@ import { Loader2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { beginnerModeAtom } from '@/lib/store/research-store'
 import { DeFiTooltip, BeginnerOnboardingCard } from '@/components/ui/defi-helper'
+import { Meteors } from '@/components/ui/meteors'
+import { Sparkles } from '@/components/ui/sparkles'
 
 const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
   {
@@ -329,8 +331,9 @@ function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioConfig }) 
         <span className={`font-bold ${getStatusColor()}`}>{getStatusText()}</span>
       </div>
 
-      <div className="relative w-full h-[140px] bg-zinc-950 rounded-xs border border-zinc-900 flex items-center justify-center">
-        <svg viewBox="0 0 400 140" className="w-full h-full">
+      <div className="relative w-full h-[140px] bg-zinc-950 rounded-xs border border-zinc-900 flex items-center justify-center overflow-hidden">
+        <Sparkles id="bridge-sparkles" particleDensity={25} minSize={0.4} maxSize={1.0} particleColor="#06b6d4" className="opacity-30" />
+        <svg viewBox="0 0 400 140" className="w-full h-full relative z-10">
           {/* Bridge paths */}
           {/* Solana <-> Ethereum */}
           <line
@@ -588,7 +591,7 @@ async function fetchAndBuildPositions(protocolSlug: string): Promise<ChainPortfo
 
   // Resolve price
   let tokenPrice = 0
-  let geckoId = data.gecko_id || data.geckoId
+  let geckoId = data.gecko_id || data.geckoId || protocolSlug
   const address = data.address
 
   // 1. Try contract address query via DeFiLlama Coins API
@@ -1669,9 +1672,10 @@ function WarRoomContent() {
               <SpotlightCard
                 spotlightColor="rgba(6, 182, 212, 0.05)"
                 borderColor="rgba(6, 182, 212, 0.2)"
-                className="border border-cyan-500/20 bg-zinc-950/90 p-5 rounded-xs font-mono text-xs text-left"
+                className="relative overflow-hidden border border-cyan-500/20 bg-zinc-950/90 p-5 rounded-xs font-mono text-xs text-left"
               >
-                <div className="flex items-center gap-2 border-b border-cyan-500/10 pb-2 mb-3">
+                <Meteors number={10} />
+                <div className="relative z-10 flex items-center gap-2 border-b border-cyan-500/10 pb-2 mb-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
                   <span className="font-bold text-cyan-400 uppercase tracking-widest text-[10px]">
                     AEGIS DYNAMIC THREAT BRIEFING

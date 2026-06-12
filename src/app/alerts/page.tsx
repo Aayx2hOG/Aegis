@@ -8,6 +8,8 @@ import { useQueries } from '@tanstack/react-query'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Tabs } from '@/components/ui/tabs'
 import ChannelManager from '@/components/notifications/channel-manager'
+import { Meteors } from '@/components/ui/meteors'
+import { Sparkles } from '@/components/ui/sparkles'
 import {
   Dialog,
   DialogContent,
@@ -278,9 +280,11 @@ function AlertTelemetryScanner() {
   }, [])
 
   return (
-    <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md flex flex-col sm:flex-row items-center gap-4">
+    <div className="relative overflow-hidden rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md flex flex-col sm:flex-row items-center gap-4">
+      <Meteors number={6} />
       {/* Sonar Scan Visual */}
       <div className="relative w-28 h-28 border border-cyan-500/20 rounded-full flex items-center justify-center bg-zinc-950 shadow-[0_0_12px_rgba(6,182,212,0.1)] overflow-hidden shrink-0">
+        <Sparkles id="sonar-sparkles" particleDensity={20} minSize={0.4} maxSize={1.0} particleColor="#06b6d4" className="opacity-25" />
         <div className="absolute w-24 h-24 border border-cyan-500/10 rounded-full" />
         <div className="absolute w-16 h-16 border border-cyan-500/15 rounded-full" />
         <div className="absolute w-8 h-8 border border-cyan-500/20 rounded-full" />
@@ -305,7 +309,7 @@ function AlertTelemetryScanner() {
       </div>
 
       {/* Signal Status Ticker */}
-      <div className="flex-1 w-full min-h-[92px] rounded-xs bg-zinc-950/80 border border-zinc-900/60 p-3 shadow-[inset_0_0_10px_rgba(0,0,0,0.85)] font-mono text-[10px] text-cyan-400 flex flex-col justify-between">
+      <div className="flex-1 w-full min-h-[92px] rounded-xs bg-zinc-950/80 border border-zinc-900/60 p-3 shadow-[inset_0_0_10px_rgba(0,0,0,0.85)] font-mono text-[10px] text-cyan-400 flex flex-col justify-between z-10">
         <div className="flex items-center justify-between border-b border-cyan-500/10 pb-1.5 mb-1.5 select-none">
           <span className="font-bold flex items-center gap-1 uppercase tracking-wider">
             <span className="h-1 w-1 bg-cyan-400 animate-ping rounded-full" />
@@ -386,7 +390,7 @@ function AlertsContent() {
         const geckoId =
           (market as WatchlistMarketRow['market'] | undefined)?.gecko_id ??
           (market as WatchlistMarketRow['market'] | undefined)?.geckoId ??
-          null
+          slug
 
         return { slug, chainName: chain.name, chainType: chain.type, market, geckoId }
       })
@@ -1332,31 +1336,54 @@ function AlertsContent() {
                               <div className="mt-4 flex flex-wrap items-center gap-2">
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant={null as any}
                                   size="sm"
                                   onClick={() => openTestRuleDialog(rule)}
                                   disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                  className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer"
+                                  style={{
+                                    borderColor: 'rgba(6, 182, 212, 0.3)',
+                                    backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                                    color: '#67e8f9',
+                                  }}
+                                  className="border rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer transition-all hover:bg-cyan-500/15 hover:text-cyan-200"
                                 >
                                   Test this rule
                                 </Button>
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant={null as any}
                                   size="sm"
                                   onClick={() => toggleAlertRule(rule)}
                                   disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                  className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer"
+                                  style={
+                                    rule.enabled
+                                      ? {
+                                          borderColor: 'rgba(245, 158, 11, 0.3)',
+                                          backgroundColor: 'rgba(245, 158, 11, 0.05)',
+                                          color: '#f59e0b',
+                                        }
+                                      : {
+                                          borderColor: 'rgba(16, 185, 129, 0.3)',
+                                          backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                                          color: '#10b981',
+                                        }
+                                  }
+                                  className="border rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer transition-all hover:opacity-80"
                                 >
                                   {updatingRuleId === rule.id ? 'Updating…' : rule.enabled ? 'Disable' : 'Enable'}
                                 </Button>
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant={null as any}
                                   size="sm"
                                   onClick={() => deleteAlertRule(rule)}
                                   disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                  className="border border-rose-500/20 bg-rose-500/10 text-rose-350 hover:bg-rose-500/20 rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer"
+                                  style={{
+                                    borderColor: 'rgba(244, 63, 94, 0.3)',
+                                    backgroundColor: 'rgba(244, 63, 94, 0.05)',
+                                    color: '#fda4af',
+                                  }}
+                                  className="border rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer transition-all hover:bg-rose-500/15 hover:text-rose-200"
                                 >
                                   {deletingRuleId === rule.id ? 'Deleting…' : 'Delete'}
                                 </Button>

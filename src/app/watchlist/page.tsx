@@ -620,7 +620,7 @@ export default function WatchlistPage() {
         const geckoId =
           (market as WatchlistMarketRow['market'] | undefined)?.gecko_id ??
           (market as WatchlistMarketRow['market'] | undefined)?.geckoId ??
-          null
+          slug
 
         return { slug, chainName: chain.name, chainType: chain.type, market, geckoId }
       })
