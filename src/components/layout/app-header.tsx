@@ -38,7 +38,7 @@ export function AppHeader({
   const isBellActive = pathname === '/settings/notifications' || (pathname === '/alerts' && activeTab === 'channels')
 
   return (
-    <header className="sticky top-0 z-50 border-b border-cyan-500/10 bg-zinc-950/85 backdrop-blur-md py-3.5 px-4 md:px-8 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+    <header className="sticky top-0 z-[100] border-b border-cyan-500/10 bg-zinc-950/85 backdrop-blur-md py-3.5 px-4 md:px-8 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         {/* Left Side: Logo & Main Nav */}
         <div className="flex items-center gap-4 lg:gap-6 xl:gap-8">
@@ -71,7 +71,7 @@ export function AppHeader({
               {mainNavLinks.map(({ label, path }) => (
                 <li key={path}>
                   <Link
-                    className={`relative text-[11px] font-orbitron font-bold uppercase tracking-wider transition-colors duration-200 py-1.5 ${isLinkActive(path) ? 'text-white' : 'text-zinc-450 hover:text-cyan-400'
+                    className={`relative text-[11px] font-orbitron font-bold uppercase tracking-wider transition-colors duration-200 py-1.5 whitespace-nowrap ${isLinkActive(path) ? 'text-white' : 'text-zinc-450 hover:text-cyan-400'
                       }`}
                     href={path}
                   >
@@ -122,8 +122,8 @@ export function AppHeader({
 
       {/* Mobile Drawer */}
       {showMenu && (
-        <div className="fixed inset-x-0 bottom-0 top-[57px] z-50 bg-zinc-950/98 backdrop-blur-md border-t border-zinc-850 p-4 lg:hidden flex flex-col justify-between">
-          <div className="flex flex-col gap-6">
+        <div className="fixed inset-x-0 bottom-0 top-[57px] z-[100] bg-zinc-950/98 backdrop-blur-md border-t border-zinc-850 p-4 lg:hidden flex flex-col gap-6 overflow-y-auto">
+          <div className="flex flex-col gap-6 shrink-0">
             <nav className="flex flex-col gap-3">
               <p className="text-[10px] font-orbitron font-bold uppercase tracking-[0.2em] text-zinc-550 mb-1">
                 Navigation System
@@ -163,11 +163,11 @@ export function AppHeader({
                   </button>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-550 uppercase font-semibold">Chain:</span>
+                  <span className="text-xs text-zinc-555 uppercase font-semibold">Chain:</span>
                   <ChainUiSelect />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-550 uppercase font-semibold">Theme:</span>
+                  <span className="text-xs text-zinc-555 uppercase font-semibold">Theme:</span>
                   <ThemeSelect />
                 </div>
               </div>
@@ -175,7 +175,7 @@ export function AppHeader({
           </div>
 
 
-          <div className="pb-4">
+          <div className="pb-4 mt-auto shrink-0">
             <Link
               href="/alerts?tab=channels"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xs border border-zinc-800 bg-zinc-900/40 text-sm font-semibold text-zinc-350 hover:bg-zinc-900 hover:text-cyan-400 transition-colors"

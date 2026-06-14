@@ -96,9 +96,9 @@ export function useWatchlist(chainType: ChainType, environment: string, walletAd
  * Load watchlists across all active chains for a wallet
  */
 export function useMultiChainWatchlist(walletAddress?: string) {
-  const { activeChainConnections, allChains } = useMultiChain()
+  const { activeChain, activeChainConnections, allChains } = useMultiChain()
   const query = useQuery<Partial<Record<ChainType, string[]>>>({
-    queryKey: ['multichain-watchlist', walletAddress, activeChainConnections],
+    queryKey: ['multichain-watchlist', walletAddress, activeChain, activeChainConnections],
     queryFn: () => {
       const result: Partial<Record<ChainType, string[]>> = {}
 
@@ -106,8 +106,11 @@ export function useMultiChainWatchlist(walletAddress?: string) {
       const knownTypes = Array.from(new Set([...activeChainConnections, ...allChains.map((c) => c.type)]))
 
       knownTypes.forEach((chainType) => {
-        // Prefer a chain entry matching the requested chain type; fall back to the first available.
-        const chain = allChains.find((c) => c.type === chainType)
+        // Prefer the active chain if types match, otherwise match environment of the active chain, falling back to first available.
+        const chain = (activeChain?.type === chainType)
+          ? activeChain
+          : (allChains.find((c) => c.type === chainType && c.environment === activeChain?.environment) ||
+             allChains.find((c) => c.type === chainType))
         if (chain) {
           result[chainType] = migrateLegacyWatchlist(chainType, chain.environment, walletAddress)
         }

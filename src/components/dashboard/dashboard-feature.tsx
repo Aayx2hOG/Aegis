@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Layers3, Network, Cpu, ShieldCheck, TrendingUp, Activity } from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlist } from '@/lib/hooks/use-multichain-watchlist'
@@ -115,8 +116,10 @@ const CHAIN_TONES: Record<string, string> = {
 }
 
 export function DashboardFeature() {
+  const wallet = useWallet()
+  const walletAddress = wallet.publicKey?.toBase58()
   const { activeChain, activeChainConnections, allChains } = useMultiChain()
-  const { data: watchlistsByChainData } = useMultiChainWatchlist()
+  const { data: watchlistsByChainData } = useMultiChainWatchlist(walletAddress)
   const watchlistsByChain = useMemo<Partial<Record<ChainType, string[]>>>(
     () => watchlistsByChainData ?? {},
     [watchlistsByChainData],

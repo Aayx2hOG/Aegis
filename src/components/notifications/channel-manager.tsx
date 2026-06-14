@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useChainProtocols } from '@/lib/hooks/use-defillama'
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
+import { HelpCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 
 type Channel = {
   id: string
@@ -87,6 +88,7 @@ export default function ChannelManager() {
   const [testChannelId, setTestChannelId] = useState('')
   const [testing, setTesting] = useState(false)
   const testingRef = useRef(false)
+  const [showGuide, setShowGuide] = useState(false)
 
   useEffect(() => {
     const g = getGuestWallet()
@@ -320,14 +322,132 @@ export default function ChannelManager() {
             </div>
           )}
 
-          <div className="mt-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <Button
               onClick={createChannel}
               className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all px-4 py-2 text-xs cursor-pointer"
             >
               Create channel
             </Button>
+
+            <button
+              type="button"
+              onClick={() => setShowGuide(!showGuide)}
+              className="text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors cursor-pointer bg-transparent border-0 outline-none select-none"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span>{showGuide ? 'Hide Setup Guide' : 'How do I set this up?'}</span>
+              {showGuide ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
           </div>
+
+          {showGuide && (
+            <div className="mt-4 border border-cyan-500/25 bg-zinc-950/90 p-5 rounded-xs text-sm font-sans tracking-wide space-y-4">
+              <div className="flex items-center gap-2 text-cyan-400 border-b border-cyan-500/20 pb-2.5 font-orbitron font-bold uppercase tracking-wider text-xs">
+                <HelpCircle className="h-4.5 w-4.5 text-cyan-400" />
+                <span>
+                  {type === 'DISCORD' ? 'Discord Webhook Integration Guide' : 'Telegram Bot Integration Guide'}
+                </span>
+              </div>
+              {type === 'DISCORD' ? (
+                <ol className="list-decimal list-inside space-y-2.5 text-zinc-100 pl-1 leading-relaxed">
+                  <li>
+                    Open <span className="text-white font-bold">Discord</span> and go to the server where you want to receive alerts.
+                  </li>
+                  <li>
+                    Go to <span className="text-white font-bold">Server Settings</span> &gt;{' '}
+                    <span className="text-white font-bold">Integrations</span> &gt;{' '}
+                    <span className="text-white font-bold">Webhooks</span> (this requires the{' '}
+                    <code className="text-cyan-300 font-bold bg-zinc-900 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">Manage Webhooks</code> permission).
+                  </li>
+                  <li>
+                    Click <span className="text-cyan-400 font-bold">Create Webhook</span> (or edit an existing one).
+                  </li>
+                  <li>
+                    Select the target text channel, then click <span className="text-cyan-400 font-bold">Copy Webhook URL</span>.
+                  </li>
+                  <li>
+                    Paste the copied URL into the <span className="text-white font-bold">Webhook URL</span> input field above.
+                  </li>
+                </ol>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2.5">
+                    <div className="text-cyan-400 font-bold uppercase tracking-wider font-orbitron text-xs border-b border-zinc-850 pb-1.5">
+                      Step 1: Create your Telegram Bot
+                    </div>
+                    <ol className="list-decimal list-inside space-y-2 text-zinc-100 pl-1 leading-relaxed">
+                      <li>
+                        Open Telegram, search for{' '}
+                        <a
+                          href="https://t.me/BotFather"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline inline-flex items-center gap-0.5"
+                        >
+                          @BotFather <ExternalLink className="h-3 w-3 inline" />
+                        </a>
+                        , and start a chat.
+                      </li>
+                      <li>
+                        Send the command{' '}
+                        <code className="bg-zinc-900 text-cyan-300 px-1.5 py-0.5 rounded border border-zinc-800 font-mono text-xs">
+                          /newbot
+                        </code>{' '}
+                        and follow the instructions to choose a name and username.
+                      </li>
+                      <li>
+                        Copy the <span className="text-cyan-400 font-bold">HTTP API Token</span> provided (looks like{' '}
+                        <code className="bg-zinc-900 text-zinc-300 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">123456789:ABCdef...</code>) and
+                        paste it in the <span className="text-white font-bold">Telegram Bot Token</span> field above.
+                      </li>
+                    </ol>
+                  </div>
+                  <div className="space-y-2.5 pt-2">
+                    <div className="text-cyan-400 font-bold uppercase tracking-wider font-orbitron text-xs border-b border-zinc-850 pb-1.5">
+                      Step 2: Retrieve your Chat ID
+                    </div>
+                    <ol className="list-decimal list-inside space-y-2 text-zinc-100 pl-1 leading-relaxed">
+                      <li>
+                        Create a new Telegram Group/Channel (or open an existing one) and add your bot as an{' '}
+                        <span className="text-white font-bold">administrator</span>.
+                      </li>
+                      <li>
+                        Post a message in that group or channel (e.g.,{' '}
+                        <code className="bg-zinc-900 text-zinc-400 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">hello</code>).
+                      </li>
+                      <li>
+                        Search for{' '}
+                        <a
+                          href="https://t.me/raw_data_bot"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline inline-flex items-center gap-0.5"
+                        >
+                          @raw_data_bot <ExternalLink className="h-3 w-3 inline" />
+                        </a>{' '}
+                        (or{' '}
+                        <a
+                          href="https://t.me/userinfobot"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline inline-flex items-center gap-0.5"
+                        >
+                          @userinfobot <ExternalLink className="h-3 w-3 inline" />
+                        </a>
+                        ), start it, and forward the message you sent in your group/channel to it.
+                      </li>
+                      <li>
+                        It will reply with details. Copy the <span className="text-cyan-400 font-bold">Chat ID</span> (usually starts with a minus sign for groups, e.g.,{' '}
+                        <code className="bg-zinc-900 text-cyan-300 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">-10023456789</code>) and paste it
+                        into the <span className="text-white font-bold">Telegram Chat ID</span> field above.
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-6 border-t border-zinc-900 pt-4 space-y-3">
             <p className="text-xs font-mono text-zinc-400">

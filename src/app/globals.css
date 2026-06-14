@@ -207,7 +207,7 @@
 
   /* Sub-pixel console panels */
   .console-panel {
-    @apply border border-cyan-500/10 bg-zinc-950/60 backdrop-blur-md relative overflow-hidden;
+    @apply border border-cyan-500/10 bg-zinc-950/85 relative overflow-hidden;
   }
 
   /* Animated telemetry scanning bar */
