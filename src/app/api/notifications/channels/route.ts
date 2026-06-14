@@ -2,7 +2,12 @@ import { NextRequest } from 'next/server'
 import { NotificationChannelType } from '@prisma/client'
 import { prisma } from '@/server/db/prisma'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
-import { normalizeNotificationConfig } from '@/server/notifications/config'
+import {
+  normalizeNotificationConfig,
+  protectNotificationConfig,
+  redactNotificationChannel,
+} from '@/server/notifications/config'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
 function isChannelType(value: string): value is NotificationChannelType {
   return value === NotificationChannelType.DISCORD || value === NotificationChannelType.TELEGRAM
@@ -18,14 +23,12 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const walletAddress = url.searchParams.get('walletAddress')?.trim()
-
-  if (!walletAddress) {
-    return Response.json({ error: 'walletAddress is required' }, { status: 400 })
-  }
+  const auth = requireWalletOwner(req, walletAddress)
+  if (!auth.ok) return auth.response
 
   try {
-    const channels = await prisma.notificationChannel.findMany({ where: { walletAddress } })
-    return Response.json({ channels })
+    const channels = await prisma.notificationChannel.findMany({ where: { walletAddress: auth.walletAddress } })
+    return Response.json({ channels: channels.map(redactNotificationChannel) })
   } catch (err) {
     const setupError = getDatabaseSetupErrorMessage(err)
     if (setupError) return Response.json({ error: setupError }, { status: 503 })
@@ -53,6 +56,9 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'walletAddress, type, and config are required' }, { status: 400 })
   }
 
+  const auth = requireWalletOwner(req, body.walletAddress)
+  if (!auth.ok) return auth.response
+
   if (!isChannelType(body.type)) {
     return Response.json({ error: 'Invalid channel type' }, { status: 400 })
   }
@@ -67,15 +73,15 @@ export async function POST(req: NextRequest) {
   try {
     const channel = await prisma.notificationChannel.create({
       data: {
-        walletAddress: body.walletAddress.trim(),
+        walletAddress: auth.walletAddress,
         type: body.type,
-        config,
+        config: protectNotificationConfig(config),
         name: body.name ?? null,
         enabled: body.enabled ?? true,
       },
     })
 
-    return Response.json({ channel }, { status: 201 })
+    return Response.json({ channel: redactNotificationChannel(channel) }, { status: 201 })
   } catch (err) {
     const setupError = getDatabaseSetupErrorMessage(err)
     if (setupError) return Response.json({ error: setupError }, { status: 503 })

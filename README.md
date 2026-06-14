@@ -21,9 +21,14 @@ Create a `.env.local` file with:
 ```shell
 GROQ_API_KEY=your_groq_key
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public
+AEGIS_AUTH_SECRET=long_random_auth_secret
+AEGIS_ENCRYPTION_KEY=long_random_encryption_secret
+AEGIS_REQUIRE_WALLET_AUTH=true
 ```
 
 `DATABASE_URL` enables persistent research history and alert rules/events. If you use Vercel Postgres, you can point it at `POSTGRES_PRISMA_URL`.
+
+`AEGIS_REQUIRE_WALLET_AUTH=true` enforces signed-wallet sessions for wallet-scoped API routes. `AEGIS_ENCRYPTION_KEY` encrypts newly saved notification channel secrets while still allowing older plaintext configs to be read.
 
 Email alert delivery has been removed in this branch; alerts still create events and summaries but delivery is disabled.
 

@@ -4,6 +4,7 @@ import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
 import { ChainType } from '@/lib/chain/types'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
 function compactError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { protocol, walletAddress, chainType } = parsed.data
+    const auth = walletAddress ? requireWalletOwner(req, walletAddress) : null
+    if (auth && !auth.ok) return auth.response
 
     const normalizedProtocol = normalizeProtocolSlug(protocol)
     const brief = await runResearchAgent(normalizedProtocol, chainType)
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
       try {
         await prisma.researchRun.create({
           data: {
-            walletAddress: walletAddress?.trim() || null,
+            walletAddress: auth?.ok ? auth.walletAddress : null,
             protocolSlug: normalizedProtocol,
             briefMarkdown: brief.brief,
             toolCalls: brief.toolCalls as unknown as Prisma.InputJsonValue,

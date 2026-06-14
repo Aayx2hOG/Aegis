@@ -180,7 +180,11 @@ export function AppHeader({
           <div className="pb-4 mt-auto shrink-0">
             <Link
               href="/alerts?tab=channels"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xs border border-zinc-800 bg-zinc-900/40 text-sm font-semibold text-zinc-300 hover:bg-zinc-900 hover:text-cyan-400 transition-colors"
+              className={`flex items-center justify-center gap-2 w-full py-3 rounded-xs border text-sm font-semibold transition-colors ${
+                isBellActive
+                  ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
+                  : 'border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-900 hover:text-cyan-400'
+              }`}
               onClick={() => setShowMenu(false)}
             >
               <Bell className="h-4 w-4" />

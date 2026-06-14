@@ -76,8 +76,7 @@ export async function getEvmRecentTransactions(
     })
   } catch (err) {
     console.error(`[EVM Transactions] Failed to fetch via Blockscout:`, err)
-    // Dynamic mock fallback so the UI never breaks, but contains valid fields
-    return getMockEvmTransactions(address, subdomain, limit)
+    throw new Error(`EVM transactions unavailable from Blockscout (${subdomain})`)
   }
 }
 
@@ -109,15 +108,7 @@ export async function getEvmTokenMetadata(address: string, chainType?: ChainType
     }
   } catch (err) {
     console.error(`[EVM Metadata] Failed to fetch metadata:`, err)
-    // Simple heuristic-based metadata fallback
-    return {
-      name: 'EVM Asset',
-      symbol: 'EVM',
-      decimals: 18,
-      totalSupply: '1000000000000000000000000',
-      iconUrl: null,
-      source: 'Mock Fallback',
-    }
+    throw new Error(`EVM token metadata unavailable from Blockscout (${subdomain})`)
   }
 }
 
@@ -195,37 +186,5 @@ export async function getEvmTokenPrice(address: string, chainType?: ChainType | 
     console.warn(`[DeFiLlama price query failed]`, err)
   }
 
-  // 3. Last resort fallback (CoinGecko or mock based on common assets)
-  const isWeth = address.toLowerCase() === '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
-  return {
-    address,
-    symbol: isWeth ? 'WETH' : 'EVM',
-    price: isWeth ? 3500 : 1.0,
-    priceChange24h: 0,
-    volume24h: 150000,
-    marketCap: 10000000,
-    liquidity: 500000,
-  }
-}
-
-/**
- * Generate mock transactions for EVM so the UI has robust data even without RPC keys or under API issues.
- */
-function getMockEvmTransactions(address: string, subdomain: string, limit: number): ParsedTransaction[] {
-  const methods = ['Swap', 'Transfer', 'Approve', 'Multicall', 'Deposit', 'Withdraw']
-  const txs: ParsedTransaction[] = []
-  const now = Math.floor(Date.now() / 1000)
-
-  for (let i = 0; i < limit; i++) {
-    const randomHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
-    txs.push({
-      signature: randomHash,
-      type: methods[Math.floor(Math.random() * methods.length)],
-      timestamp: now - (i * 3600 + Math.floor(Math.random() * 1800)),
-      fee: 0.001 + Math.random() * 0.005,
-      source: `Blockscout (${subdomain}) [Cached fallback]`,
-    })
-  }
-
-  return txs
+  throw new Error(`EVM token price unavailable for ${address} on ${llamaChain}`)
 }

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 import { prisma } from '@/server/db/prisma'
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
 function isAlertMetric(value: string): value is AlertMetric {
   return (
@@ -27,19 +28,17 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const walletAddress = url.searchParams.get('walletAddress')?.trim()
-
-  if (!walletAddress) {
-    return Response.json({ error: 'walletAddress is required' }, { status: 400 })
-  }
+  const auth = requireWalletOwner(req, walletAddress)
+  if (!auth.ok) return auth.response
 
   try {
     const [rules, recentEvents] = await Promise.all([
       prisma.alertRule.findMany({
-        where: { walletAddress },
+        where: { walletAddress: auth.walletAddress },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.alertEvent.findMany({
-        where: { walletAddress },
+        where: { walletAddress: auth.walletAddress },
         orderBy: { triggeredAt: 'desc' },
         take: 15,
       }),
@@ -76,6 +75,9 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const auth = requireWalletOwner(req, body.walletAddress)
+  if (!auth.ok) return auth.response
+
   if (!isAlertMetric(body.metric) || !isAlertDirection(body.direction)) {
     return Response.json({ error: 'Invalid metric or direction.' }, { status: 400 })
   }
@@ -87,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   const rule = await prisma.alertRule.create({
     data: {
-      walletAddress: body.walletAddress.trim(),
+      walletAddress: auth.walletAddress,
       protocolSlug: normalizeProtocolSlug(body.protocolSlug),
       metric: body.metric,
       threshold,

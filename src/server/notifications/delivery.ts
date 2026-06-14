@@ -51,7 +51,8 @@ export async function deliverNotificationsForEvent(
   for (const channel of channels) {
     try {
       const cfg = normalizeNotificationConfig(channel.config, channel.type)
-      const targetKey = `${channel.type}:${cfg.url}`
+      const targetKey =
+        channel.type === 'TELEGRAM' ? `${channel.type}:${cfg.botToken}:${cfg.chatId}` : `${channel.type}:${cfg.url}`
       if (targetKeys.has(targetKey)) continue
 
       targetKeys.add(targetKey)

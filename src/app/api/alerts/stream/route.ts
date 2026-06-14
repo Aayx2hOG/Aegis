@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import Redis from 'ioredis'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     })
   }
+  const auth = requireWalletOwner(req, targetWalletAddress)
+  if (!auth.ok) return auth.response
 
   const redisUrl = process.env.REDIS_URL
   if (!redisUrl) {
@@ -62,7 +65,7 @@ export async function GET(req: NextRequest) {
           const event = payload.event
 
           // Check if this event belongs to the client's walletAddress
-          if (event && event.walletAddress === targetWalletAddress) {
+          if (event && event.walletAddress === auth.walletAddress) {
             controller.enqueue(encoder.encode(`event: message\ndata: ${message}\n\n`))
           }
         } catch (err) {

@@ -4,6 +4,7 @@ import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
 import { sendTelegramMessage } from '@/server/notifications/adapters/telegram'
 import { normalizeNotificationConfig } from '@/server/notifications/config'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!prisma) return Response.json({ error: 'Database not configured.' }, { status: 503 })
@@ -11,12 +12,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   if (!id) return Response.json({ error: 'Channel id is required' }, { status: 400 })
   const body = (await req.json()) as Partial<{ walletAddress: string; message?: string }>
-  if (!body.walletAddress?.trim()) return Response.json({ error: 'walletAddress is required' }, { status: 400 })
+  const auth = requireWalletOwner(req, body.walletAddress)
+  if (!auth.ok) return auth.response
 
   try {
     const channel = await prisma.notificationChannel.findUnique({ where: { id } })
     if (!channel) return Response.json({ error: 'Channel not found' }, { status: 404 })
-    if (channel.walletAddress !== body.walletAddress.trim())
+    if (channel.walletAddress !== auth.walletAddress)
       return Response.json({ error: 'Channel not found' }, { status: 404 })
     if (!channel.enabled) return Response.json({ error: 'Channel is disabled' }, { status: 409 })
 

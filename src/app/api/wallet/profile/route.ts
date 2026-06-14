@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 import { prisma } from '@/server/db/prisma'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
 export async function GET(req: NextRequest) {
   if (!prisma) {
@@ -12,14 +13,12 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const walletAddress = url.searchParams.get('walletAddress')?.trim()
-
-  if (!walletAddress) {
-    return Response.json({ error: 'walletAddress is required' }, { status: 400 })
-  }
+  const auth = requireWalletOwner(req, walletAddress)
+  if (!auth.ok) return auth.response
 
   try {
     const profile = await prisma.walletProfile.findUnique({
-      where: { walletAddress },
+      where: { walletAddress: auth.walletAddress },
       select: {
         walletAddress: true,
         displayName: true,
@@ -54,12 +53,14 @@ export async function PATCH(req: NextRequest) {
   if (!walletAddress) {
     return Response.json({ error: 'walletAddress is required' }, { status: 400 })
   }
+  const auth = requireWalletOwner(req, walletAddress)
+  if (!auth.ok) return auth.response
 
   try {
     const profile = await prisma.walletProfile.upsert({
-      where: { walletAddress },
+      where: { walletAddress: auth.walletAddress },
       create: {
-        walletAddress,
+        walletAddress: auth.walletAddress,
         displayName: displayName || null,
       },
       update: {

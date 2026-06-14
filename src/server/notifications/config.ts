@@ -1,4 +1,5 @@
 import net from 'node:net'
+import crypto from 'node:crypto'
 
 import { NotificationChannelType } from '@prisma/client'
 
@@ -12,8 +13,46 @@ export type ChannelConfig = {
   signatureHeader?: string
 }
 
+type EncryptedChannelConfig = {
+  encrypted: true
+  v: 1
+  alg: 'aes-256-gcm'
+  iv: string
+  tag: string
+  data: string
+}
+
 const BLOCKED_HOSTS = new Set(['localhost', '0.0.0.0'])
 const DISCORD_WEBHOOK_HOSTS = new Set(['discord.com', 'discordapp.com'])
+
+function getEncryptionKey() {
+  const secret = process.env.AEGIS_ENCRYPTION_KEY
+  if (!secret) return null
+  return crypto.createHash('sha256').update(secret).digest()
+}
+
+function isEncryptedConfig(value: unknown): value is EncryptedChannelConfig {
+  const candidate = value as Partial<EncryptedChannelConfig>
+  return (
+    Boolean(candidate) &&
+    candidate.encrypted === true &&
+    candidate.v === 1 &&
+    candidate.alg === 'aes-256-gcm' &&
+    typeof candidate.iv === 'string' &&
+    typeof candidate.tag === 'string' &&
+    typeof candidate.data === 'string'
+  )
+}
+
+function decryptConfig(config: EncryptedChannelConfig): unknown {
+  const key = getEncryptionKey()
+  if (!key) throw new Error('AEGIS_ENCRYPTION_KEY is required to read encrypted notification config')
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(config.iv, 'base64url'))
+  decipher.setAuthTag(Buffer.from(config.tag, 'base64url'))
+  const decrypted = Buffer.concat([decipher.update(Buffer.from(config.data, 'base64url')), decipher.final()])
+  return JSON.parse(decrypted.toString('utf8'))
+}
 
 function isPrivateIp(hostname: string) {
   const host = hostname.replace(/^\[|\]$/g, '')
@@ -76,7 +115,8 @@ export function validateNotificationUrl(rawUrl: unknown, type: NotificationChann
 }
 
 export function normalizeNotificationConfig(config: unknown, type: NotificationChannelType): ChannelConfig {
-  const candidate = config && typeof config === 'object' ? (config as Record<string, unknown>) : {}
+  const unwrapped = isEncryptedConfig(config) ? decryptConfig(config) : config
+  const candidate = unwrapped && typeof unwrapped === 'object' ? (unwrapped as Record<string, unknown>) : {}
 
   if (type === NotificationChannelType.TELEGRAM) {
     const botToken = typeof candidate.botToken === 'string' ? candidate.botToken.trim() : ''
@@ -101,4 +141,51 @@ export function normalizeNotificationConfig(config: unknown, type: NotificationC
 
   const url = validateNotificationUrl(candidate.url, type)
   return { url }
+}
+
+export function protectNotificationConfig(config: ChannelConfig): ChannelConfig | EncryptedChannelConfig {
+  const key = getEncryptionKey()
+  if (!key) return config
+
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(config), 'utf8'), cipher.final()])
+
+  return {
+    encrypted: true,
+    v: 1,
+    alg: 'aes-256-gcm',
+    iv: iv.toString('base64url'),
+    tag: cipher.getAuthTag().toString('base64url'),
+    data: encrypted.toString('base64url'),
+  }
+}
+
+function maskSecret(value?: string) {
+  if (!value) return undefined
+  if (value.length <= 8) return '********'
+  return `${value.slice(0, 4)}...${value.slice(-4)}`
+}
+
+export function redactNotificationConfig(config: unknown, type: NotificationChannelType) {
+  const normalized = normalizeNotificationConfig(config, type)
+  if (type === NotificationChannelType.TELEGRAM) {
+    return {
+      botToken: maskSecret(normalized.botToken),
+      chatId: normalized.chatId,
+    }
+  }
+
+  return {
+    url: maskSecret(normalized.url),
+  }
+}
+
+export function redactNotificationChannel<T extends { config: unknown; type: NotificationChannelType }>(
+  channel: T,
+): Omit<T, 'config'> & { config: ReturnType<typeof redactNotificationConfig> } {
+  return {
+    ...channel,
+    config: redactNotificationConfig(channel.config, channel.type),
+  }
 }

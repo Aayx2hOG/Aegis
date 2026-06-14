@@ -1336,7 +1336,7 @@ function AlertsContent() {
                               <div className="mt-4 flex flex-wrap items-center gap-2">
                                 <Button
                                   type="button"
-                                  variant={null as any}
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => openTestRuleDialog(rule)}
                                   disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
@@ -1351,7 +1351,7 @@ function AlertsContent() {
                                 </Button>
                                 <Button
                                   type="button"
-                                  variant={null as any}
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => toggleAlertRule(rule)}
                                   disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
@@ -1374,7 +1374,7 @@ function AlertsContent() {
                                 </Button>
                                 <Button
                                   type="button"
-                                  variant={null as any}
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => deleteAlertRule(rule)}
                                   disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}

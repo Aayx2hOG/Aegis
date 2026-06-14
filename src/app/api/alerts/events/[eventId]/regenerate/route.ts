@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
 import { enqueueSummary } from '@/server/queue/summary-queue'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
-export async function POST(_req: NextRequest, context: { params: Promise<{ eventId: string }> }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ eventId: string }> }) {
   if (!prisma) {
     return Response.json({ error: 'DATABASE is not configured.' }, { status: 503 })
   }
@@ -13,6 +14,8 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ event
   if (!event) {
     return Response.json({ error: 'Event not found' }, { status: 404 })
   }
+  const auth = requireWalletOwner(req, event.walletAddress)
+  if (!auth.ok) return auth.response
 
   try {
     const job = await enqueueSummary(eventId, event.protocolSlug)
