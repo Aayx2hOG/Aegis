@@ -40,7 +40,7 @@ export function TracingBeam({ children, className }: { children: React.ReactNode
   })
 
   return (
-    <div ref={ref} className={cn('relative w-full max-w-5xl mx-auto flex flex-row gap-6 md:gap-10', className)}>
+    <div ref={ref} className={cn('relative w-full max-w-5xl mx-auto flex flex-row gap-0 md:gap-10', className)}>
       <div className="relative left-0 hidden md:block shrink-0 mt-4">
         <svg
           viewBox={`0 0 20 ${svgHeight}`}

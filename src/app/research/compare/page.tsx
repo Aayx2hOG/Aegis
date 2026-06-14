@@ -614,17 +614,17 @@ function CompareContent() {
                 const pctB = total > 0 ? (tvlB / total) * 100 : 50
                 return (
                   <div className="space-y-2 text-left">
-                    <div className="flex justify-between items-center text-xs font-mono">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-1.5 sm:gap-4 text-xs font-mono">
                       <span
-                        className={`font-bold flex items-center gap-1.5 ${tvlA > tvlB ? 'text-cyan-450 font-bold' : 'text-zinc-500'}`}
+                        className={`font-bold flex items-center gap-1.5 ${tvlA > tvlB ? 'text-cyan-400 font-bold' : 'text-zinc-500'}`}
                       >
                         {tvlA > tvlB && '🏆'} {usd(metrics.tvlA)}
                       </span>
-                      <span className="text-[9px] font-orbitron font-bold uppercase tracking-widest text-zinc-500">
+                      <span className="text-[9px] font-orbitron font-bold uppercase tracking-widest text-zinc-500 text-center order-first sm:order-none">
                         Total Value Locked Balance
                       </span>
                       <span
-                        className={`font-bold flex items-center gap-1.5 ${tvlB > tvlA ? 'text-cyan-450 font-bold' : 'text-zinc-500'}`}
+                        className={`font-bold flex items-center gap-1.5 ${tvlB > tvlA ? 'text-cyan-400 font-bold' : 'text-zinc-500'}`}
                       >
                         {usd(metrics.tvlB)} {tvlB > tvlA && '🏆'}
                       </span>
@@ -652,17 +652,17 @@ function CompareContent() {
                 const pctB = total > 0 ? (mcapB / total) * 100 : 50
                 return (
                   <div className="space-y-2 text-left">
-                    <div className="flex justify-between items-center text-xs font-mono">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-1.5 sm:gap-4 text-xs font-mono">
                       <span
-                        className={`font-bold flex items-center gap-1.5 ${mcapA > mcapB ? 'text-cyan-455 font-bold' : 'text-zinc-500'}`}
+                        className={`font-bold flex items-center gap-1.5 ${mcapA > mcapB ? 'text-cyan-400 font-bold' : 'text-zinc-500'}`}
                       >
                         {mcapA > mcapB && '🏆'} {usd(metrics.mcapA)}
                       </span>
-                      <span className="text-[9px] font-orbitron font-bold uppercase tracking-widest text-zinc-500">
+                      <span className="text-[9px] font-orbitron font-bold uppercase tracking-widest text-zinc-500 text-center order-first sm:order-none">
                         Market Capitalization Volume
                       </span>
                       <span
-                        className={`font-bold flex items-center gap-1.5 ${mcapB > mcapA ? 'text-cyan-455 font-bold' : 'text-zinc-500'}`}
+                        className={`font-bold flex items-center gap-1.5 ${mcapB > mcapA ? 'text-cyan-400 font-bold' : 'text-zinc-500'}`}
                       >
                         {usd(metrics.mcapB)} {mcapB > mcapA && '🏆'}
                       </span>
@@ -690,17 +690,17 @@ function CompareContent() {
                 const pctB = total > 0 ? (cB / total) * 100 : 50
                 return (
                   <div className="space-y-2 text-left">
-                    <div className="flex justify-between items-center text-xs font-mono">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-1.5 sm:gap-4 text-xs font-mono">
                       <span
-                        className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-cyan-450 font-bold' : 'text-zinc-500'}`}
+                        className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dA) > Number(metrics.change1dB) ? 'text-cyan-400 font-bold' : 'text-zinc-500'}`}
                       >
                         {Number(metrics.change1dA) > Number(metrics.change1dB) && '🏆'} {pct(metrics.change1dA)}
                       </span>
-                      <span className="text-[9px] font-orbitron font-bold uppercase tracking-widest text-zinc-500">
+                      <span className="text-[9px] font-orbitron font-bold uppercase tracking-widest text-zinc-500 text-center order-first sm:order-none">
                         24H Net TVL Delta Velocity
                       </span>
                       <span
-                        className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-cyan-450 font-bold' : 'text-zinc-500'}`}
+                        className={`font-bold flex items-center gap-1.5 ${Number(metrics.change1dB) > Number(metrics.change1dA) ? 'text-cyan-400 font-bold' : 'text-zinc-500'}`}
                       >
                         {pct(metrics.change1dB)} {Number(metrics.change1dB) > Number(metrics.change1dA) && '🏆'}
                       </span>

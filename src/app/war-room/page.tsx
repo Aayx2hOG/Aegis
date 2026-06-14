@@ -1254,7 +1254,7 @@ function WarRoomContent() {
               <h3 className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">
                 Add Custom Holding Vector
               </h3>
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-6 text-left text-xs font-mono">
+              <div className="grid gap-3 grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-6 text-left text-xs font-mono">
                 <div>
                   <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">Chain</label>
                   <select
@@ -1353,7 +1353,7 @@ function WarRoomContent() {
                   />
                 </div>
               </div>
-              <div className="flex justify-between items-center pt-2">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -1363,7 +1363,7 @@ function WarRoomContent() {
                     setMultichainResult(null)
                     setMultichainImportStatus('Reset portfolio to demo layout.')
                   }}
-                  className="text-zinc-400 border-zinc-850 bg-zinc-950 hover:bg-zinc-900 font-mono rounded-xs text-xs"
+                  className="text-zinc-400 border-zinc-850 bg-zinc-950 hover:bg-zinc-900 font-mono rounded-xs text-xs w-full sm:w-auto"
                 >
                   Reset to Demo Portfolio
                 </Button>
@@ -1371,7 +1371,7 @@ function WarRoomContent() {
                   type="button"
                   size="sm"
                   onClick={addMultichainPosition}
-                  className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)]"
+                  className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] w-full sm:w-auto"
                 >
                   Add Position
                 </Button>

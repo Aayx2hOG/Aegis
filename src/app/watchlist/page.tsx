@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Activity, ExternalLink, Layers3, ShieldAlert, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Activity, ExternalLink, Layers3, ShieldAlert, Trash2, RefreshCw } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
@@ -829,6 +829,24 @@ export default function WatchlistPage() {
             >
               <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Threat Watchlist
             </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void Promise.all([
+                  queryClient.invalidateQueries({ queryKey: ['chain-protocols'] }),
+                  queryClient.invalidateQueries({ queryKey: ['coingecko-price'] }),
+                  queryClient.invalidateQueries({ queryKey: ['defillama-protocol-detail'] }),
+                  queryClient.invalidateQueries({ queryKey: ['multichain-watchlist-by-chain'] }),
+                  queryClient.invalidateQueries({ queryKey: ['watchlist'] }),
+                ])
+                toast.success('Live telemetry refresh queued.')
+              }}
+              className="border border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-xs font-mono text-xs cursor-pointer flex items-center h-8 gap-1.5 px-3"
+            >
+              <RefreshCw className="h-3 w-3 text-cyan-400" /> Refresh Telemetry
+            </Button>
           </div>
 
           {/* Console Metric Panel */}
