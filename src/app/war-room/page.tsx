@@ -1,7 +1,7 @@
 'use client'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { ChainType } from '@/lib/chain/types'
@@ -16,9 +16,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
-import { TerminalExecutionModal, ExecutionAction } from '@/components/ui/terminal-execution-modal'
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { useWatchlist } from '@/lib/hooks/use-watchlist'
+import { useChainProtocols } from '@/lib/hooks/use-defillama'
 import { Loader2 } from 'lucide-react'
 import { useAtom } from 'jotai'
 import { beginnerModeAtom } from '@/lib/store/research-store'
@@ -58,16 +58,6 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
     liquidityScore: 95,
   },
   {
-    chain: ChainType.Ethereum,
-    kind: 'yield',
-    symbol: 'rETH',
-    protocol: 'rocketpool',
-    balance: 1,
-    usdValue: 3700,
-    volatility: 55,
-    liquidityScore: 82,
-  },
-  {
     chain: ChainType.Arbitrum,
     kind: 'lp',
     symbol: 'ETH-USDC LP',
@@ -88,17 +78,80 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
     liquidityScore: 90,
     collateralFactor: 0.85,
   },
-  {
-    chain: ChainType.Optimism,
-    kind: 'token',
-    symbol: 'OP',
-    protocol: 'wallet',
-    balance: 100,
-    usdValue: 250,
-    volatility: 85,
-    liquidityScore: 70,
-  },
 ]
+
+const NATIVE_ASSETS_BY_CHAIN: Record<ChainType, { symbol: string; priceUsd: number }> = {
+  [ChainType.Solana]: { symbol: 'SOL', priceUsd: 150 },
+  [ChainType.Ethereum]: { symbol: 'ETH', priceUsd: 3500 },
+  [ChainType.Arbitrum]: { symbol: 'ETH', priceUsd: 3500 },
+  [ChainType.Optimism]: { symbol: 'ETH', priceUsd: 3500 },
+  [ChainType.Base]: { symbol: 'ETH', priceUsd: 3500 },
+  [ChainType.Polygon]: { symbol: 'MATIC', priceUsd: 0.7 },
+  [ChainType.Cosmos]: { symbol: 'ATOM', priceUsd: 7 },
+}
+
+const CHAIN_BY_NATIVE_SYMBOL = Object.entries(NATIVE_ASSETS_BY_CHAIN).reduce<Record<string, ChainType[]>>(
+  (acc, [chain, asset]) => {
+    acc[asset.symbol] = [...(acc[asset.symbol] ?? []), chain as ChainType]
+    return acc
+  },
+  {},
+)
+
+function formatPrice(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 'unavailable'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: value >= 100 ? 2 : 4,
+  }).format(value)
+}
+
+type LocalMitigationAction = {
+  action: 'move' | 'liquidate' | 'increase' | 'arbitrage' | 'hedge'
+  fromChain?: ChainType | string
+  toChain?: ChainType | string
+  assetSymbol: string
+  protocol?: string
+  amount: number
+}
+
+const RELEVANT_HOLDING_CATEGORIES = new Set([
+  'AMM',
+  'Bridge',
+  'CDP',
+  'Derivatives',
+  'Dexs',
+  'Farm',
+  'Insurance',
+  'Lending',
+  'Liquidity Layer',
+  'Liquid Restaking',
+  'Liquid Staking',
+  'Orderbook',
+  'Options',
+  'Perpetuals',
+  'Restaking',
+  'Stablecoin',
+  'Staking',
+  'Staking Pool',
+  'Synthetic Assets',
+  'Vault',
+  'Yield',
+  'Yield Aggregator',
+])
+
+const EXCLUDED_HOLDING_CATEGORIES = new Set([
+  'CEX',
+  'CeFi',
+  'Centralized Exchange',
+  'Indexes',
+  'Portfolio Tracker',
+  'Risk Curators',
+  'Wallet',
+])
+
+const ALL_CHAIN_TYPES = Object.values(ChainType)
 
 const MULTICHAIN_SCENARIOS: ChainScenarioConfig[] = [
   {
@@ -782,6 +835,7 @@ function WarRoomContent() {
 
   // Custom Scenario state
   const [useCustomScenario, setUseCustomScenario] = useState(false)
+  const [selectedCustomSeverity, setSelectedCustomSeverity] = useState<'Mild' | 'Moderate' | 'Severe' | null>(null)
   const [customScenario, setCustomScenario] = useState<ChainScenarioConfig>({
     marketShockPct: 20,
     liquidityDropPct: 30,
@@ -803,8 +857,7 @@ function WarRoomContent() {
   const [multichainLoading, setMultichainLoading] = useState(false)
   const [multichainError, setMultichainError] = useState<string | null>(null)
   const [multichainImportStatus, setMultichainImportStatus] = useState<string | null>(null)
-  const [execModalOpen, setExecModalOpen] = useState(false)
-  const [execAction, setExecAction] = useState<ExecutionAction | null>(null)
+  const [expandedHoldingRows, setExpandedHoldingRows] = useState<Set<number>>(() => new Set())
 
   useEffect(() => {
     const protocolParam = searchParams.get('protocol')
@@ -900,27 +953,35 @@ function WarRoomContent() {
     setIsImportingWatchlist(false)
   }
 
-  function handleExecuteAction(action: ExecutionAction) {
-    setExecAction(action)
-    setExecModalOpen(true)
-  }
-
-  function handleExecutionSuccess() {
-    if (!execAction) return
+  function applyLocalMitigation(action: LocalMitigationAction) {
+    let changed = false
     setMultichainPositions((current) => {
       return current.map((pos) => {
-        const isMatch =
-          pos.symbol.toLowerCase() === execAction.assetSymbol.toLowerCase() && pos.chain === execAction.fromChain
+        const isMatch = pos.symbol.toLowerCase() === action.assetSymbol.toLowerCase() && pos.chain === action.fromChain
         if (isMatch) {
-          if (execAction.action === 'liquidate') {
-            return { ...pos, usdValue: Math.max(0, pos.usdValue - execAction.amount) }
-          } else if (execAction.action === 'move') {
+          changed = true
+          if (action.action === 'liquidate') {
+            const reductionRatio = Math.min(1, action.amount / Math.max(pos.balance, 1))
             return {
               ...pos,
-              chain: (execAction.toChain as ChainType) || pos.chain,
-              protocol: execAction.protocol || pos.protocol,
+              balance: Math.max(0, pos.balance - action.amount),
+              usdValue: Math.max(0, pos.usdValue * (1 - reductionRatio)),
+            }
+          }
+          if (action.action === 'move') {
+            return {
+              ...pos,
+              chain: (action.toChain as ChainType) || pos.chain,
+              protocol: action.protocol || pos.protocol,
               volatility: Math.max(5, pos.volatility - 15),
               liquidityScore: Math.min(100, pos.liquidityScore + 10),
+            }
+          }
+          if (action.action === 'increase' || action.action === 'hedge') {
+            return {
+              ...pos,
+              volatility: Math.max(5, pos.volatility - 10),
+              liquidityScore: Math.min(100, pos.liquidityScore + 8),
             }
           }
         }
@@ -928,6 +989,17 @@ function WarRoomContent() {
       })
     })
     setMultichainResult(null)
+    if (action.action === 'arbitrage') {
+      setMultichainImportStatus(
+        `Arbitrage opportunity noted for ${action.assetSymbol}. No portfolio balance changed because this simulator does not execute trades.`,
+      )
+    } else {
+      setMultichainImportStatus(
+        changed
+          ? `Applied local ${action.action} adjustment for ${action.assetSymbol}. Re-run the simulation to compare risk.`
+          : `No matching ${action.assetSymbol} position found on ${action.fromChain ?? 'the selected source chain'}.`,
+      )
+    }
   }
 
   const [newPosForm, setNewPosForm] = useState<{
@@ -942,13 +1014,167 @@ function WarRoomContent() {
   }>({
     chain: ChainType.Solana,
     kind: 'token',
-    symbol: '',
+    symbol: NATIVE_ASSETS_BY_CHAIN[ChainType.Solana].symbol,
     protocol: '',
     usdValue: 0,
     balance: 0,
     volatility: 50,
     liquidityScore: 80,
   })
+  const [newPosUnitPrice, setNewPosUnitPrice] = useState(NATIVE_ASSETS_BY_CHAIN[ChainType.Solana].priceUsd)
+  const [newPosPriceStatus, setNewPosPriceStatus] = useState('Using SOL reference price.')
+  const { data: customChainProtocols = [], isLoading: customProtocolsLoading } = useChainProtocols(newPosForm.chain)
+
+  const nativeSymbolOptions = useMemo(() => Object.keys(CHAIN_BY_NATIVE_SYMBOL), [])
+  const customProtocolOptions = useMemo(
+    () =>
+      customChainProtocols
+        .map((protocol) => ({
+          slug: protocol.slug,
+          label: protocol.name || protocol.slug,
+          category: protocol.category ?? 'Protocol',
+          tvl: protocol.tvl ?? 0,
+        }))
+        .filter((protocol) => protocol.slug)
+        .filter((protocol) => {
+          const category = protocol.category.trim()
+          if (EXCLUDED_HOLDING_CATEGORIES.has(category)) return false
+          return RELEVANT_HOLDING_CATEGORIES.has(category) || category === 'Protocol' || category === 'Uncategorized'
+        })
+        .sort((left, right) => right.tvl - left.tvl),
+    [customChainProtocols],
+  )
+  const selectedProtocolOption = useMemo(
+    () => customProtocolOptions.find((protocol) => protocol.slug === newPosForm.protocol),
+    [customProtocolOptions, newPosForm.protocol],
+  )
+  const activeScenario = useMemo(
+    () => (useCustomScenario ? customScenario : MULTICHAIN_SCENARIOS[selectedMultichainScenarioIdx]),
+    [customScenario, selectedMultichainScenarioIdx, useCustomScenario],
+  )
+  const portfolioInsights = useMemo(() => {
+    const totalValue = multichainPositions.reduce((acc, position) => acc + position.usdValue, 0)
+    const chainTotals = multichainPositions.reduce<Partial<Record<ChainType, number>>>((acc, position) => {
+      acc[position.chain] = (acc[position.chain] ?? 0) + position.usdValue
+      return acc
+    }, {})
+    const topChain = Object.entries(chainTotals).sort(([, left], [, right]) => right - left)[0]
+    const largestPosition = [...multichainPositions].sort((left, right) => right.usdValue - left.usdValue)[0]
+    const concentrationPct = totalValue > 0 && largestPosition ? (largestPosition.usdValue / totalValue) * 100 : 0
+    const scenarioSeverity = Math.round(
+      (activeScenario.marketShockPct +
+        activeScenario.liquidityDropPct +
+        activeScenario.protocolExploitSeverity +
+        Math.min(activeScenario.oracleDelayMinutes, 120) / 1.2 +
+        Math.min(activeScenario.bridgeOutageDurationMinutes ?? 0, 1440) / 14.4) /
+        5,
+    )
+
+    return {
+      totalValue,
+      chainCount: Object.keys(chainTotals).length,
+      protocolCount: new Set(multichainPositions.map((position) => position.protocol)).size,
+      topChain: topChain ? (topChain[0] as ChainType) : null,
+      topChainValue: topChain?.[1] ?? 0,
+      largestPosition,
+      concentrationPct,
+      scenarioSeverity,
+    }
+  }, [activeScenario, multichainPositions])
+  const groupedHoldings = useMemo(() => {
+    const groups = new Map<
+      ChainType,
+      {
+        chain: ChainType
+        totalValue: number
+        positions: Array<ChainPortfolioPosition & { originalIndex: number }>
+      }
+    >()
+
+    multichainPositions.forEach((position, originalIndex) => {
+      const group = groups.get(position.chain) ?? { chain: position.chain, totalValue: 0, positions: [] }
+      group.totalValue += position.usdValue
+      group.positions.push({ ...position, originalIndex })
+      groups.set(position.chain, group)
+    })
+
+    return Array.from(groups.values()).sort((left, right) => right.totalValue - left.totalValue)
+  }, [multichainPositions])
+
+  function updateCustomScenario(values: Partial<ChainScenarioConfig>, source: 'preset' | 'manual' = 'manual') {
+    if (source === 'manual') setSelectedCustomSeverity(null)
+    setCustomScenario((current) => ({ ...current, ...values }))
+  }
+
+  useEffect(() => {
+    const nativeAsset = NATIVE_ASSETS_BY_CHAIN[newPosForm.chain]
+    if (newPosForm.symbol !== nativeAsset.symbol) {
+      setNewPosForm((current) => ({ ...current, symbol: nativeAsset.symbol }))
+    }
+    setNewPosUnitPrice(nativeAsset.priceUsd)
+    setNewPosPriceStatus(`Using ${nativeAsset.symbol} reference price until a protocol price resolves.`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newPosForm.chain])
+
+  useEffect(() => {
+    if (customProtocolOptions.length === 0) return
+    const currentStillAvailable = customProtocolOptions.some((protocol) => protocol.slug === newPosForm.protocol)
+    if (!currentStillAvailable) {
+      setNewPosForm((current) => ({ ...current, protocol: customProtocolOptions[0].slug }))
+    }
+  }, [customProtocolOptions, newPosForm.protocol])
+
+  useEffect(() => {
+    setNewPosForm((current) => ({
+      ...current,
+      usdValue: Math.round(current.balance * newPosUnitPrice * 100) / 100,
+    }))
+  }, [newPosUnitPrice])
+
+  useEffect(() => {
+    if (!newPosForm.protocol) return
+
+    let active = true
+    async function resolveSelectedProtocolPrice() {
+      const nativeAsset = NATIVE_ASSETS_BY_CHAIN[newPosForm.chain]
+      setNewPosPriceStatus(`Resolving ${newPosForm.protocol} price for ${newPosForm.chain}...`)
+
+      try {
+        const positions = await fetchAndBuildPositions(newPosForm.protocol)
+        if (!active) return
+        const chainPosition = positions.find((position) => position.chain === newPosForm.chain)
+        const unitPrice =
+          chainPosition && chainPosition.balance > 0
+            ? chainPosition.usdValue / chainPosition.balance
+            : nativeAsset.priceUsd
+
+        setNewPosUnitPrice(unitPrice)
+        setNewPosForm((current) => ({
+          ...current,
+          kind: chainPosition?.kind ?? current.kind,
+          volatility: chainPosition?.volatility ?? current.volatility,
+          liquidityScore: chainPosition?.liquidityScore ?? current.liquidityScore,
+          usdValue: Math.round(current.balance * unitPrice * 100) / 100,
+        }))
+        setNewPosPriceStatus(
+          chainPosition
+            ? `${selectedProtocolOption?.label ?? newPosForm.protocol} unit price resolved at ${formatPrice(unitPrice)}.`
+            : `No chain-specific token price found. Using ${nativeAsset.symbol} reference price ${formatPrice(unitPrice)}.`,
+        )
+      } catch (err) {
+        if (!active) return
+        const fallbackPrice = nativeAsset.priceUsd
+        setNewPosUnitPrice(fallbackPrice)
+        setNewPosPriceStatus(`Price lookup failed. Using ${nativeAsset.symbol} reference price ${formatPrice(fallbackPrice)}.`)
+        console.error('Failed to resolve selected protocol price:', err)
+      }
+    }
+
+    void resolveSelectedProtocolPrice()
+    return () => {
+      active = false
+    }
+  }, [newPosForm.chain, newPosForm.protocol, selectedProtocolOption?.label])
 
   function updateMultichainPositionField(index: number, field: keyof ChainPortfolioPosition, value: number) {
     setMultichainPositions((current) => current.map((pos, idx) => (idx === index ? { ...pos, [field]: value } : pos)))
@@ -972,22 +1198,43 @@ function WarRoomContent() {
 
   function removeMultichainPosition(index: number) {
     setMultichainPositions((current) => current.filter((_, idx) => idx !== index))
+    setExpandedHoldingRows((current) => {
+      const next = new Set<number>()
+      current.forEach((rowIndex) => {
+        if (rowIndex < index) next.add(rowIndex)
+        if (rowIndex > index) next.add(rowIndex - 1)
+      })
+      return next
+    })
     setMultichainResult(null)
   }
 
+  function toggleHoldingAdvanced(index: number) {
+    setExpandedHoldingRows((current) => {
+      const next = new Set(current)
+      if (next.has(index)) {
+        next.delete(index)
+      } else {
+        next.add(index)
+      }
+      return next
+    })
+  }
+
   function addMultichainPosition() {
-    if (!newPosForm.symbol.trim() || !newPosForm.protocol.trim() || newPosForm.usdValue <= 0) {
-      setMultichainImportStatus('Holding details (Symbol, Protocol, USD Value) must be provided.')
+    if (!newPosForm.symbol.trim() || !newPosForm.protocol.trim() || newPosForm.balance <= 0) {
+      setMultichainImportStatus('Select a symbol, choose a protocol, and enter a balance greater than 0.')
       return
     }
 
+    const derivedUsdValue = Math.round(newPosForm.balance * newPosUnitPrice * 100) / 100
     const newPos: ChainPortfolioPosition = {
       chain: newPosForm.chain,
       kind: newPosForm.kind,
       symbol: newPosForm.symbol.trim().toUpperCase(),
       protocol: newPosForm.protocol.trim().toLowerCase(),
-      usdValue: newPosForm.usdValue,
-      balance: newPosForm.usdValue / 10,
+      usdValue: derivedUsdValue,
+      balance: newPosForm.balance,
       volatility: newPosForm.volatility,
       liquidityScore: newPosForm.liquidityScore,
     }
@@ -998,7 +1245,7 @@ function WarRoomContent() {
     setNewPosForm({
       chain: ChainType.Solana,
       kind: 'token',
-      symbol: '',
+      symbol: NATIVE_ASSETS_BY_CHAIN[ChainType.Solana].symbol,
       protocol: '',
       usdValue: 0,
       balance: 0,
@@ -1044,13 +1291,13 @@ function WarRoomContent() {
     <div className="mx-auto max-w-6xl space-y-8 py-6 px-2 cyber-grid">
       {simpleMode && (
         <BeginnerOnboardingCard
-          title="DeFi Risk Simulator Guide (War Room)"
+          title="War Room quick start"
           steps={[
-            "This simulator allows you to 'stress-test' your tokens and yields under different worst-case market scenarios.",
-            "You can choose a Preset Scenario (such as a Trapped Assets Bridge Outage or a Network Freeze).",
-            "The Risk Evaluation Dial shows the safety rating of your portfolio (1-100) under the selected shock scenario. Lower is safer.",
-            "Hover over dotted terms like TVL, LTV, Volatility, or Sequencer Downtime to view their beginner explanations.",
-            "Click on 'Custom Injector' to manually change shock numbers and test your own theories."
+            'Start with the demo portfolio or import your watchlist. This is only a simulation, not a real trade.',
+            'Pick a preset scenario to ask: what happens if prices fall, liquidity dries up, or bridges stop working?',
+            'Run the simulation and read the risk score. Higher scores mean the portfolio is more fragile.',
+            'Use the recommended actions as what-if changes, then run the simulation again to compare before and after.',
+            'Use Custom Scenario only when you want to manually adjust the stress assumptions.'
           ]}
         />
       )}
@@ -1060,16 +1307,16 @@ function WarRoomContent() {
             variant="accent"
             className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20"
           >
-            Aegis War Room Console
+            Portfolio stress simulator
           </Badge>
         </div>
         <div className="space-y-2">
           <h1 className="text-4xl md:text-5xl font-orbitron font-black tracking-wide text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
-            Stress Test Portfolio Risk Posture
+            See how your portfolio behaves under stress
           </h1>
           <p className="text-zinc-400 text-xs sm:text-sm max-w-3xl leading-relaxed">
-            Inject systemic bridge outages, sequencer failures, or liquidity shock parameters into your custom
-            cross-chain holdings to model drawdown thresholds and hedge paths.
+            Build a simple portfolio, choose a market stress scenario, and estimate where losses or concentration risks
+            could appear before you make real decisions.
           </p>
           <div className="rounded-xs bg-amber-500/5 border border-amber-500/25 p-3 text-[11px] font-mono text-amber-200/90 mt-2">
             {UI_DISCLAIMER}
@@ -1078,9 +1325,53 @@ function WarRoomContent() {
       </header>
 
       <div className="space-y-8 animate-in fade-in duration-500 text-left">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-cyan-500/10 bg-zinc-950/50 p-4 shadow-xl">
+            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-500">Total exposure</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{formatCurrency(portfolioInsights.totalValue)}</p>
+            <p className="mt-1 text-[10px] text-zinc-500">
+              {portfolioInsights.protocolCount} protocols across {portfolioInsights.chainCount} chains
+            </p>
+          </div>
+          <div className="rounded-xl border border-cyan-500/10 bg-zinc-950/50 p-4 shadow-xl">
+            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-500">Dominant chain</p>
+            <p className="mt-2 text-2xl font-semibold capitalize text-white">
+              {portfolioInsights.topChain ?? 'N/A'}
+            </p>
+            <p className="mt-1 text-[10px] text-zinc-500">{formatCurrency(portfolioInsights.topChainValue)} at risk</p>
+          </div>
+          <div className="rounded-xl border border-cyan-500/10 bg-zinc-950/50 p-4 shadow-xl">
+            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-500">Concentration</p>
+            <p
+              className={`mt-2 text-2xl font-semibold ${
+                portfolioInsights.concentrationPct >= 45 ? 'text-amber-300' : 'text-emerald-300'
+              }`}
+            >
+              {portfolioInsights.concentrationPct.toFixed(1)}%
+            </p>
+            <p className="mt-1 truncate text-[10px] text-zinc-500">
+              Largest: {portfolioInsights.largestPosition?.symbol ?? 'N/A'} on{' '}
+              {portfolioInsights.largestPosition?.chain ?? 'N/A'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-cyan-500/10 bg-zinc-950/50 p-4 shadow-xl">
+            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-500">Scenario severity</p>
+            <p
+              className={`mt-2 text-2xl font-semibold ${
+                portfolioInsights.scenarioSeverity >= 50 ? 'text-rose-300' : 'text-cyan-300'
+              }`}
+            >
+              {portfolioInsights.scenarioSeverity}/100
+            </p>
+            <p className="mt-1 text-[10px] text-zinc-500">
+              {useCustomScenario ? 'Custom parameters' : MULTICHAIN_SCENARIO_INFO[selectedMultichainScenarioIdx].title}
+            </p>
+          </div>
+        </section>
+
         <section className="space-y-4">
           <h2 className="text-[10px] font-orbitron font-bold uppercase tracking-widest text-zinc-500">
-            &gt; SIMULATION SYSTEM MATRIX
+            Simulation workflow
           </h2>
           <div className="grid gap-4 md:grid-cols-3">
             <SpotlightCard
@@ -1088,12 +1379,12 @@ function WarRoomContent() {
               borderColor="rgba(6, 182, 212, 0.15)"
               className="border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs corner-decor"
             >
-              <p className="text-[8px] font-mono font-bold uppercase tracking-widest text-zinc-550">Node 01</p>
+              <p className="text-[8px] font-mono font-bold uppercase tracking-widest text-zinc-550">Step 01</p>
               <p className="mt-2 text-sm font-orbitron font-bold text-white uppercase tracking-wider">
-                Configure Deployments
+                Set holdings
               </p>
               <p className="mt-1 text-xs text-zinc-450 leading-relaxed font-medium">
-                Model custom asset weights across Solana, EVM, and Cosmos networks.
+                Add tokens or protocols you want to test. You can use the demo portfolio if you are exploring.
               </p>
             </SpotlightCard>
             <SpotlightCard
@@ -1101,12 +1392,12 @@ function WarRoomContent() {
               borderColor="rgba(6, 182, 212, 0.15)"
               className="border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs corner-decor"
             >
-              <p className="text-[8px] font-mono font-bold uppercase tracking-widest text-zinc-550">Node 02</p>
+              <p className="text-[8px] font-mono font-bold uppercase tracking-widest text-zinc-550">Step 02</p>
               <p className="mt-2 text-sm font-orbitron font-bold text-white uppercase tracking-wider">
-                Inject Market Shocks
+                Pick a stress case
               </p>
               <p className="mt-1 text-xs text-zinc-450 leading-relaxed font-medium">
-                Select a bridge outage or sequencer failure scenario preset to apply.
+                Choose a preset like a market crash, bridge outage, or network freeze.
               </p>
             </SpotlightCard>
             <SpotlightCard
@@ -1114,12 +1405,12 @@ function WarRoomContent() {
               borderColor="rgba(6, 182, 212, 0.15)"
               className="border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs corner-decor"
             >
-              <p className="text-[8px] font-mono font-bold uppercase tracking-widest text-zinc-550">Node 03</p>
+              <p className="text-[8px] font-mono font-bold uppercase tracking-widest text-zinc-550">Step 03</p>
               <p className="mt-2 text-sm font-orbitron font-bold text-white uppercase tracking-wider">
-                Synthesize Hedges
+                Compare outcomes
               </p>
               <p className="mt-1 text-xs text-zinc-450 leading-relaxed font-medium">
-                Inspect recommended rebalancing routes and capture cross-chain arbitrage spreads.
+                Review the risk score, try suggested changes, and rerun the simulation.
               </p>
             </SpotlightCard>
           </div>
@@ -1131,7 +1422,7 @@ function WarRoomContent() {
             <div className="flex flex-wrap items-center justify-between border-b border-cyan-500/10 pb-3 gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">
-                  Cross-Chain Portfolio Holdings
+                  Portfolio holdings
                 </h2>
                 <Button
                   type="button"
@@ -1144,106 +1435,147 @@ function WarRoomContent() {
                 </Button>
               </div>
               <span className="text-xs font-mono font-bold text-cyan-400">
-                Total Base Value: {formatCurrency(multichainPositions.reduce((acc, p) => acc + p.usdValue, 0))}
+                Total value: {formatCurrency(multichainPositions.reduce((acc, p) => acc + p.usdValue, 0))}
               </span>
             </div>
 
             {multichainPositions.length === 0 ? (
               <div className="text-center py-10 px-4 rounded-xs border border-dashed border-zinc-800 bg-zinc-950/20 font-mono text-zinc-550">
-                <p className="text-xs font-semibold">&gt; Portfolios database registers empty.</p>
+                <p className="text-xs font-semibold">No holdings added yet.</p>
                 <p className="text-[10px] mt-1">
                   Click &quot;Reset to Demo Portfolio&quot; below to load pre-configured assets.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 text-xs">
-                {multichainPositions.map((pos, idx) => (
-                  <div
-                    key={`${pos.chain}-${pos.symbol}-${idx}`}
-                    className="grid grid-cols-1 gap-3 rounded-xs border border-zinc-900 bg-zinc-950/80 p-3.5 sm:grid-cols-12 items-center"
-                  >
-                    <div className="sm:col-span-3 text-left font-mono">
-                      <p className="font-bold text-white capitalize text-sm">{pos.symbol}</p>
-                      <p className="text-[9px] text-cyan-500 uppercase tracking-widest mt-1">
-                        {pos.chain} • {pos.protocol} • {pos.kind}
-                      </p>
+              <div className="max-h-[420px] space-y-4 overflow-y-auto pr-1 text-xs">
+                {groupedHoldings.map((group) => (
+                  <div key={group.chain} className="rounded-lg border border-zinc-900 bg-zinc-950/40">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-900 px-3.5 py-2.5">
+                      <div>
+                        <p className="text-sm font-semibold capitalize text-white">{group.chain}</p>
+                        <p className="text-[10px] text-zinc-500">
+                          {group.positions.length} holding{group.positions.length === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <p className="font-mono text-xs font-bold text-cyan-300">{formatCurrency(group.totalValue)}</p>
                     </div>
-                    <div className="sm:col-span-2 text-left">
-                      <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">
-                        Balance
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={pos.balance}
-                        onChange={(e) => updateMultichainPositionBalance(idx, Number(e.target.value))}
-                        className="h-8 text-xs font-mono bg-zinc-950 border-zinc-900 text-white px-2"
-                      />
-                    </div>
-                    <div className="sm:col-span-2 text-left">
-                      <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">
-                        USD Value
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={pos.usdValue}
-                        onChange={(e) => updateMultichainPositionField(idx, 'usdValue', Number(e.target.value))}
-                        className="h-8 text-xs font-mono bg-zinc-950 border-zinc-900 text-white px-2"
-                      />
-                    </div>
-                    <div className="sm:col-span-2 text-left">
-                      <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">
-                        {simpleMode ? (
-                          <DeFiTooltip term="Volatility">Volatility %</DeFiTooltip>
-                        ) : (
-                          'Volatility %'
-                        )}
-                      </label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={150}
-                        value={pos.volatility}
-                        onChange={(e) => updateMultichainPositionField(idx, 'volatility', Number(e.target.value))}
-                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                      />
-                      <span className="text-[9px] font-mono text-cyan-400 mt-1 block font-bold">
-                        {pos.volatility}% Vol
-                      </span>
-                    </div>
-                    <div className="sm:col-span-2 text-left">
-                      <label className="text-[8px] font-mono uppercase tracking-wider text-zinc-550 block mb-1">
-                        {simpleMode ? (
-                          <DeFiTooltip term="Liquidity Score">Liquidity</DeFiTooltip>
-                        ) : (
-                          'Liquidity'
-                        )}
-                      </label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={pos.liquidityScore}
-                        onChange={(e) => updateMultichainPositionField(idx, 'liquidityScore', Number(e.target.value))}
-                        className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                      />
-                      <span className="text-[9px] font-mono text-cyan-400 mt-1 block font-bold">
-                        {pos.liquidityScore} Score
-                      </span>
-                    </div>
-                    <div className="sm:col-span-1 text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeMultichainPosition(idx)}
-                        className="text-rose-400 hover:text-white hover:bg-rose-500/10 h-7 w-7 p-0 rounded-xs"
-                      >
-                        ✕
-                      </Button>
+
+                    <div className="divide-y divide-zinc-900">
+                      {group.positions.map((pos) => {
+                        const isAdvancedOpen = expandedHoldingRows.has(pos.originalIndex)
+
+                        return (
+                          <div key={`${pos.chain}-${pos.symbol}-${pos.originalIndex}`} className="p-3.5">
+                            <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-12">
+                              <div className="md:col-span-4 text-left">
+                                <p className="text-sm font-semibold text-white">{pos.symbol}</p>
+                                <p className="mt-1 text-[10px] uppercase tracking-wider text-cyan-500">
+                                  {pos.protocol} • {pos.kind}
+                                </p>
+                              </div>
+                              <div className="md:col-span-2 text-left">
+                                <label className="mb-1 block text-[10px] font-medium text-zinc-500">Balance</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={pos.balance}
+                                  onChange={(e) =>
+                                    updateMultichainPositionBalance(pos.originalIndex, Number(e.target.value))
+                                  }
+                                  className="h-8 border-zinc-900 bg-zinc-950 px-2 text-xs text-white"
+                                />
+                              </div>
+                              <div className="md:col-span-2 text-left">
+                                <label className="mb-1 block text-[10px] font-medium text-zinc-500">USD value</label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={pos.usdValue}
+                                  onChange={(e) =>
+                                    updateMultichainPositionField(pos.originalIndex, 'usdValue', Number(e.target.value))
+                                  }
+                                  className="h-8 border-zinc-900 bg-zinc-950 px-2 text-xs text-white"
+                                />
+                              </div>
+                              <div className="flex items-center justify-end gap-2 md:col-span-4">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleHoldingAdvanced(pos.originalIndex)}
+                                  className="h-8 rounded-xs border-zinc-800 bg-zinc-950 px-3 text-[10px] font-semibold text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                                >
+                                  {isAdvancedOpen ? 'Hide Advanced' : 'Advanced'}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeMultichainPosition(pos.originalIndex)}
+                                  className="h-8 w-8 rounded-xs p-0 text-rose-400 hover:bg-rose-500/10 hover:text-white"
+                                >
+                                  x
+                                </Button>
+                              </div>
+                            </div>
+
+                            {isAdvancedOpen && (
+                              <div className="mt-3 grid gap-4 rounded-md border border-zinc-900 bg-zinc-950/60 p-3 sm:grid-cols-2">
+                                <div className="text-left">
+                                  <label className="mb-2 block text-[10px] font-medium text-zinc-500">
+                                    {simpleMode ? <DeFiTooltip term="Volatility">Volatility</DeFiTooltip> : 'Volatility'}
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={150}
+                                    value={pos.volatility}
+                                    onChange={(e) =>
+                                      updateMultichainPositionField(
+                                        pos.originalIndex,
+                                        'volatility',
+                                        Number(e.target.value),
+                                      )
+                                    }
+                                    className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-cyan-500"
+                                  />
+                                  <span className="mt-1 block text-[10px] font-bold text-cyan-400">
+                                    {pos.volatility}% volatility
+                                  </span>
+                                </div>
+                                <div className="text-left">
+                                  <label className="mb-2 block text-[10px] font-medium text-zinc-500">
+                                    {simpleMode ? (
+                                      <DeFiTooltip term="Liquidity Score">Liquidity</DeFiTooltip>
+                                    ) : (
+                                      'Liquidity'
+                                    )}
+                                  </label>
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={100}
+                                    value={pos.liquidityScore}
+                                    onChange={(e) =>
+                                      updateMultichainPositionField(
+                                        pos.originalIndex,
+                                        'liquidityScore',
+                                        Number(e.target.value),
+                                      )
+                                    }
+                                    className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-zinc-800 accent-cyan-500"
+                                  />
+                                  <span className="mt-1 block text-[10px] font-bold text-cyan-400">
+                                    {pos.liquidityScore} liquidity score
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 ))}
@@ -1252,14 +1584,22 @@ function WarRoomContent() {
 
             <div className="rounded-xs border border-zinc-850 bg-zinc-950/20 p-4 space-y-4">
               <h3 className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">
-                Add Custom Holding Vector
+                Add a holding
               </h3>
               <div className="grid gap-3 grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-6 text-left text-xs font-mono">
                 <div>
                   <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">Chain</label>
                   <select
                     value={newPosForm.chain}
-                    onChange={(e) => setNewPosForm({ ...newPosForm, chain: e.target.value as ChainType })}
+                    onChange={(e) => {
+                      const chain = e.target.value as ChainType
+                      setNewPosForm({
+                        ...newPosForm,
+                        chain,
+                        symbol: NATIVE_ASSETS_BY_CHAIN[chain].symbol,
+                        protocol: '',
+                      })
+                    }}
                     className="flex h-9 w-full rounded-xs border border-zinc-850 bg-zinc-950 px-3 py-1 text-xs shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono"
                   >
                     {Object.values(ChainType).map((c) => (
@@ -1271,23 +1611,48 @@ function WarRoomContent() {
                 </div>
                 <div>
                   <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">Symbol</label>
-                  <Input
-                    type="text"
-                    placeholder="SOL, ETH"
+                  <select
                     value={newPosForm.symbol}
-                    onChange={(e) => setNewPosForm({ ...newPosForm, symbol: e.target.value.toUpperCase() })}
-                    className="h-9 text-xs uppercase bg-zinc-950 border-zinc-850 font-mono"
-                  />
+                    onChange={(e) => {
+                      const symbol = e.target.value
+                      const preferredChain = CHAIN_BY_NATIVE_SYMBOL[symbol]?.[0] ?? newPosForm.chain
+                      setNewPosForm({
+                        ...newPosForm,
+                        symbol,
+                        chain: preferredChain,
+                        protocol: '',
+                      })
+                    }}
+                    className="flex h-9 w-full rounded-xs border border-zinc-850 bg-zinc-950 px-3 py-1 text-xs shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono"
+                  >
+                    {nativeSymbolOptions.map((symbol) => (
+                      <option key={symbol} value={symbol} className="bg-zinc-950 text-white font-mono">
+                        {symbol}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">Protocol</label>
-                  <Input
-                    type="text"
-                    placeholder="jito, aave"
+                  <select
                     value={newPosForm.protocol}
-                    onChange={(e) => setNewPosForm({ ...newPosForm, protocol: e.target.value.toLowerCase() })}
-                    className="h-9 text-xs bg-zinc-950 border-zinc-850 font-mono"
-                  />
+                    onChange={(e) => setNewPosForm({ ...newPosForm, protocol: e.target.value })}
+                    disabled={customProtocolsLoading || customProtocolOptions.length === 0}
+                    className="flex h-9 w-full rounded-xs border border-zinc-850 bg-zinc-950 px-3 py-1 text-xs shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono disabled:opacity-60"
+                  >
+                    <option value="" className="bg-zinc-950 text-zinc-400">
+                      {customProtocolsLoading
+                        ? 'Loading...'
+                        : customProtocolOptions.length === 0
+                          ? 'No protocols'
+                          : 'Select protocol'}
+                    </option>
+                    {customProtocolOptions.slice(0, 250).map((protocol) => (
+                      <option key={protocol.slug} value={protocol.slug} className="bg-zinc-950 text-white font-mono">
+                        {protocol.label} ({protocol.category})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-[8px] uppercase tracking-wider text-zinc-500 block mb-1">Kind</label>
@@ -1328,7 +1693,7 @@ function WarRoomContent() {
                       setNewPosForm({
                         ...newPosForm,
                         balance: val,
-                        usdValue: newPosForm.usdValue || Math.round(val * 10 * 100) / 100,
+                        usdValue: Math.round(val * newPosUnitPrice * 100) / 100,
                       })
                     }}
                     className="h-9 text-xs bg-zinc-950 border-zinc-850 font-mono"
@@ -1339,18 +1704,28 @@ function WarRoomContent() {
                   <Input
                     type="number"
                     min={0}
-                    placeholder="1000"
+                    readOnly
                     value={newPosForm.usdValue || ''}
-                    onChange={(e) => {
-                      const val = Number(e.target.value)
-                      setNewPosForm({
-                        ...newPosForm,
-                        usdValue: val,
-                        balance: newPosForm.balance || Math.round((val / 10) * 100) / 100,
-                      })
-                    }}
-                    className="h-9 text-xs bg-zinc-950 border-zinc-850 font-mono"
+                    className="h-9 text-xs bg-zinc-950/60 border-zinc-850 font-mono text-cyan-300"
                   />
+                </div>
+              </div>
+              <div className="grid gap-3 rounded-xs border border-cyan-500/10 bg-cyan-950/5 p-3 text-[10px] text-zinc-400 sm:grid-cols-3">
+                <div>
+                  <p className="font-mono uppercase tracking-wider text-zinc-550">Protocol source</p>
+                  <p className="mt-1 font-semibold text-zinc-200">
+                    {customProtocolsLoading
+                      ? 'Loading chain catalog...'
+                      : `${customProtocolOptions.length.toLocaleString()} ${newPosForm.chain} protocols available`}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-mono uppercase tracking-wider text-zinc-550">Estimated unit price</p>
+                  <p className="mt-1 font-semibold text-cyan-300">{formatPrice(newPosUnitPrice)}</p>
+                </div>
+                <div>
+                  <p className="font-mono uppercase tracking-wider text-zinc-550">Pricing note</p>
+                  <p className="mt-1 leading-relaxed text-zinc-300">{newPosPriceStatus}</p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
@@ -1388,7 +1763,7 @@ function WarRoomContent() {
           <div className="lg:col-span-2 rounded-xl bg-zinc-950/50 border border-cyan-500/10 p-5 backdrop-blur-md space-y-5 corner-decor shadow-2xl">
             <div className="flex justify-between items-center border-b border-cyan-500/10 pb-3 gap-3">
               <h2 className="font-orbitron font-black text-sm uppercase tracking-wider text-white">
-                Cross-Chain Threat Deck
+                Stress scenario
               </h2>
               <button
                 type="button"
@@ -1398,7 +1773,7 @@ function WarRoomContent() {
                     : 'bg-zinc-950 border-zinc-850 text-zinc-500 hover:text-zinc-350'
                   }`}
               >
-                {simpleMode ? 'Lingo: Simplified' : 'Lingo: Technical'}
+                {simpleMode ? 'Beginner Help On' : 'Beginner Help Off'}
               </button>
             </div>
 
@@ -1421,7 +1796,7 @@ function WarRoomContent() {
                     : 'bg-zinc-950/30 border-transparent text-zinc-500 hover:text-zinc-350'
                   }`}
               >
-                Custom Injector
+                Custom Scenario
               </button>
             </div>
 
@@ -1466,6 +1841,64 @@ function WarRoomContent() {
               </div>
             ) : (
               <div className="space-y-4 rounded-xs border border-cyan-500/10 bg-zinc-950/45 p-4 text-xs font-mono text-left">
+                <div className="rounded-md border border-cyan-500/10 bg-cyan-950/5 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Quick severity</p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">
+                    Start with a realistic level, then fine-tune any slider below.
+                  </p>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {[
+                      {
+                        label: 'Mild',
+                        config: {
+                          marketShockPct: 10,
+                          liquidityDropPct: 15,
+                          protocolExploitSeverity: 5,
+                          oracleDelayMinutes: 2,
+                          bridgeOutageDurationMinutes: 0,
+                        },
+                      },
+                      {
+                        label: 'Moderate',
+                        config: {
+                          marketShockPct: 25,
+                          liquidityDropPct: 35,
+                          protocolExploitSeverity: 20,
+                          oracleDelayMinutes: 10,
+                          bridgeOutageDurationMinutes: 30,
+                        },
+                      },
+                      {
+                        label: 'Severe',
+                        config: {
+                          marketShockPct: 45,
+                          liquidityDropPct: 60,
+                          protocolExploitSeverity: 45,
+                          oracleDelayMinutes: 25,
+                          bridgeOutageDurationMinutes: 120,
+                        },
+                      },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomSeverity(preset.label as 'Mild' | 'Moderate' | 'Severe')
+                          updateCustomScenario(preset.config, 'preset')
+                        }}
+                        aria-pressed={selectedCustomSeverity === preset.label}
+                        className={`rounded-xs border px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider transition ${
+                          selectedCustomSeverity === preset.label
+                            ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.12)]'
+                            : 'border-zinc-850 bg-zinc-950 text-zinc-400 hover:border-cyan-500/30 hover:text-cyan-300'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] font-bold">
                     <span className="text-zinc-400">
@@ -1482,9 +1915,10 @@ function WarRoomContent() {
                     min={0}
                     max={100}
                     value={customScenario.marketShockPct}
-                    onChange={(e) => setCustomScenario({ ...customScenario, marketShockPct: Number(e.target.value) })}
+                    onChange={(e) => updateCustomScenario({ marketShockPct: Number(e.target.value) })}
                     className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                   />
+                  <p className="text-[10px] leading-relaxed text-zinc-500">How much broad market prices fall.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -1503,9 +1937,12 @@ function WarRoomContent() {
                     min={0}
                     max={100}
                     value={customScenario.liquidityDropPct}
-                    onChange={(e) => setCustomScenario({ ...customScenario, liquidityDropPct: Number(e.target.value) })}
+                    onChange={(e) => updateCustomScenario({ liquidityDropPct: Number(e.target.value) })}
                     className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                   />
+                  <p className="text-[10px] leading-relaxed text-zinc-500">
+                    How much harder it becomes to exit positions without slippage.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -1519,10 +1956,13 @@ function WarRoomContent() {
                     max={100}
                     value={customScenario.protocolExploitSeverity}
                     onChange={(e) =>
-                      setCustomScenario({ ...customScenario, protocolExploitSeverity: Number(e.target.value) })
+                      updateCustomScenario({ protocolExploitSeverity: Number(e.target.value) })
                     }
                     className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                   />
+                  <p className="text-[10px] leading-relaxed text-zinc-500">
+                    Extra protocol/smart-contract stress applied to DeFi positions.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -1540,16 +1980,20 @@ function WarRoomContent() {
                     type="range"
                     min={0}
                     max={120}
+                    step={1}
                     value={customScenario.oracleDelayMinutes}
                     onChange={(e) =>
-                      setCustomScenario({ ...customScenario, oracleDelayMinutes: Number(e.target.value) })
+                      updateCustomScenario({ oracleDelayMinutes: Number(e.target.value) })
                     }
                     className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                   />
+                  <p className="text-[10px] leading-relaxed text-zinc-500">
+                    How stale price feeds become during the stress event.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center text-[10px] font-bold">
+                  <div className="flex items-center justify-between gap-3 text-[10px] font-bold">
                     <span className="text-zinc-400">
                       {simpleMode ? (
                         <DeFiTooltip term="Bridge Outage">BRIDGE OUTAGE DURATION</DeFiTooltip>
@@ -1557,27 +2001,79 @@ function WarRoomContent() {
                         'BRIDGE OUTAGE DURATION'
                       )}
                     </span>
-                    <span className="text-cyan-400">{customScenario.bridgeOutageDurationMinutes} mins</span>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={1440}
+                        step={5}
+                        value={customScenario.bridgeOutageDurationMinutes}
+                        onChange={(e) =>
+                          updateCustomScenario({
+                            bridgeOutageDurationMinutes: Math.min(1440, Math.max(0, Number(e.target.value))),
+                          })
+                        }
+                        className="h-7 w-20 border-zinc-850 bg-zinc-950 px-2 text-right text-[10px] text-cyan-300"
+                      />
+                      <span className="text-cyan-400">mins</span>
+                    </div>
                   </div>
                   <input
                     type="range"
                     min={0}
                     max={1440}
-                    step={30}
+                    step={5}
                     value={customScenario.bridgeOutageDurationMinutes}
                     onChange={(e) =>
-                      setCustomScenario({ ...customScenario, bridgeOutageDurationMinutes: Number(e.target.value) })
+                      updateCustomScenario({ bridgeOutageDurationMinutes: Number(e.target.value) })
                     }
                     className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                   />
+                  <div className="flex flex-wrap gap-2">
+                    {[0, 5, 15, 30, 60, 180].map((minutes) => (
+                      <button
+                        key={minutes}
+                        type="button"
+                        onClick={() => updateCustomScenario({ bridgeOutageDurationMinutes: minutes })}
+                        className={`rounded-xs border px-2 py-1 text-[9px] font-semibold transition ${
+                          customScenario.bridgeOutageDurationMinutes === minutes
+                            ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
+                            : 'border-zinc-850 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        {minutes === 0 ? 'None' : `${minutes}m`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] leading-relaxed text-zinc-500">
+                    How long cross-chain exits are blocked. Small values like 5 or 15 minutes are now supported.
+                  </p>
                 </div>
 
                 <div className="space-y-2 border-t border-zinc-900 pt-3">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-550 block mb-1">
-                    Chains Affected
-                  </span>
+                  <div className="mb-1 flex items-center justify-between gap-3">
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-zinc-550">
+                      Chains Affected
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateCustomScenario({ chainsAffected: ALL_CHAIN_TYPES })}
+                        className="text-[9px] font-semibold uppercase tracking-wider text-cyan-400 hover:text-cyan-300"
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateCustomScenario({ chainsAffected: [] })}
+                        className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500 hover:text-zinc-300"
+                      >
+                        None
+                      </button>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    {Object.values(ChainType).map((c) => {
+                    {ALL_CHAIN_TYPES.map((c) => {
                       const isChecked = customScenario.chainsAffected?.includes(c) ?? false
                       return (
                         <label
@@ -1592,7 +2088,7 @@ function WarRoomContent() {
                               const newChains = currentChains.includes(c)
                                 ? currentChains.filter((x) => x !== c)
                                 : [...currentChains, c]
-                              setCustomScenario({ ...customScenario, chainsAffected: newChains })
+                              updateCustomScenario({ chainsAffected: newChains })
                             }}
                             className="rounded-xs border-zinc-850 bg-zinc-950 text-cyan-500 focus:ring-0 cursor-pointer h-3.5 w-3.5 animate-none"
                           />
@@ -1606,24 +2102,20 @@ function WarRoomContent() {
                 <div className="border-t border-zinc-900 pt-3 flex justify-end">
                   <Button
                     type="button"
-                    onClick={() =>
-                      setCustomScenario({
-                        marketShockPct: 0,
-                        liquidityDropPct: 0,
-                        protocolExploitSeverity: 0,
-                        oracleDelayMinutes: 0,
-                        bridgeOutageDurationMinutes: 0,
-                        chainsAffected: [
-                          ChainType.Solana,
-                          ChainType.Ethereum,
-                          ChainType.Arbitrum,
-                          ChainType.Base,
-                          ChainType.Optimism,
-                          ChainType.Polygon,
-                          ChainType.Cosmos,
-                        ],
-                      })
-                    }
+                    onClick={() => {
+                      setSelectedCustomSeverity(null)
+                      updateCustomScenario(
+                        {
+                          marketShockPct: 0,
+                          liquidityDropPct: 0,
+                          protocolExploitSeverity: 0,
+                          oracleDelayMinutes: 0,
+                          bridgeOutageDurationMinutes: 0,
+                          chainsAffected: [...ALL_CHAIN_TYPES],
+                        },
+                        'preset',
+                      )
+                    }}
                     className="border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/15 text-cyan-400 text-[9px] uppercase tracking-wider font-orbitron font-bold h-7 rounded-xs px-3"
                   >
                     Reset to Stable
@@ -1641,7 +2133,7 @@ function WarRoomContent() {
               disabled={multichainLoading || multichainPositions.length === 0}
               className="w-full h-11 bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-widest text-xs shadow-[0_0_12px_rgba(6,182,212,0.25)] transition-all cursor-pointer rounded-xs"
             >
-              {multichainLoading ? 'Synthesizing simulation matrix...' : 'Execute Stress Simulation'}
+              {multichainLoading ? 'Running simulation...' : 'Run Simulation'}
             </Button>
             {multichainError && (
               <p className="text-rose-400 text-xs font-mono">&gt; Simulation error: {multichainError}</p>
@@ -1861,7 +2353,7 @@ function WarRoomContent() {
                         <div className="flex justify-end pt-2 border-t border-zinc-900/40">
                           <Button
                             onClick={() =>
-                              handleExecuteAction({
+                              applyLocalMitigation({
                                 action: rec.action,
                                 fromChain: rec.fromChain,
                                 toChain: rec.toChain,
@@ -1872,12 +2364,12 @@ function WarRoomContent() {
                             }
                             className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider text-[10px] h-7 px-3.5 rounded-xs cursor-pointer shadow-[0_0_6px_rgba(6,182,212,0.15)]"
                           >
-                            Execute{' '}
+                            Apply{' '}
                             {rec.action === 'move'
-                              ? 'Bridge & Swap'
+                              ? 'Move Model'
                               : rec.action === 'liquidate'
-                                ? 'Exit/Swap'
-                                : 'Add Collateral'}
+                                ? 'Exit Model'
+                                : 'Risk Adjustment'}
                           </Button>
                         </div>
                       </div>
@@ -1921,7 +2413,7 @@ function WarRoomContent() {
                         <div className="flex justify-end pt-2 border-t border-zinc-900/40">
                           <Button
                             onClick={() =>
-                              handleExecuteAction({
+                              applyLocalMitigation({
                                 action: 'arbitrage',
                                 fromChain: opp.fromChain,
                                 toChain: opp.toChain,
@@ -1931,7 +2423,7 @@ function WarRoomContent() {
                             }
                             className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider text-[10px] h-7 px-3.5 rounded-xs cursor-pointer shadow-[0_0_6px_rgba(6,182,212,0.15)]"
                           >
-                            Execute Arbitrage
+                            Note Opportunity
                           </Button>
                         </div>
                       </div>
@@ -1942,12 +2434,6 @@ function WarRoomContent() {
             </div>
           </section>
         )}
-        <TerminalExecutionModal
-          isOpen={execModalOpen}
-          onClose={() => setExecModalOpen(false)}
-          action={execAction}
-          onSuccess={handleExecutionSuccess}
-        />
       </div>
     </div>
   )

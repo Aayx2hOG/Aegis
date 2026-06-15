@@ -11,7 +11,7 @@ import { useChainProtocols } from '@/lib/hooks/use-defillama'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Star, Swords, RefreshCw, Terminal, Loader2 } from 'lucide-react'
+import { AlertCircle, BarChart3, Loader2, RefreshCw, Search, Star, Swords, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useMultiChain } from '@/components/chain/chain-provider'
@@ -253,16 +253,16 @@ function ResearchContent() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 py-6 px-2 cyber-grid">
-      {/* Header */}
+    <div className="aegis-shell max-w-5xl cyber-grid">
       <header className="space-y-4 text-left">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Badge
               variant="accent"
-              className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20"
+              className="aegis-kicker"
             >
-              Aegis Research Analyst
+              <Search className="h-3.5 w-3.5" />
+              Research analyst
             </Badge>
           </div>
           <div className="flex items-center gap-2">
@@ -270,31 +270,31 @@ function ResearchContent() {
               asChild
               variant="outline"
               size="sm"
-              className="border-cyan-500/10 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/15 hover:text-white font-orbitron font-bold uppercase tracking-wider rounded-xs transition-all"
+              className="aegis-button-secondary"
             >
               <Link href="/research/compare" className="flex items-center gap-1.5">
-                <Swords className="w-3.5 h-3.5" /> Protocol Battleground
+                <Swords className="h-3.5 w-3.5" /> Compare
               </Link>
             </Button>
             <Button
               asChild
               variant="outline"
               size="sm"
-              className="border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900 text-zinc-300 font-orbitron font-bold uppercase tracking-wider rounded-xs"
+              className="aegis-button-secondary"
             >
               <Link href="/watchlist" className="flex items-center gap-1.5">
-                Watchlist <Star className="w-3.5 h-3.5 fill-current text-cyan-400" />
+                Watchlist <Star className="h-3.5 w-3.5 fill-current text-cyan-200" />
               </Link>
             </Button>
           </div>
         </div>
         <div className="space-y-2">
-          <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
-            {activeChain.displayName} <span className="text-cyan-400 font-black">Research</span>
+          <h1 className="aegis-heading">
+            {activeChain.displayName} protocol research
           </h1>
-          <p className="max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-400">
-            Autonomous AI analyst extracting on-chain contract intelligence, governance data, and multi-chain TVL trends
-            in real-time.
+          <p className="aegis-muted max-w-2xl">
+            Search the active chain catalog, generate a research brief, and send relevant protocols directly into
+            watchlists or war-room simulations.
           </p>
         </div>
       </header>
@@ -303,13 +303,12 @@ function ResearchContent() {
       {brief && !loading && (
         <div className="animate-in space-y-8 fade-in duration-700">
           <TracingBeam>
-            <article className="relative overflow-hidden rounded-xl bg-zinc-950/70 border border-cyan-500/15 shadow-[0_15px_50px_rgba(0,0,0,0.6)] corner-decor">
-              {/* Dossier Header Strip */}
-              <div className="border-b border-cyan-500/15 bg-cyan-950/15 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+            <article className="aegis-panel relative overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-white/[0.03] px-6 py-4">
                 <div className="flex items-center gap-3">
-                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
-                  <span className="font-orbitron font-black text-xs uppercase tracking-widest text-cyan-400">
-                    CLASSIFIED RESEARCH BRIEF // CORE: {brief.protocol.toUpperCase()}
+                  <span className="h-2 w-2 rounded-full bg-cyan-300" />
+                  <span className="text-sm font-semibold text-cyan-100">
+                    Research brief: {brief.protocol}
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -317,7 +316,7 @@ function ResearchContent() {
                     <Button
                       asChild
                       size="sm"
-                      className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold uppercase tracking-wider rounded-xs shadow-[0_0_10px_rgba(6,182,212,0.25)]"
+                      className="aegis-button-primary"
                     >
                       <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>Run War Room Simulation</Link>
                     </Button>
@@ -334,19 +333,19 @@ function ResearchContent() {
                     size="sm"
                     className={
                       isWatched(brief.protocol.toLowerCase())
-                        ? 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-900 rounded-xs'
-                        : 'bg-white hover:bg-zinc-200 text-zinc-950 font-semibold rounded-xs transition-all'
+                        ? 'rounded-md border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08]'
+                        : 'rounded-md bg-white font-semibold text-zinc-950 transition-all hover:bg-zinc-200'
                     }
                   >
-                    {isWatched(brief.protocol.toLowerCase()) ? '★ Active monitor' : '☆ Watch Protocol'}
+                    {isWatched(brief.protocol.toLowerCase()) ? 'Active monitor' : 'Watch protocol'}
                   </Button>
                 </div>
               </div>
 
               {!isConnected && (
                 <div className="px-6 pt-4 md:px-10">
-                  <div className="rounded-xs bg-cyan-500/5 px-3.5 py-2 text-[9px] font-mono font-bold uppercase tracking-widest text-cyan-400 border border-cyan-500/10">
-                    &gt; HOST IDENTITY: GUEST // CACHING SECURE PORTFOLIO TO LOCAL STORAGE.
+                  <div className="rounded-md border border-cyan-300/15 bg-cyan-300/10 px-3.5 py-2 text-xs font-medium text-cyan-100">
+                    Guest mode: watchlist changes are saved locally in this browser.
                   </div>
                 </div>
               )}
@@ -356,10 +355,8 @@ function ResearchContent() {
             </article>
 
             {/* Footer Tip */}
-            <div className="text-center py-8">
-              <p className="text-zinc-650 text-xs font-mono">
-                &gt; DECRYPTION COMPLETE. AUDIT COMPLIANCE STANDARDS APPLIED.
-              </p>
+            <div className="py-8 text-center">
+              <p className="text-xs text-zinc-600">Brief generated with current protocol and market context.</p>
             </div>
           </TracingBeam>
         </div>
@@ -367,10 +364,10 @@ function ResearchContent() {
 
       {/* Active Thinking State (Console Terminal Logger) */}
       {loading && (
-        <div className="animate-in slide-in-from-bottom-4 fade-in overflow-hidden rounded-xl bg-zinc-950 border border-cyan-500/15 backdrop-blur-md duration-500 relative min-h-[18rem] flex flex-col justify-between shadow-2xl shadow-cyan-500/5 corner-decor">
-          <div className="border-b border-cyan-500/15 bg-zinc-900/50 px-4 py-2 flex items-center justify-between text-cyan-400/80 font-mono text-xs">
+        <div className="aegis-panel animate-in slide-in-from-bottom-4 fade-in relative flex min-h-[18rem] flex-col justify-between overflow-hidden duration-500">
+          <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2 font-mono text-xs text-cyan-100">
             <span className="flex items-center gap-2">
-              <Terminal className="w-3.5 h-3.5" /> AEGIS SECURE CONSOLE LOGS
+              <Terminal className="h-3.5 w-3.5" /> Research pipeline
             </span>
             <span className="text-zinc-550 flex items-center gap-1.5">
               <RefreshCw className="w-3 h-3 animate-spin" /> PROCESS: ACTIVE
@@ -383,15 +380,15 @@ function ResearchContent() {
                 {log}
               </div>
             ))}
-            <div className="text-white font-bold flex items-center gap-1 animate-pulse">
-              <span>&gt; PROCESSING DEFI MATRIX</span>
+            <div className="flex animate-pulse items-center gap-1 font-bold text-white">
+              <span>Preparing brief</span>
               <span className="h-3 w-1.5 bg-white inline-block animate-caret" />
             </div>
           </div>
 
-          <div className="border-t border-cyan-500/10 p-3 bg-cyan-950/5 text-center">
-            <p className="text-[10px] uppercase font-orbitron font-bold tracking-widest text-cyan-500/60">
-              SCANNING HIGH-DIMENSIONAL DATA PIPELINES
+          <div className="border-t border-white/10 bg-white/[0.02] p-3 text-center">
+            <p className="text-xs font-medium text-cyan-100/70">
+              Fetching protocol metrics, market context, and risk signals
             </p>
           </div>
         </div>
@@ -399,42 +396,42 @@ function ResearchContent() {
 
       {/* Error State */}
       {error && (
-        <div className="p-4 rounded-xs bg-rose-500/5 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-3 font-mono text-left">
-          <span className="mt-0.5">⚠️ ERROR DETECTED:</span>
+        <div className="flex items-start gap-3 rounded-lg border border-rose-400/20 bg-rose-400/10 p-4 text-left text-sm text-rose-100">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <p className="flex-1 font-semibold">{error}</p>
         </div>
       )}
 
-      {/* Catalog Section */}
-      <section className="rounded-xl border border-zinc-850 bg-zinc-950/30 p-5 shadow-xl backdrop-blur-md md:p-6 text-left relative">
+      <section className="aegis-panel relative p-5 text-left md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <div className="inline-flex items-center rounded-xs border border-cyan-500/15 bg-cyan-500/5 px-3 py-0.5 text-[10px] font-orbitron font-bold uppercase tracking-widest text-cyan-400">
-              TARGET DATABASE INDEX
+            <div className="aegis-kicker">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Protocol catalog
             </div>
-            <h2 className="text-2xl font-orbitron font-black text-white uppercase tracking-wider">
+            <h2 className="text-2xl font-semibold tracking-tight text-white">
               {supportedProtocols.length} verified network protocols
             </h2>
-            <p className="max-w-2xl text-xs text-zinc-400 leading-relaxed font-medium">
-              Live catalog derived from active chain telemetry. Displaying active protocols sorted by liquidity scale
-              (TVL).
+            <p className="aegis-muted max-w-2xl">
+              Live catalog derived from the active chain. Protocols are sorted by liquidity scale and filtered to
+              DeFi-relevant categories.
             </p>
           </div>
-          <div className="rounded-xs border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs text-zinc-400 font-mono">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-550">Node Sync</p>
-            <p className="mt-0.5 font-semibold text-cyan-400">
-              {protocolsLoading ? 'REFRESHING DATABASE...' : 'INTELLIGENCE SYNCHRONIZED'}
+          <div className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-zinc-400">
+            <p className="font-medium text-zinc-500">Catalog status</p>
+            <p className="mt-0.5 font-semibold text-cyan-100">
+              {protocolsLoading ? 'Refreshing metrics' : 'Synchronized'}
             </p>
           </div>
         </div>
 
-        <div className="mt-6 rounded-xs border border-zinc-850 bg-zinc-950/45 p-4">
+        <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.035] p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
             <div>
-              <p className="text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-550">Filter parameters</p>
-              <p className="text-[10px] text-zinc-450">Narrow search by protocol labels or category flags.</p>
+              <p className="text-sm font-semibold text-zinc-200">Search protocols</p>
+              <p className="text-xs text-zinc-500">Filter by name, slug, or category.</p>
             </div>
-            <div className="text-[10px] font-mono font-semibold text-zinc-500">
+            <div className="text-xs font-medium text-zinc-500">
               {protocolsLoading ? 'Awaiting metrics...' : `${supportedProtocols.length} entries matching filters`}
             </div>
           </div>
@@ -443,25 +440,24 @@ function ResearchContent() {
               type="search"
               value={protocolSearch}
               onChange={(e) => setProtocolSearch(e.target.value)}
-              placeholder="Search database (e.g. jito, aave, kamino)..."
-              className="h-10 w-full bg-zinc-950 border-zinc-850 focus:border-cyan-500/40 text-xs font-mono"
+              placeholder="Search jito, aave, kamino..."
+              className="h-10 w-full rounded-md border-white/10 bg-zinc-950/70 text-sm focus:border-cyan-300/40"
             />
           </div>
         </div>
 
-        <div className="mt-6 max-h-[28rem] overflow-auto rounded-xs border border-zinc-850 bg-zinc-950/20 p-4 scrollbar-thin">
-          <div className="mb-3 flex items-center justify-between gap-3 px-1 text-[10px] font-mono text-zinc-500">
+        <div className="mt-6 max-h-[28rem] overflow-auto rounded-lg border border-white/10 bg-zinc-950/25 p-4 scrollbar-thin">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-500">
             <span>
-              DISPLAYING {Math.min(visibleProtocols, filteredProtocols.length)} OF {filteredProtocols.length} REGISTERED
-              TARGETS
+              Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length} protocols
             </span>
             {deferredProtocolSearch && (
               <button
                 type="button"
                 onClick={() => setProtocolSearch('')}
-                className="font-bold text-cyan-400 hover:text-white"
+                className="font-semibold text-cyan-200 hover:text-white"
               >
-                CLEAR FILTER
+                Clear filter
               </button>
             )}
           </div>
@@ -473,29 +469,29 @@ function ResearchContent() {
                 onClick={() => {
                   void runResearch(protocol.slug)
                 }}
-                className="flex items-center justify-between gap-3 rounded-xs border border-zinc-850 bg-zinc-950/60 px-4 py-3 text-left transition hover:border-cyan-500/30 hover:bg-zinc-950 hover:shadow-[0_0_12px_rgba(6,182,212,0.03)] cursor-pointer group"
+                className="group flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-3 text-left transition hover:border-cyan-300/25 hover:bg-white/[0.06]"
                 style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
                 disabled={loading}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-orbitron font-bold tracking-wider text-white group-hover:text-cyan-400 transition-colors uppercase">
+                  <p className="truncate text-sm font-semibold text-white transition-colors group-hover:text-cyan-100">
                     {protocol.label}
                   </p>
                   <span
-                    className={`inline-block mt-1.5 rounded-xs px-2 py-0.5 text-[8px] font-mono uppercase tracking-wider border ${getCategoryTone(protocol.category)}`}
+                    className={`mt-1.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${getCategoryTone(protocol.category)}`}
                   >
                     {protocol.category}
                   </span>
                 </div>
-                <div className="shrink-0 text-right font-mono">
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-550">TVL</p>
-                  <p className="text-xs text-white font-semibold">{protocol.tvl}</p>
+                <div className="shrink-0 text-right">
+                  <p className="text-[10px] font-medium text-zinc-500">TVL</p>
+                  <p className="text-sm font-semibold text-white">{protocol.tvl}</p>
                 </div>
               </button>
             ))}
             {filteredProtocols.length === 0 && (
-              <div className="rounded-xs border border-dashed border-zinc-850 bg-zinc-950/40 px-4 py-8 text-center text-xs text-zinc-550 font-mono sm:col-span-2 xl:col-span-3">
-                &gt; Query yielded 0 matches. Target parameters unrecognized.
+              <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.025] px-4 py-8 text-center text-sm text-zinc-500 sm:col-span-2 xl:col-span-3">
+                No protocols match that search.
               </div>
             )}
           </div>
@@ -510,9 +506,9 @@ function ResearchContent() {
                 }
                 variant="outline"
                 size="sm"
-                className="font-orbitron font-bold border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white rounded-xs uppercase tracking-wider text-xs"
+                className="aegis-button-secondary text-sm"
               >
-                Load Next Page
+                Load more
               </Button>
             </div>
           )}
@@ -565,17 +561,17 @@ function MarkdownBrief({ content }: { content: string }) {
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="text-xl font-orbitron font-black text-white mt-8 mb-4 tracking-wider uppercase border-b border-cyan-500/10 pb-2 flex items-center gap-2">
-              <span className="h-1.5 w-1.5 bg-cyan-400 rounded-full" /> {children}
+            <h1 className="mb-4 mt-8 flex items-center gap-2 border-b border-white/10 pb-2 text-xl font-semibold tracking-tight text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" /> {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-base font-orbitron font-bold text-cyan-400 mt-6 mb-3 tracking-wider uppercase border-l border-cyan-500/30 pl-2">
+            <h2 className="mb-3 mt-6 border-l border-cyan-300/30 pl-2 text-base font-semibold text-cyan-100">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="mt-5 mb-1.5 font-bold text-white text-xs font-mono uppercase tracking-wider text-zinc-150">
+            <h3 className="mb-1.5 mt-5 text-sm font-semibold text-white">
               {children}
             </h3>
           ),
@@ -585,25 +581,25 @@ function MarkdownBrief({ content }: { content: string }) {
           ul: ({ children }) => <ul className="mb-6 space-y-2.5 font-sans">{children}</ul>,
           li: ({ children }) => (
             <li className="group ml-1 flex items-start gap-2 text-zinc-300 text-xs sm:text-sm">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-cyan-500/50 border border-cyan-500/70" />
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full border border-cyan-300/70 bg-cyan-300/50" />
               <div className="min-w-0 leading-relaxed font-medium">{children}</div>
             </li>
           ),
           table: ({ children }) => (
-            <div className="overflow-x-auto my-6 rounded-xs bg-zinc-950 border border-zinc-850 shadow-inner">
+            <div className="my-6 overflow-x-auto rounded-lg border border-white/10 bg-zinc-950/70 shadow-inner">
               <table className="w-full text-xs text-left border-collapse font-mono">{children}</table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-zinc-900 border-b border-zinc-800 text-zinc-400 uppercase text-[9px] font-bold tracking-widest">
+            <thead className="border-b border-white/10 bg-white/[0.04] text-[10px] font-semibold text-zinc-400">
               {children}
             </thead>
           ),
-          th: ({ children }) => <th className="px-5 py-3 font-bold text-cyan-400">{children}</th>,
-          td: ({ children }) => <td className="px-5 py-3 text-zinc-300 border-b border-zinc-900">{children}</td>,
+          th: ({ children }) => <th className="px-5 py-3 font-semibold text-cyan-100">{children}</th>,
+          td: ({ children }) => <td className="border-b border-white/5 px-5 py-3 text-zinc-300">{children}</td>,
           strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
           code: ({ children }) => (
-            <code className="rounded-xs bg-cyan-950/20 border border-cyan-500/15 px-1.5 py-0.5 font-mono text-[11px] text-cyan-300 font-bold">
+            <code className="rounded-md border border-cyan-300/15 bg-cyan-300/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-cyan-100">
               {children}
             </code>
           ),

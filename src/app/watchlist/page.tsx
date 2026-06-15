@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Activity, ExternalLink, Layers3, ShieldAlert, Trash2, RefreshCw } from 'lucide-react'
@@ -9,7 +9,6 @@ import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
-import { TerminalExecutionModal, ExecutionAction } from '@/components/ui/terminal-execution-modal'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain, removeFromWatchlist } from '@/lib/hooks/use-multichain-watchlist'
@@ -565,14 +564,7 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
 export default function WatchlistPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const [execModalOpen, setExecModalOpen] = useState(false)
-  const [execAction, setExecAction] = useState<ExecutionAction | null>(null)
   const [beginnerMode] = useAtom(beginnerModeAtom)
-
-  function handleExecuteAction(action: ExecutionAction) {
-    setExecAction(action)
-    setExecModalOpen(true)
-  }
   const { activeChain, activeChainConnections, allChains } = useMultiChain()
   const wallet = useWallet()
   const walletAddress = wallet.publicKey?.toBase58()
@@ -957,17 +949,11 @@ export default function WatchlistPage() {
                         </Button>
                         {(alert.type === 'tvl_move' || alert.type === 'liquidity_compression') && (
                           <Button
+                            asChild
                             type="button"
-                            onClick={() =>
-                              handleExecuteAction({
-                                action: alert.type === 'tvl_move' ? 'hedge' : 'liquidate',
-                                assetSymbol: alert.protocolSlug?.toUpperCase() || 'DEFI',
-                                amount: 10000,
-                              })
-                            }
                             className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.25)] h-9 px-4 cursor-pointer"
                           >
-                            Mitigate Risk
+                            <Link href={`/war-room?protocol=${alert.protocolSlug ?? ''}`}>Model Risk</Link>
                           </Button>
                         )}
                       </div>
@@ -1172,7 +1158,6 @@ export default function WatchlistPage() {
           </article>
         ))}
       </section>
-      <TerminalExecutionModal isOpen={execModalOpen} onClose={() => setExecModalOpen(false)} action={execAction} />
     </div>
   )
 }

@@ -28,7 +28,7 @@ export function SpotlightCard({
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/40 p-6 shadow-2xl transition-all duration-500 hover:border-white/10 ${className}`}
+      className={`relative overflow-hidden rounded-lg border border-white/10 bg-zinc-950/45 p-6 shadow-2xl shadow-black/25 transition-all duration-500 hover:border-white/15 ${className}`}
       {...props}
     >
       {/* Spotlight Backing */}
@@ -41,7 +41,7 @@ export function SpotlightCard({
       />
       {/* Glowing Border Overlay */}
       <div
-        className="absolute inset-0 pointer-events-none rounded-3xl transition-opacity duration-300"
+        className="absolute inset-0 pointer-events-none rounded-lg transition-opacity duration-300"
         style={{
           opacity: isHovered ? 1 : 0,
           border: '1px solid transparent',

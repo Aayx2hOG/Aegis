@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Layers3, Network, Cpu, ShieldCheck, TrendingUp, Activity } from 'lucide-react'
+import { Activity, ArrowRight, Cpu, Layers3, Network, Search, ShieldCheck, Swords, TrendingUp } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
@@ -12,20 +12,19 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
 import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
-import { Meteors } from '@/components/ui/meteors'
 import { Sparkles } from '@/components/ui/sparkles'
 
 // Simulated logs list for active ticker feed
 const SIMULATED_LOGS = [
-  'SCANNING: Solana liquidity pools (Raydium, Orca)...',
-  'OK: JitoSOL yield validated at 7.82% APR.',
-  'DETECTION: EVM bridge transaction queues clear.',
-  'WARNING: Aerodrome Base USDC pool concentration > 45%.',
-  'TELEMETRY: Subscribed to 7 active chain feeds.',
-  'SCANNING: Base network RPC latency stable at 38ms.',
-  'MONITOR: Portfolio stress index low (24/100).',
-  'DETECTION: Uniswap V3 Ethereum liquidity depth matches catalog.',
-  'SCANNING: Kamino lending rate delta verified.',
+  'Solana liquidity pools refreshed: Raydium, Orca.',
+  'JitoSOL yield reference checked at 7.82% APR.',
+  'EVM bridge queues currently within normal range.',
+  'Aerodrome Base USDC pool concentration above 45%.',
+  'Subscribed to 7 active chain feeds.',
+  'Base network RPC latency steady at 38ms.',
+  'Portfolio stress index low: 24/100.',
+  'Uniswap V3 Ethereum liquidity depth matched catalog.',
+  'Kamino lending rate delta verified.',
 ]
 
 function RadarScanner() {
@@ -57,8 +56,8 @@ function RadarScanner() {
         style={{ animationDuration: '6s' }}
       />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(7,11,19,0.9)_95%)] pointer-events-none" />
-      <span className="absolute bottom-1.5 left-0 right-0 text-center text-[7px] font-mono text-cyan-500/35 uppercase tracking-widest">
-        MONITOR STATE
+      <span className="absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-medium text-cyan-200/50">
+        Live coverage
       </span>
     </div>
   )
@@ -82,19 +81,19 @@ function ActiveTicker() {
   }, [])
 
   return (
-    <div className="console-panel rounded-md p-3 font-mono text-[10px] text-cyan-400 space-y-1 select-none border border-cyan-500/10 min-h-[92px] shadow-[inset_0_0_15px_rgba(0,0,0,0.85)] bg-zinc-950/90 w-full">
-      <div className="flex items-center justify-between border-b border-cyan-500/10 pb-1.5 mb-1.5">
-        <span className="font-bold flex items-center gap-1.5 tracking-wider uppercase">
-          <span className="h-1 w-1 bg-cyan-400 animate-ping rounded-full" />
-          AEGIS TELEMETRY GRID
+    <div className="console-panel w-full space-y-1 rounded-lg p-3 font-mono text-[11px] text-zinc-300">
+      <div className="mb-1.5 flex items-center justify-between border-b border-white/10 pb-1.5">
+        <span className="flex items-center gap-1.5 font-semibold text-zinc-100">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+          Recent checks
         </span>
-        <span className="text-zinc-550 uppercase text-[8px] tracking-widest font-black">SYS SCANNER</span>
+        <span className="text-[10px] font-medium text-zinc-500">auto-refresh</span>
       </div>
       <div className="space-y-1 text-left">
         {logs.map((log, idx) => (
           <div
             key={idx}
-            className="truncate tracking-wide opacity-90 first:opacity-100 first:text-white transition-opacity duration-300"
+            className="truncate opacity-80 transition-opacity duration-300 first:opacity-100 first:text-cyan-100"
           >
             {log}
           </div>
@@ -142,77 +141,78 @@ export function DashboardFeature() {
   )
 
   return (
-    <div className="mx-auto max-w-6xl space-y-12 py-6 cyber-grid min-h-screen px-2">
-      {/* Refined Hero Spotlight Area */}
+    <div className="aegis-shell cyber-grid min-h-screen">
       <SpotlightCard
-        spotlightColor="rgba(6, 182, 212, 0.04)"
-        borderColor="rgba(6, 182, 212, 0.2)"
-        className="relative overflow-hidden rounded-xl border border-cyan-500/15 bg-zinc-950/20 p-8 shadow-[0_24px_80px_rgba(0,0,0,0.8)] md:p-10 corner-decor"
+        spotlightColor="rgba(6, 182, 212, 0.055)"
+        borderColor="rgba(103, 232, 249, 0.22)"
+        className="aegis-panel relative p-6 md:p-8 lg:p-10"
       >
-        <Meteors number={15} />
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-8 flex flex-col gap-5 text-left">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/40 to-transparent" />
+        <div className="relative z-10 grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
+          <div className="flex flex-col gap-5 text-left lg:col-span-8">
             <Badge
               variant="outline"
-              className="w-fit gap-1.5 px-3 py-1 uppercase tracking-[0.2em] bg-cyan-950/30 text-cyan-400 border-cyan-500/20 text-[9px] font-orbitron font-bold"
+              className="aegis-kicker w-fit"
             >
-              <Layers3 className="h-3.5 w-3.5 text-cyan-400" />
-              Intelligence Terminal
+              <Layers3 className="h-3.5 w-3.5" />
+              Multichain research workspace
             </Badge>
 
             <div className="space-y-4">
-              <h1 className="text-3xl font-orbitron font-black uppercase tracking-wide text-white md:text-5xl leading-[1.12] drop-shadow-[0_0_15px_rgba(6,182,212,0.15)]">
-                Multichain DeFi research,{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-cyan-100 font-black">
-                  organized for decisions
-                </span>
-                .
+              <h1 className="aegis-heading max-w-4xl leading-[1.06]">
+                Research protocols, track risk, and rehearse market stress in one focused workspace.
               </h1>
-              <p className="max-w-xl text-xs sm:text-sm leading-relaxed text-zinc-400 font-medium">
-                Keep the active chain, threat watchlist, and research vectors in one workspace. Synthesize briefings or
-                stress-test mock scenarios directly from a secure command terminal.
+              <p className="aegis-muted max-w-2xl">
+                Aegis brings protocol briefs, watchlists, alert rules, and portfolio simulations into an analyst-grade
+                interface built for fast DeFi decisions across Solana and EVM networks.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-4">
+            <div className="flex flex-wrap gap-3 pt-2">
               <Button
                 asChild
-                className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 transition-all px-6 h-11 rounded-xs font-orbitron font-bold uppercase tracking-wider select-none cursor-pointer shadow-[0_0_12px_rgba(6,182,212,0.35)]"
+                className="aegis-button-primary h-11"
               >
-                <Link href="/research">Launch Research</Link>
+                <Link href="/research">
+                  <Search className="h-4 w-4" />
+                  Start research
+                </Link>
               </Button>
               <Button
                 asChild
-                className="border border-zinc-800 bg-zinc-900/40 text-zinc-350 hover:text-white hover:bg-zinc-800 transition-all px-6 h-11 rounded-xs font-orbitron font-bold uppercase tracking-wider select-none cursor-pointer"
+                className="aegis-button-secondary h-11"
               >
-                <Link href="/research/compare">⚔️ Compare Protocols</Link>
+                <Link href="/research/compare">
+                  <Swords className="h-4 w-4" />
+                  Compare protocols
+                </Link>
               </Button>
               <Button
                 asChild
-                className="border border-cyan-500/10 bg-cyan-500/5 text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition-all px-6 h-11 rounded-xs font-orbitron font-bold uppercase tracking-wider select-none cursor-pointer"
+                className="aegis-button-secondary h-11"
               >
-                <Link href="/war-room">Open War Room</Link>
+                <Link href="/war-room">
+                  Open war room
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </Button>
             </div>
           </div>
 
-          <div className="lg:col-span-4 flex flex-col items-center gap-6 border border-cyan-500/10 p-5 rounded-lg bg-zinc-950/40 shadow-inner">
+          <div className="flex flex-col items-center gap-5 rounded-lg border border-white/10 bg-white/[0.035] p-5 shadow-inner lg:col-span-4">
             <RadarScanner />
             <ActiveTicker />
           </div>
         </div>
       </SpotlightCard>
 
-      {/* Overview, Telemetry and Watchlist Grid (Bento Grid) */}
       <section className="space-y-6">
         <div className="flex flex-col gap-1 text-left">
-          <h2 className="text-lg font-orbitron font-bold text-white tracking-wider flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-cyan-500 animate-ping" />
-            Active Telemetry Feed
+          <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-white">
+            <span className="h-2 w-2 rounded-full bg-cyan-300" />
+            Workspace overview
           </h2>
-          <p className="text-xs text-zinc-500 font-medium">
-            Real-time state and threat items across multichain assets.
-          </p>
+          <p className="aegis-muted">Live state, watchlist coverage, and next actions across your active chains.</p>
         </div>
 
         <BentoGrid>
@@ -221,16 +221,16 @@ export function DashboardFeature() {
             title="Active Network State"
             description="Details of the network targeted by active research simulations."
             icon={<Network className="h-4 w-4 text-cyan-400" />}
-            className="md:col-span-1 border-cyan-500/10 bg-zinc-950/50 hover:border-cyan-500/30 transition-all corner-decor text-left"
+            className="md:col-span-1 text-left"
           >
             <div className="mt-4 flex flex-col justify-between h-[5.5rem]">
-              <p className="text-2xl font-orbitron font-black text-white tracking-widest uppercase glow-cyan">
+              <p className="text-2xl font-semibold tracking-tight text-white">
                 {activeChain.displayName}
               </p>
               <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-mono uppercase font-bold text-emerald-400 tracking-wider">
-                  RPC Network Connected
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                <span className="text-xs font-medium text-emerald-200">
+                  RPC connected
                 </span>
               </div>
             </div>
@@ -241,21 +241,19 @@ export function DashboardFeature() {
             title="Workspace Overview"
             description="Summary of active telemetry grids and watch parameters."
             icon={<Cpu className="h-4 w-4 text-cyan-400" />}
-            className="md:col-span-2 border-cyan-500/10 bg-zinc-950/50 hover:border-cyan-500/30 transition-all corner-decor text-left"
+            className="md:col-span-2 text-left"
           >
             <div className="mt-4 grid grid-cols-2 gap-4">
-              <div className="rounded-xs bg-zinc-950 border border-zinc-800/80 p-4 shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]">
-                <p className="text-[8px] font-mono font-bold uppercase tracking-wider text-zinc-550">Chain Coverage</p>
-                <p className="mt-1 text-xl font-orbitron font-bold text-cyan-400 font-black">
-                  {activeChainConnections.length || 1} LINKED
+              <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
+                <p className="text-xs font-medium text-zinc-500">Chain coverage</p>
+                <p className="mt-1 text-2xl font-semibold text-cyan-100">
+                  {activeChainConnections.length || 1}
                 </p>
               </div>
-              <div className="rounded-xs bg-zinc-950 border border-zinc-800/80 p-4 shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]">
-                <p className="text-[8px] font-mono font-bold uppercase tracking-wider text-zinc-550">
-                  Threat Watchlist
-                </p>
-                <p className="mt-1 text-xl font-orbitron font-bold text-cyan-400 font-black">
-                  {flattenedWatchlist.length} BUCKETS
+              <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
+                <p className="text-xs font-medium text-zinc-500">Watched protocols</p>
+                <p className="mt-1 text-2xl font-semibold text-cyan-100">
+                  {flattenedWatchlist.length}
                 </p>
               </div>
             </div>
@@ -263,27 +261,27 @@ export function DashboardFeature() {
 
           {/* Card 3: Recent Watchlist */}
           <BentoGridItem
-            title="Recent Watchlist Channels"
-            description="Top monitored entries and active threat triggers."
+            title="Recent Watchlist"
+            description="Top monitored entries across connected networks."
             icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />}
-            className="md:col-span-2 border-cyan-500/10 bg-zinc-950/50 hover:border-cyan-500/30 transition-all corner-decor text-left"
+            className="md:col-span-2 text-left"
           >
             <div className="mt-3">
               {flattenedWatchlist.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center space-y-3">
                   <ShieldCheck className="h-6 w-6 text-zinc-600 stroke-[1.5]" />
                   <div className="space-y-0.5">
-                    <p className="text-[11px] font-bold text-zinc-350 font-orbitron uppercase tracking-wider">
-                      Watchlist Buffer Empty
+                    <p className="text-sm font-semibold text-zinc-200">
+                      No watched protocols yet
                     </p>
-                    <p className="text-[9px] text-zinc-550 font-mono">
-                      No active protocol threat telemetry feeds currently monitored.
+                    <p className="text-xs text-zinc-500">
+                      Add protocols from Research to monitor market movement and alert rules.
                     </p>
                   </div>
                   <Button
                     asChild
                     size="sm"
-                    className="border border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-400 text-[9px] uppercase tracking-wider font-orbitron font-bold h-7 rounded-xs px-4"
+                    className="aegis-button-secondary h-8 px-4 text-xs"
                   >
                     <Link href="/research">Browse Research</Link>
                   </Button>
@@ -293,16 +291,16 @@ export function DashboardFeature() {
                   {recentWatchlist.map(({ slug, chains }) => (
                     <div
                       key={slug}
-                      className="group/item rounded-xs border border-zinc-850 bg-zinc-950/80 px-3.5 py-3 hover:border-cyan-500/30 hover:shadow-[0_0_10px_rgba(6,182,212,0.05)] transition-all text-left"
+                      className="group/item rounded-lg border border-white/10 bg-white/[0.035] px-3.5 py-3 text-left transition-all hover:border-cyan-300/25"
                     >
-                      <p className="font-mono text-xs font-bold capitalize text-white group-hover/item:text-cyan-400 transition-colors">
+                      <p className="text-sm font-semibold capitalize text-white transition-colors group-hover/item:text-cyan-100">
                         {slug}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {chains.slice(0, 1).map((chainType) => (
                           <span
                             key={`${slug}:${chainType}`}
-                            className={`rounded-xs px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider border ${
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium border ${
                               CHAIN_TONES[chainType] ?? 'bg-zinc-800 text-zinc-300 border-zinc-700'
                             }`}
                           >
@@ -322,23 +320,23 @@ export function DashboardFeature() {
             title="Risk Telemetry State"
             description="Active threat scanning metrics."
             icon={<Activity className="h-4 w-4 text-cyan-400" />}
-            className="md:col-span-1 border-cyan-500/10 bg-zinc-950/50 hover:border-cyan-500/30 transition-all corner-decor text-left"
+            className="md:col-span-1 text-left"
           >
             <div className="mt-4 flex flex-col justify-between h-[5.5rem]">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-orbitron font-black text-white">{flattenedWatchlist.length}</span>
-                <span className="text-[8px] text-zinc-500 font-mono font-black uppercase tracking-widest">
+                <span className="text-3xl font-semibold text-white">{flattenedWatchlist.length}</span>
+                <span className="text-xs font-medium text-zinc-500">
                   Active Channels
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-400 font-semibold tracking-wider uppercase">System state</span>
+                <span className="text-xs font-medium text-zinc-400">System state</span>
                 <Badge
                   variant="outline"
-                  className="gap-1 bg-cyan-950/20 text-cyan-400 border-cyan-500/20 font-orbitron font-bold text-[8px] uppercase tracking-widest px-2 py-0.5"
+                  className="gap-1 rounded-full border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-100"
                 >
-                  <TrendingUp className="h-3 w-3 animate-pulse" />
-                  Live Feed
+                  <TrendingUp className="h-3 w-3" />
+                  Live
                 </Badge>
               </div>
             </div>

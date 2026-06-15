@@ -39,48 +39,44 @@ export function AppHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-[100] border-b border-cyan-500/10 bg-zinc-950/85 backdrop-blur-md py-3.5 px-4 md:px-8 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+      <header className="sticky top-0 z-[100] border-b border-white/10 bg-zinc-950/75 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/20 md:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          {/* Left Side: Logo & Main Nav */}
           <div className="flex items-center gap-4 lg:gap-6 xl:gap-8">
             <Link
-              className="flex items-center gap-2.5 text-sm font-black tracking-tight text-white transition hover:text-zinc-200"
+              className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white transition hover:text-zinc-200"
               href="/"
             >
-              <div className="w-6 h-6 rounded-xs bg-cyan-500 text-zinc-950 flex items-center justify-center font-orbitron font-black text-sm select-none shadow-[0_0_10px_rgba(6,182,212,0.4)]">
+              <div className="flex h-8 w-8 select-none items-center justify-center rounded-lg border border-cyan-300/30 bg-cyan-300 text-sm font-black text-zinc-950 shadow-lg shadow-cyan-950/30">
                 Æ
               </div>
               <div className="flex flex-col">
-                <span className="hidden sm:inline font-orbitron font-black tracking-wide text-zinc-100 text-xs">
-                  AEGIS INTELLIGENCE
+                <span className="hidden text-sm font-bold tracking-tight text-zinc-100 sm:inline">
+                  Aegis
                 </span>
-                <span className="hidden sm:inline text-[9px] text-cyan-400 font-mono tracking-wider font-semibold">
-                  DEFI MONITOR
+                <span className="hidden text-[11px] font-medium text-zinc-500 sm:inline">
+                  DeFi intelligence
                 </span>
               </div>
             </Link>
 
-            {/* Pulsing Status Dot */}
-            <span className="hidden xl:flex items-center gap-1.5 rounded-xs border border-cyan-500/30 bg-cyan-500/5 px-2.5 py-0.5 text-[9px] font-orbitron font-bold uppercase tracking-widest text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.08)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              GRID ONLINE
+            <span className="hidden items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 xl:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+              Live data
             </span>
 
-           {/* Desktop Nav Links */}
             <nav className="hidden lg:block">
-              <ul className="flex items-center gap-3 xl:gap-6">
+              <ul className="flex items-center gap-1.5">
                 {mainNavLinks.map(({ label, path }) => (
                   <li key={path}>
                     <Link
-                      className={`relative text-[11px] font-orbitron font-bold uppercase tracking-wider transition-colors duration-200 py-1.5 whitespace-nowrap ${isLinkActive(path) ? 'text-white' : 'text-zinc-400 hover:text-cyan-400'
-                        }`}
+                      className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        isLinkActive(path)
+                          ? 'bg-white/[0.08] text-white'
+                          : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
+                      }`}
                       href={path}
                     >
                       {label}
-                      <span
-                        className={`absolute bottom-0 left-0 w-full h-[2px] bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] transition-all duration-300 origin-center ${isLinkActive(path) ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-50 pointer-events-none'
-                          }`}
-                      />
                     </Link>
                   </li>
                 ))}
@@ -88,33 +84,35 @@ export function AppHeader({
             </nav>
           </div>
 
-          {/* Right Side Controls */}
-          <div className="hidden lg:flex items-center gap-3 xl:gap-4 ml-4 lg:ml-8">
-            {/* Beginner Mode Toggle */}
+          <div className="ml-4 hidden items-center gap-3 lg:flex xl:gap-4">
             <button
               onClick={() => setBeginnerMode(!beginnerMode)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 mr-1 rounded-xs border transition-all duration-300 text-[9px] font-orbitron font-bold uppercase tracking-wider cursor-pointer ${beginnerMode
-                ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)] animate-pulse'
-                : 'bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
-                }`}
+              className={`mr-1 flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-300 ${
+                beginnerMode
+                  ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
+                  : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-white/15 hover:text-zinc-200'
+              }`}
               title="Toggle Beginner / Pro Mode"
             >
-              <span className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-700'}`} />
-              <span>{beginnerMode ? 'Beginner Mode' : 'Pro Mode'}</span>
+              <span
+                className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
+                  beginnerMode ? 'bg-cyan-200' : 'bg-zinc-600'
+                }`}
+              />
+              <span>{beginnerMode ? 'Beginner' : 'Pro'}</span>
             </button>
 
-            <div className="border-l border-zinc-800 h-5 my-auto mx-1" />
+            <div className="mx-1 my-auto h-5 border-l border-white/10" />
 
             <WalletButton />
             <ChainUiSelect />
             <ThemeSelect />
           </div>
 
-          {/* Mobile Menu Toggle */}
           <Button
             variant="ghost"
             size="icon"
-            className="border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800 hover:text-cyan-400 lg:hidden rounded-xs"
+            className="rounded-md border border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08] hover:text-white lg:hidden"
             onClick={() => setShowMenu(!showMenu)}
           >
             {showMenu ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -122,19 +120,19 @@ export function AppHeader({
         </div>
       </header>
 
-      {/* Mobile Drawer */}
       {showMenu && (
-        <div className="fixed inset-x-0 bottom-0 top-[57px] z-[100] bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 p-4 lg:hidden flex flex-col gap-6 overflow-y-auto">
+        <div className="fixed inset-x-0 bottom-0 top-[57px] z-[100] flex flex-col gap-6 overflow-y-auto border-t border-white/10 bg-zinc-950/95 p-4 backdrop-blur-xl lg:hidden">
           <div className="flex flex-col gap-6 shrink-0">
             <nav className="flex flex-col gap-3">
-              <p className="text-[10px] font-orbitron font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">
-                Navigation System
+              <p className="mb-1 text-xs font-semibold text-zinc-500">
+                Navigation
               </p>
               {mainNavLinks.map(({ label, path }) => (
                 <Link
                   key={path}
-                  className={`block py-2 text-sm font-orbitron font-semibold uppercase tracking-widest transition-colors ${isLinkActive(path) ? 'text-cyan-400' : 'text-zinc-400 hover:text-white'
-                    }`}
+                  className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                    isLinkActive(path) ? 'bg-white/[0.08] text-white' : 'text-zinc-400 hover:bg-white/[0.04] hover:text-white'
+                  }`}
                   href={path}
                   onClick={() => setShowMenu(false)}
                 >
@@ -146,7 +144,7 @@ export function AppHeader({
             <div className="h-[1px] bg-zinc-800" />
 
             <div className="flex flex-col gap-4">
-              <p className="text-[10px] font-orbitron font-bold uppercase tracking-[0.2em] text-zinc-500">
+              <p className="text-xs font-semibold text-zinc-500">
                 Identity & Settings
               </p>
               <div className="flex flex-col gap-3">
@@ -155,10 +153,9 @@ export function AppHeader({
                   <span className="text-xs text-zinc-500 uppercase font-semibold">Workspace:</span>
                   <button
                     onClick={() => setBeginnerMode(!beginnerMode)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xs border transition-all duration-300 text-[10px] font-orbitron font-bold uppercase tracking-wider ${beginnerMode
-                      ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
-                      : 'bg-zinc-900/40 border-zinc-800 text-zinc-500'
-                      }`}
+                    className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition-all duration-300 ${
+                      beginnerMode ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100' : 'border-white/10 bg-white/[0.03] text-zinc-400'
+                    }`}
                   >
                     <span className={`h-1.5 w-1.5 rounded-full ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-700'}`} />
                     <span>{beginnerMode ? 'Beginner' : 'Pro'}</span>
@@ -180,10 +177,10 @@ export function AppHeader({
           <div className="pb-4 mt-auto shrink-0">
             <Link
               href="/alerts?tab=channels"
-              className={`flex items-center justify-center gap-2 w-full py-3 rounded-xs border text-sm font-semibold transition-colors ${
+              className={`flex w-full items-center justify-center gap-2 rounded-md border py-3 text-sm font-semibold transition-colors ${
                 isBellActive
-                  ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
-                  : 'border-zinc-800 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-900 hover:text-cyan-400'
+                  ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
+                  : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08] hover:text-white'
               }`}
               onClick={() => setShowMenu(false)}
             >
