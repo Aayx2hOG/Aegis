@@ -39,7 +39,7 @@ export function AppHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-[100] border-b border-white/10 bg-zinc-950/82 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/25 md:px-8">
+      <header className="app-header sticky top-0 z-[100] border-b border-white/10 bg-zinc-950/82 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/25 md:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-4 lg:gap-6 xl:gap-8">
             <Link

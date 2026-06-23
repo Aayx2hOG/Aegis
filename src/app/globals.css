@@ -211,6 +211,7 @@
   /* Sub-pixel console panels */
   .console-panel {
     @apply border border-white/10 bg-zinc-950/75 relative overflow-hidden shadow-sm;
+    contain: layout paint style;
   }
 
   .aegis-shell {
@@ -219,10 +220,14 @@
 
   .aegis-panel {
     @apply rounded-lg border border-white/10 bg-zinc-950/65 shadow-xl shadow-black/25 backdrop-blur-md;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 420px;
   }
 
   .aegis-panel-soft {
     @apply rounded-lg border border-white/10 bg-white/[0.03] shadow-lg shadow-black/15 backdrop-blur-md;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 360px;
   }
 
   .aegis-kicker {
@@ -247,10 +252,13 @@
 
   .finance-surface {
     @apply rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] shadow-xl shadow-black/20 backdrop-blur-md;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 360px;
   }
 
   .finance-card {
     @apply rounded-md border border-white/10 bg-zinc-950/55 p-4 shadow-sm transition-colors hover:border-cyan-300/20 hover:bg-zinc-950/75;
+    contain: layout paint style;
   }
 
   .finance-label {
@@ -263,6 +271,59 @@
 
   .finance-subtle {
     @apply text-xs leading-relaxed text-zinc-500;
+  }
+
+  .market-backdrop {
+    z-index: 0;
+    opacity: 0.86;
+    mask-image: linear-gradient(to bottom, transparent, black 10%, black 78%, transparent);
+    contain: strict;
+  }
+
+  .market-backdrop-image {
+    background-image: url('/trading-chart-backdrop.svg');
+    background-position: center;
+    background-size: cover;
+    opacity: 0.78;
+    transform: translateZ(0);
+  }
+
+  .market-ticker {
+    transform: translateZ(0);
+  }
+
+  .app-atmosphere {
+    contain: strict;
+  }
+
+  .app-header {
+    transform: translateZ(0);
+  }
+
+  @media (max-width: 768px), (pointer: coarse) {
+    .app-atmosphere {
+      display: none;
+    }
+
+    .app-header {
+      backdrop-filter: none;
+    }
+
+    .market-backdrop {
+      position: absolute;
+      height: 100svh;
+      mask-image: none;
+    }
+
+    .market-backdrop-image {
+      opacity: 0.64;
+    }
+
+    .aegis-panel,
+    .aegis-panel-soft,
+    .finance-surface {
+      backdrop-filter: none;
+    }
   }
 
   /* Animated telemetry scanning bar */

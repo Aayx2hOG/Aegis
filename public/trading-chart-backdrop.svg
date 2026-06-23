@@ -1,0 +1,77 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="1000" fill="#030712"/>
+  <rect width="1600" height="1000" fill="url(#glow)"/>
+
+  <g opacity=".35" stroke="#1E293B">
+    <path d="M0 100H1600M0 200H1600M0 300H1600M0 400H1600M0 500H1600M0 600H1600M0 700H1600M0 800H1600M0 900H1600"/>
+    <path d="M100 0V1000M200 0V1000M300 0V1000M400 0V1000M500 0V1000M600 0V1000M700 0V1000M800 0V1000M900 0V1000M1000 0V1000M1100 0V1000M1200 0V1000M1300 0V1000M1400 0V1000M1500 0V1000"/>
+  </g>
+
+  <g opacity=".86" stroke-linecap="round">
+    <path d="M44 654C155 610 226 640 326 568C430 492 502 526 596 438C706 334 810 390 918 292C1018 202 1118 246 1218 174C1320 100 1420 122 1534 70" stroke="url(#lineA)" stroke-width="4"/>
+    <path d="M44 752C166 720 254 744 360 690C480 628 560 650 668 584C786 512 882 540 990 478C1112 410 1210 436 1316 378C1436 314 1504 328 1562 288" stroke="#8B5CF6" stroke-opacity=".34" stroke-width="2"/>
+    <path d="M44 824C180 798 300 814 420 774C556 728 658 742 786 690C932 632 1034 650 1166 596C1304 540 1420 552 1562 504" stroke="#FACC15" stroke-opacity=".25" stroke-width="2"/>
+  </g>
+
+  <g opacity=".42" stroke-width="2">
+    <path d="M96 870V782M158 870V748M220 870V806M282 870V720M344 870V766M406 870V690M468 870V732M530 870V650M592 870V704M654 870V624M716 870V668M778 870V590M840 870V640M902 870V552M964 870V602M1026 870V518M1088 870V568M1150 870V488M1212 870V540M1274 870V458M1336 870V512M1398 870V430M1460 870V492M1522 870V402" stroke="#22D3EE"/>
+    <path d="M127 870V820M251 870V790M375 870V816M499 870V756M623 870V804M747 870V728M871 870V768M995 870V700M1119 870V742M1243 870V662M1367 870V720M1491 870V618" stroke="#FB7185"/>
+  </g>
+
+  <g opacity=".82">
+    <g transform="translate(180 128)">
+      <circle cx="0" cy="0" r="48" fill="url(#btc)" stroke="#F59E0B" stroke-width="2"/>
+      <path d="M-12-24V24M10-24V24M-24-15H7C22-15 25 5 8 7H-24M-24 7H12C28 7 28 28 10 28H-24" stroke="#FFF7ED" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(345 218)">
+      <circle cx="0" cy="0" r="42" fill="url(#eth)" stroke="#A78BFA" stroke-width="2"/>
+      <path d="M0-29L22 4L0 17L-22 4L0-29Z" fill="#F8FAFC"/>
+      <path d="M0 22L22 9L0 33L-22 9L0 22Z" fill="#CBD5E1"/>
+    </g>
+    <g transform="translate(520 146)">
+      <circle cx="0" cy="0" r="44" fill="url(#sol)" stroke="#2DD4BF" stroke-width="2"/>
+      <path d="M-23-18H22L14-8H-31L-23-18ZM-14-5H31L23 5H-22L-14-5ZM-23 8H22L14 18H-31L-23 8Z" fill="#020617"/>
+      <path d="M-23-18H22L14-8H-31L-23-18ZM-14-5H31L23 5H-22L-14-5ZM-23 8H22L14 18H-31L-23 8Z" fill="url(#solBars)"/>
+    </g>
+    <g transform="translate(700 244)">
+      <circle cx="0" cy="0" r="38" fill="#08111F" stroke="#38BDF8" stroke-width="2"/>
+      <text x="0" y="10" text-anchor="middle" fill="#BAE6FD" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="800">USDC</text>
+    </g>
+  </g>
+
+  <g opacity=".62">
+    <rect x="1110" y="528" width="330" height="270" rx="16" fill="#020617" fill-opacity=".74" stroke="#164E63"/>
+    <text x="1136" y="570" fill="#67E8F9" font-family="ui-monospace,Menlo,monospace" font-size="18" font-weight="700">LIVE ORDER FLOW</text>
+    <g font-family="ui-monospace,Menlo,monospace" font-size="16">
+      <path d="M1138 616H1396" stroke="#7F1D1D" stroke-width="18" stroke-opacity=".55"/><text x="1138" y="621" fill="#FDA4AF">ASK 176.42</text><text x="1324" y="621" fill="#CBD5E1">42.8K</text>
+      <path d="M1138 656H1362" stroke="#7F1D1D" stroke-width="18" stroke-opacity=".42"/><text x="1138" y="661" fill="#FDA4AF">ASK 176.35</text><text x="1324" y="661" fill="#CBD5E1">31.2K</text>
+      <path d="M1138 706H1378" stroke="#0F766E" stroke-width="18" stroke-opacity=".46"/><text x="1138" y="711" fill="#99F6E4">BID 176.18</text><text x="1324" y="711" fill="#CBD5E1">36.6K</text>
+      <path d="M1138 746H1410" stroke="#0F766E" stroke-width="18" stroke-opacity=".58"/><text x="1138" y="751" fill="#99F6E4">BID 176.04</text><text x="1324" y="751" fill="#CBD5E1">51.7K</text>
+    </g>
+  </g>
+
+  <g opacity=".5" font-family="ui-monospace,Menlo,monospace" font-size="18" font-weight="700">
+    <text x="84" y="936" fill="#67E8F9">SOL +2.14</text>
+    <text x="274" y="936" fill="#FDA4AF">ETH -0.36</text>
+    <text x="464" y="936" fill="#FDE68A">BTC +1.08</text>
+    <text x="654" y="936" fill="#99F6E4">USDC FLOW 7.6M</text>
+  </g>
+
+  <rect width="1600" height="1000" fill="url(#fade)"/>
+
+  <defs>
+    <linearGradient id="lineA" x1="44" y1="654" x2="1534" y2="70" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9"/><stop offset=".5" stop-color="#2DD4BF"/><stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1040 250) rotate(135) scale(760 980)">
+      <stop stop-color="#0E7490" stop-opacity=".28"/><stop offset=".5" stop-color="#0F172A" stop-opacity=".16"/><stop offset="1" stop-color="#030712" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="btc" x1="-48" y1="-48" x2="48" y2="48"><stop stop-color="#FDE68A"/><stop offset="1" stop-color="#D97706"/></linearGradient>
+    <linearGradient id="eth" x1="-42" y1="-42" x2="42" y2="42"><stop stop-color="#64748B"/><stop offset="1" stop-color="#6D28D9"/></linearGradient>
+    <linearGradient id="sol" x1="-44" y1="-44" x2="44" y2="44"><stop stop-color="#020617"/><stop offset="1" stop-color="#111827"/></linearGradient>
+    <linearGradient id="solBars" x1="-31" y1="-18" x2="31" y2="18"><stop stop-color="#14F195"/><stop offset=".5" stop-color="#80ECFF"/><stop offset="1" stop-color="#9945FF"/></linearGradient>
+    <linearGradient id="fade" x1="800" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#030712" stop-opacity=".04"/><stop offset=".58" stop-color="#030712" stop-opacity="0"/><stop offset="1" stop-color="#030712" stop-opacity=".76"/>
+    </linearGradient>
+  </defs>
+</svg>
