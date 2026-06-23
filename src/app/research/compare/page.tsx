@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
+import { formatTokenUsd, formatUsd } from '@/lib/format/number'
 
 const EXCLUDED_CATEGORIES = new Set([
   'CEX',
@@ -400,9 +401,11 @@ function CompareContent() {
   }
 
   function usd(val: unknown) {
-    const num = Number(val)
-    if (!Number.isFinite(num) || num === 0) return 'Unavailable'
-    return `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    return formatUsd(val)
+  }
+
+  function tokenUsd(val: unknown) {
+    return formatTokenUsd(val)
   }
 
   function pct(val: unknown) {
@@ -547,7 +550,7 @@ function CompareContent() {
                 </div>
                 <div>
                   <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 block">Token Price</span>
-                  <span className="text-base font-bold text-cyan-400 mt-1 block">{usd(metrics.priceA)}</span>
+                  <span className="text-base font-bold text-cyan-400 mt-1 block">{tokenUsd(metrics.priceA)}</span>
                 </div>
               </div>
               <div className="mt-6">
@@ -582,7 +585,7 @@ function CompareContent() {
                 </div>
                 <div>
                   <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 block">Token Price</span>
-                  <span className="text-base font-bold text-cyan-400 mt-1 block">{usd(metrics.priceB)}</span>
+                  <span className="text-base font-bold text-cyan-400 mt-1 block">{tokenUsd(metrics.priceB)}</span>
                 </div>
               </div>
               <div className="mt-6">
@@ -788,8 +791,8 @@ function CompareContent() {
                 </TableRow>
                 <TableRow className="border-zinc-900 hover:bg-zinc-900/40">
                   <TableCell className="font-semibold text-zinc-400">Governance Token Valuation</TableCell>
-                  <TableCell className="font-semibold text-zinc-200">{usd(metrics.priceA)}</TableCell>
-                  <TableCell className="font-semibold text-zinc-200">{usd(metrics.priceB)}</TableCell>
+                  <TableCell className="font-semibold text-zinc-200">{tokenUsd(metrics.priceA)}</TableCell>
+                  <TableCell className="font-semibold text-zinc-200">{tokenUsd(metrics.priceB)}</TableCell>
                 </TableRow>
                 <TableRow className="border-zinc-900 hover:bg-zinc-900/40">
                   <TableCell className="font-semibold text-zinc-400">Token Market Cap</TableCell>

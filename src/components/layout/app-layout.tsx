@@ -20,7 +20,7 @@ export function AppLayout({
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-background text-zinc-100 selection:bg-cyan-300 selection:text-zinc-950">
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(6,182,212,0.12),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(16,185,129,0.08),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_34%)]" />
+        <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(90deg,rgba(6,182,212,0.045),transparent_22%,transparent_78%,rgba(16,185,129,0.035)),linear-gradient(180deg,rgba(255,255,255,0.035),transparent_32%)]" />
         <Suspense fallback={<div className="h-[60px] bg-zinc-950 border-b border-cyan-500/10" />}>
           <AppHeader links={links} utilityLinks={utilityLinks} />
         </Suspense>

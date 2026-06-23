@@ -169,6 +169,10 @@ function ResearchContent() {
     () => filteredProtocols.slice(0, visibleProtocols),
     [filteredProtocols, visibleProtocols],
   )
+  const catalogCategoryCount = useMemo(
+    () => new Set(supportedProtocols.map((protocol) => protocol.category)).size,
+    [supportedProtocols],
+  )
 
   useEffect(() => {
     setVisibleProtocols(INITIAL_VISIBLE_PROTOCOLS)
@@ -190,14 +194,12 @@ function ResearchContent() {
       return
     }
     const rawLogs = [
-      `Initializing secure Aegis node proxy for ${activeChain.displayName.toUpperCase()}...`,
-      `[NODE] Handshake complete. Resolving RPC feeds...`,
-      `[FEED] Fetching historical TVL metrics via DeFiLlama proxy...`,
-      `[INTEL] Analyzing smart contract risk footprint...`,
-      `[AI-AGENT] Scanning on-chain liquidity depth and slippage parameters...`,
-      `[AI-AGENT] Resolving recent security incidents and audits...`,
-      `[AI-AGENT] Synthesizing dossier metrics into markdown report...`,
-      `[SYSTEM] Structuring research brief. Outputting classification card...`,
+      `Preparing ${activeChain.displayName} protocol brief...`,
+      `[CATALOG] Resolving protocol metadata and chain context...`,
+      `[MARKET] Fetching TVL, price, and recent movement data...`,
+      `[RISK] Checking liquidity, concentration, and available market coverage...`,
+      `[AGENT] Synthesizing sourced metrics into a research brief...`,
+      `[OUTPUT] Formatting the report for review and follow-up actions...`,
     ]
 
     setSimulatedLogs([`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] ${rawLogs[0]}`])
@@ -410,7 +412,7 @@ function ResearchContent() {
         </div>
       )}
 
-      <section className="aegis-panel relative p-5 text-left md:p-6">
+      <section className="finance-surface relative p-5 text-left md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
             <div className="aegis-kicker">
@@ -425,15 +427,25 @@ function ResearchContent() {
               DeFi-relevant categories.
             </p>
           </div>
-          <div className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs text-zinc-400">
-            <p className="font-medium text-zinc-500">Catalog status</p>
-            <p className="mt-0.5 font-semibold text-cyan-100">
-              {protocolsLoading ? 'Refreshing metrics' : 'Synchronized'}
-            </p>
+          <div className="grid min-w-full gap-3 sm:grid-cols-3 md:min-w-[26rem]">
+            <div className="finance-card p-3">
+              <p className="finance-label">Status</p>
+              <p className="mt-1 text-sm font-semibold text-cyan-100">
+                {protocolsLoading ? 'Refreshing' : 'Synchronized'}
+              </p>
+            </div>
+            <div className="finance-card p-3">
+              <p className="finance-label">Categories</p>
+              <p className="mt-1 text-sm font-semibold text-white">{catalogCategoryCount}</p>
+            </div>
+            <div className="finance-card p-3">
+              <p className="finance-label">Visible</p>
+              <p className="mt-1 text-sm font-semibold text-white">{filteredProtocols.length}</p>
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.035] p-4">
+        <div className="mt-6 rounded-md border border-white/10 bg-zinc-950/55 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
             <div>
               <p className="text-sm font-semibold text-zinc-200">Search protocols</p>
@@ -454,7 +466,7 @@ function ResearchContent() {
           </div>
         </div>
 
-        <div className="mt-6 max-h-[28rem] overflow-auto rounded-lg border border-white/10 bg-zinc-950/25 p-4 scrollbar-thin">
+        <div className="mt-6 max-h-[28rem] overflow-auto rounded-md border border-white/10 bg-zinc-950/35 p-4 scrollbar-thin">
           <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-500">
             <span>
               Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length} protocols

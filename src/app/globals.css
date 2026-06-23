@@ -121,6 +121,9 @@
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeSpeed;
+    background:
+      linear-gradient(180deg, rgba(3, 7, 18, 0.98), rgba(6, 11, 20, 0.96) 38%, rgba(3, 7, 18, 1)),
+      linear-gradient(90deg, rgba(6, 182, 212, 0.045), transparent 24%, rgba(16, 185, 129, 0.035) 78%, transparent);
     @apply bg-background text-foreground font-sans tracking-normal;
   }
 
@@ -157,10 +160,10 @@
 @layer utilities {
   /* Cyber Grid Background overlay */
   .cyber-grid {
-    background-size: 36px 36px;
+    background-size: 44px 44px;
     background-image:
-      linear-gradient(to right, rgba(148, 163, 184, 0.035) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
+      linear-gradient(to right, rgba(148, 163, 184, 0.026) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.024) 1px, transparent 1px);
   }
 
   /* Scanline overlay animation */
@@ -207,23 +210,23 @@
 
   /* Sub-pixel console panels */
   .console-panel {
-    @apply border border-white/10 bg-zinc-950/70 relative overflow-hidden shadow-sm;
+    @apply border border-white/10 bg-zinc-950/75 relative overflow-hidden shadow-sm;
   }
 
   .aegis-shell {
-    @apply mx-auto w-full max-w-6xl space-y-8 px-2 py-6;
+    @apply mx-auto w-full max-w-6xl space-y-7 px-2 py-6;
   }
 
   .aegis-panel {
-    @apply rounded-lg border border-white/10 bg-zinc-950/55 shadow-xl shadow-black/20 backdrop-blur-md;
+    @apply rounded-lg border border-white/10 bg-zinc-950/65 shadow-xl shadow-black/25 backdrop-blur-md;
   }
 
   .aegis-panel-soft {
-    @apply rounded-lg border border-white/10 bg-white/[0.035] shadow-lg shadow-black/15 backdrop-blur-md;
+    @apply rounded-lg border border-white/10 bg-white/[0.03] shadow-lg shadow-black/15 backdrop-blur-md;
   }
 
   .aegis-kicker {
-    @apply inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold text-cyan-200;
+    @apply inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold text-cyan-100;
   }
 
   .aegis-heading {
@@ -240,6 +243,26 @@
 
   .aegis-button-secondary {
     @apply rounded-md border border-white/10 bg-white/[0.04] px-5 font-semibold text-zinc-200 hover:bg-white/[0.08] hover:text-white;
+  }
+
+  .finance-surface {
+    @apply rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] shadow-xl shadow-black/20 backdrop-blur-md;
+  }
+
+  .finance-card {
+    @apply rounded-md border border-white/10 bg-zinc-950/55 p-4 shadow-sm transition-colors hover:border-cyan-300/20 hover:bg-zinc-950/75;
+  }
+
+  .finance-label {
+    @apply font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500;
+  }
+
+  .finance-value {
+    @apply mt-2 text-2xl font-semibold tracking-tight text-white;
+  }
+
+  .finance-subtle {
+    @apply text-xs leading-relaxed text-zinc-500;
   }
 
   /* Animated telemetry scanning bar */

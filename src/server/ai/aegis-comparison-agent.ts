@@ -4,6 +4,7 @@ import { ChainType } from '@/lib/chain/types'
 import { TOOLS, executeTool } from './aegis-tools'
 import { COMPARISON_SYSTEM_PROMPT as COMP_PROMPT } from './aegis-prompts'
 import type { ResearchBrief } from '@/lib/types'
+import { formatTokenUsd, formatUsd } from '@/lib/format/number'
 
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY
@@ -45,9 +46,7 @@ function buildChainLabel(chainType?: ChainType): string {
 }
 
 function usd(value: unknown): string {
-  const num = Number(value)
-  if (!Number.isFinite(num)) return 'Unavailable'
-  return `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  return formatUsd(value)
 }
 
 function formatPct(value: unknown, fallbackText = 'Unavailable'): string {
@@ -135,7 +134,7 @@ function buildFallbackComparisonBrief(
     `| TVL | ${usd(tvlA.tvl)} | ${usd(tvlB.tvl)} |`,
     `| 24h TVL Change | ${formatPct(tvlA.change1d)} | ${formatPct(tvlB.change1d)} |`,
     `| 7d TVL Change | ${formatPct(tvlA.change7d)} | ${formatPct(tvlB.change7d)} |`,
-    `| Token Price | ${usd(resolvedPriceA)} | ${usd(resolvedPriceB)} |`,
+    `| Token Price | ${formatTokenUsd(resolvedPriceA)} | ${formatTokenUsd(resolvedPriceB)} |`,
     `| Market Cap | ${usd(resolvedMcapA)} | ${usd(resolvedMcapB)} |`,
     '',
     '### Yields & Economic Design',

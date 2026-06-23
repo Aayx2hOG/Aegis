@@ -12,44 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
 import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
-import { Sparkles } from '@/components/ui/sparkles'
 import { PrimaryWorkflow } from '@/components/workflow/primary-workflow'
-
-function RadarScanner() {
-  return (
-    <div className="relative w-40 h-40 mx-auto border border-cyan-500/20 rounded-full flex items-center justify-center bg-zinc-950/80 shadow-[0_0_15px_rgba(6,182,212,0.1)] overflow-hidden shrink-0">
-      <Sparkles id="radar-sparkles" particleDensity={30} minSize={0.4} maxSize={1.2} particleColor="#06b6d4" className="opacity-30" />
-      {/* Concentric circles */}
-      <div className="absolute w-32 h-32 border border-cyan-500/10 rounded-full" />
-      <div className="absolute w-20 h-20 border border-cyan-500/15 rounded-full" />
-      <div className="absolute w-10 h-10 border border-cyan-500/20 rounded-full" />
-
-      {/* Crosshairs */}
-      <div className="absolute w-full h-[1px] bg-cyan-500/10" />
-      <div className="absolute h-full w-[1px] bg-cyan-500/10" />
-
-      {/* Blinking Targets */}
-      <span className="absolute top-10 left-8 w-2 h-2 rounded-full bg-emerald-500 animate-ping duration-1000" />
-      <span className="absolute top-10 left-8 w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-
-      <span className="absolute bottom-12 right-12 w-2 h-2 rounded-full bg-cyan-500 animate-ping duration-700" />
-      <span className="absolute bottom-12 right-12 w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#06b6d4]" />
-
-      <span className="absolute top-20 right-10 w-2 h-2 rounded-full bg-amber-500 animate-ping duration-1500" />
-      <span className="absolute top-20 right-10 w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
-
-      {/* Sweep line */}
-      <div
-        className="absolute inset-0 origin-center bg-[conic-gradient(from_0deg,rgba(6,182,212,0.15)_0deg,transparent_90deg)] rounded-full animate-spin"
-        style={{ animationDuration: '6s' }}
-      />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,rgba(7,11,19,0.9)_95%)] pointer-events-none" />
-      <span className="absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-medium text-cyan-200/50">
-        Live coverage
-      </span>
-    </div>
-  )
-}
 
 function WorkspaceSnapshot({
   chainCoverage,
@@ -62,33 +25,39 @@ function WorkspaceSnapshot({
   connected: boolean
   activeChainName: string
 }) {
-  const statusRows = [
-    ['Active network', activeChainName],
-    ['Tracked chains', String(chainCoverage)],
-    ['Watched protocols', String(watchedProtocols)],
-    ['Wallet session', connected ? 'connected' : 'guest'],
+  const stats = [
+    { label: 'Network', value: activeChainName },
+    { label: 'Tracked chains', value: String(chainCoverage) },
+    { label: 'Watchlist', value: String(watchedProtocols) },
+    { label: 'Session', value: connected ? 'Connected' : 'Guest' },
   ]
 
   return (
-    <div className="console-panel w-full space-y-2 rounded-lg p-3 font-mono text-[11px] text-zinc-300">
-      <div className="mb-1.5 flex items-center justify-between border-b border-white/10 pb-1.5">
-        <span className="flex items-center gap-1.5 font-semibold text-zinc-100">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-          Workspace state
+    <div className="finance-surface w-full p-4">
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
+        <div>
+          <p className="finance-label text-cyan-300">Command center</p>
+          <p className="mt-1 text-sm font-semibold text-white">Live workspace state</p>
+        </div>
+        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-200">
+          Synced
         </span>
-        <span className="text-[10px] font-medium text-zinc-500">live app data</span>
       </div>
-      <div className="grid gap-1.5 text-left">
-        {statusRows.map(([label, value]) => (
-          <div
-            key={label}
-            className="flex items-center justify-between gap-3 rounded border border-white/5 bg-white/[0.025] px-2 py-1"
-          >
-            <span className="text-zinc-500">{label}</span>
-            <span className="truncate font-semibold text-cyan-100">{value}</span>
+      <div className="mt-4 grid gap-3">
+        {stats.map((stat) => (
+          <div key={stat.label} className="flex items-center justify-between gap-4 rounded-md border border-white/10 bg-zinc-950/55 px-3 py-2">
+            <span className="text-xs text-zinc-500">{stat.label}</span>
+            <span className="truncate text-sm font-semibold text-zinc-100">{stat.value}</span>
           </div>
         ))}
       </div>
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-900">
+        <div
+          className="h-full rounded-full bg-cyan-300"
+          style={{ width: `${Math.min(100, Math.max(12, watchedProtocols * 12))}%` }}
+        />
+      </div>
+      <p className="mt-2 text-[11px] text-zinc-500">Coverage expands as protocols are added to the watchlist.</p>
     </div>
   )
 }
@@ -189,8 +158,7 @@ export function DashboardFeature() {
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-5 rounded-lg border border-white/10 bg-white/[0.035] p-5 shadow-inner lg:col-span-4">
-            <RadarScanner />
+          <div className="lg:col-span-4">
             <WorkspaceSnapshot
               chainCoverage={activeChainConnections.length || 1}
               watchedProtocols={flattenedWatchlist.length}

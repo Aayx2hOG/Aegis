@@ -4,6 +4,7 @@ import { ChainType } from '@/lib/chain/types'
 import { TOOLS, executeTool } from './aegis-tools'
 import { SYSTEM_PROMPT } from './aegis-prompts'
 import type { ResearchBrief } from '@/lib/types'
+import { formatTokenUsd, formatUsd } from '@/lib/format/number'
 
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY
@@ -33,9 +34,7 @@ function summarizeValue(value: unknown): string {
 }
 
 function usd(value: unknown): string {
-  const num = Number(value)
-  if (!Number.isFinite(num)) return 'Unavailable'
-  return `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  return formatUsd(value)
 }
 
 
@@ -163,7 +162,7 @@ async function buildFallbackBrief(
     `| TVL | ${usd(t.tvl)} |`,
     `| 24h TVL Change | ${formatPct(t.change1d, 'Not available from the current DeFiLlama history')} |`,
     `| 7d TVL Change | ${formatPct(t.change7d, 'Not available from the current DeFiLlama history')} |`,
-    `| Token Price | ${usd(resolvedPrice)} |`,
+    `| Token Price | ${formatTokenUsd(resolvedPrice)} |`,
     `| 24h Price Change | ${formatPct(resolvedPriceChange, priceNote)} |`,
     `| 24h Volume | ${usd(resolvedVolume)} |`,
     `| Market Cap | ${usd(resolvedMarketCap)} |`,

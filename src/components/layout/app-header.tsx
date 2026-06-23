@@ -39,14 +39,14 @@ export function AppHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-[100] border-b border-white/10 bg-zinc-950/75 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/20 md:px-8">
+      <header className="sticky top-0 z-[100] border-b border-white/10 bg-zinc-950/82 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/25 md:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-4 lg:gap-6 xl:gap-8">
             <Link
               className="flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white transition hover:text-zinc-200"
               href="/"
             >
-              <div className="flex h-8 w-8 select-none items-center justify-center rounded-lg border border-cyan-300/30 bg-cyan-300 text-sm font-black text-zinc-950 shadow-lg shadow-cyan-950/30">
+              <div className="flex h-8 w-8 select-none items-center justify-center rounded-md border border-cyan-200/40 bg-cyan-300 text-sm font-black text-zinc-950 shadow-lg shadow-cyan-950/25">
                 Æ
               </div>
               <div className="flex flex-col">
@@ -69,14 +69,17 @@ export function AppHeader({
                 {mainNavLinks.map(({ label, path }) => (
                   <li key={path}>
                     <Link
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      className={`relative flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                         isLinkActive(path)
-                          ? 'bg-white/[0.08] text-white'
+                          ? 'bg-white/[0.08] text-white shadow-inner shadow-white/[0.02]'
                           : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
                       }`}
                       href={path}
                     >
                       {label}
+                      {isLinkActive(path) && (
+                        <span className="absolute inset-x-3 -bottom-[13px] h-px bg-cyan-300/70 shadow-[0_0_8px_rgba(103,232,249,0.45)]" />
+                      )}
                     </Link>
                   </li>
                 ))}

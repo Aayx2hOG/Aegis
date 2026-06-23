@@ -34,14 +34,11 @@ import { beginnerModeAtom } from '@/lib/store/research-store'
 import { DeFiTooltip, BeginnerOnboardingCard } from '@/components/ui/defi-helper'
 import { Meteors } from '@/components/ui/meteors'
 import { Sparkles } from '@/components/ui/sparkles'
+import { formatTokenUsd } from '@/lib/format/number'
 
 function formatPrice(value: number | null | undefined) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 'unavailable'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: value >= 100 ? 2 : 4,
-  }).format(value)
+  return formatTokenUsd(value)
 }
 
 type LocalMitigationAction = {

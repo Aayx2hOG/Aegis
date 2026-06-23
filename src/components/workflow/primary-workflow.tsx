@@ -40,10 +40,10 @@ const WORKFLOW_STEPS = [
 
 export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
   return (
-    <section className="rounded-lg border border-cyan-500/10 bg-zinc-950/50 p-4 text-left shadow-xl md:p-5">
+    <section className="finance-surface p-4 text-left md:p-5">
       <div className="flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-[10px] font-orbitron font-bold uppercase tracking-[0.22em] text-cyan-400">
+          <p className="finance-label text-cyan-300">
             Primary workflow
           </p>
           <h2 className="mt-1 text-lg font-semibold text-white">
@@ -62,13 +62,18 @@ export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
             <Link
               key={step.title}
               href={step.href}
-              className="group rounded-md border border-white/10 bg-white/[0.025] p-3 transition-colors hover:border-cyan-300/25 hover:bg-cyan-300/[0.04]"
+              className="group relative rounded-md border border-white/10 bg-zinc-950/55 p-3 transition-colors hover:border-cyan-300/25 hover:bg-zinc-950/80"
             >
+              {index < WORKFLOW_STEPS.length - 1 && (
+                <span className="pointer-events-none absolute -right-3 top-6 hidden h-px w-3 bg-white/10 lg:block" />
+              )}
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-cyan-500/15 bg-cyan-500/10 text-cyan-300">
                   <Icon className="h-3.5 w-3.5" />
                 </span>
-                <span className="font-mono text-[10px] font-bold text-zinc-600">0{index + 1}</span>
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-500">
+                  0{index + 1}
+                </span>
               </div>
               <p className="mt-3 text-sm font-semibold text-white group-hover:text-cyan-100">{step.title}</p>
               <p className="mt-1 text-xs leading-relaxed text-zinc-500">{step.body}</p>
