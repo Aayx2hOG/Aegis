@@ -20,6 +20,7 @@ import type { SolanaProtocol } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { PrimaryWorkflow } from '@/components/workflow/primary-workflow'
 
 import { TracingBeam } from '@/components/ui/tracing-beam'
 
@@ -303,6 +304,8 @@ function ResearchContent() {
           </p>
         </div>
       </header>
+
+      <PrimaryWorkflow compact />
 
       {/* Results (Dossier Mode) */}
       {brief && !loading && (

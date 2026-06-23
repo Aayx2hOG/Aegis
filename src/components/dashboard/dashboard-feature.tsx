@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
 import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
 import { Sparkles } from '@/components/ui/sparkles'
+import { PrimaryWorkflow } from '@/components/workflow/primary-workflow'
 
 function RadarScanner() {
   return (
@@ -199,6 +200,8 @@ export function DashboardFeature() {
           </div>
         </div>
       </SpotlightCard>
+
+      <PrimaryWorkflow />
 
       <section className="space-y-6">
         <div className="flex flex-col gap-1 text-left">
