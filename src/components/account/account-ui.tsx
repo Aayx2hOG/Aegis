@@ -28,7 +28,7 @@ export function AccountBalance({ address }: { address: PublicKey }) {
 
   return (
     <h1 className="text-5xl font-bold cursor-pointer" onClick={() => query.refetch()}>
-      {query.data ? <BalanceSol balance={query.data} /> : '...'} SOL
+      {typeof query.data === 'number' ? <BalanceSol balance={query.data} /> : '...'} SOL
     </h1>
   )
 }
@@ -49,7 +49,7 @@ export function AccountBalanceCheck({ address }: { address: PublicKey }) {
   if (query.isLoading) {
     return null
   }
-  if (query.isError || !query.data) {
+  if (query.isError || query.data == null) {
     return (
       <AppAlert
         action={

@@ -124,6 +124,11 @@ function getCategoryTone(category: string) {
   return 'border-rose-500/35 bg-rose-500/5 text-rose-400'
 }
 
+async function readApiError(res: Response, fallback: string) {
+  const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+  return typeof body?.error === 'string' ? body.error : fallback
+}
+
 export default function ResearchPage() {
   return (
     <Suspense
@@ -228,7 +233,7 @@ function ResearchContent() {
           walletAddress: wallet.publicKey?.toBase58(),
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) throw new Error(await readApiError(res, 'Research request failed.'))
       const data: ResearchBrief = await res.json()
       setBrief(data)
       setAgentState({
@@ -244,7 +249,7 @@ function ResearchContent() {
         error: null,
       })
     } catch (err) {
-      const msg = String(err)
+      const msg = err instanceof Error ? err.message : String(err)
       setError(msg)
       setAgentState({ status: 'error', currentTool: null, toolCalls: [], error: msg })
     } finally {

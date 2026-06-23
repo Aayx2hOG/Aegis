@@ -250,34 +250,34 @@ const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
   PRICE_USD: 'Token Price',
 }
 
-function AlertTelemetryScanner() {
-  const [logs, setLogs] = useState<string[]>([
-    'Sentinel telemetry initialization...',
-    'Establishing secure dispatch links...',
-  ])
-
-  useEffect(() => {
-    const diagnosticMsgs = [
-      'SENTINEL: Port 8443 listener active.',
-      'OK: Discord webhook endpoint validated.',
-      'OK: Telegram bot token handshake stable.',
-      'MONITOR: Active rule count sync verified.',
-      'OK: Server-Sent Events stream connected.',
-      'TELEMETRY: Queue monitors running (Prisma/Redis).',
-      'MONITOR: Signal evaluator latency: 12ms.',
-    ]
-    const interval = setInterval(() => {
-      const msg = diagnosticMsgs[Math.floor(Math.random() * diagnosticMsgs.length)]
-      const time = new Date().toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      })
-      setLogs((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 2)])
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
+function AlertTelemetryScanner({
+  rules,
+  events,
+  historyCount,
+  storageMode,
+  loading,
+  dbStatus,
+}: {
+  rules: AlertRuleItem[]
+  events: AlertEventItem[]
+  historyCount: number
+  storageMode: 'database' | 'local' | 'loading'
+  loading: boolean
+  dbStatus: string | null
+}) {
+  const enabledRules = rules.filter((rule) => rule.enabled).length
+  const latestEvent = events[0]
+  const latestEventLabel = latestEvent
+    ? `${latestEvent.protocolSlug} ${new Date(latestEvent.triggeredAt).toLocaleDateString()}`
+    : 'none'
+  const statusRows = [
+    ['Saved rules', String(rules.length)],
+    ['Enabled rules', String(enabledRules)],
+    ['Recent events', String(events.length)],
+    ['Research runs', String(historyCount)],
+    ['Storage', storageMode],
+    ['Latest event', latestEventLabel],
+  ]
 
   return (
     <div className="relative overflow-hidden rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md flex flex-col sm:flex-row items-center gap-4">
@@ -312,21 +312,25 @@ function AlertTelemetryScanner() {
       <div className="flex-1 w-full min-h-[92px] rounded-xs bg-zinc-950/80 border border-zinc-900/60 p-3 shadow-[inset_0_0_10px_rgba(0,0,0,0.85)] font-mono text-[10px] text-cyan-400 flex flex-col justify-between z-10">
         <div className="flex items-center justify-between border-b border-cyan-500/10 pb-1.5 mb-1.5 select-none">
           <span className="font-bold flex items-center gap-1 uppercase tracking-wider">
-            <span className="h-1 w-1 bg-cyan-400 animate-ping rounded-full" />
-            SENTINEL SIGNAL DISPATCH
+            <span className={`h-1.5 w-1.5 rounded-full ${dbStatus ? 'bg-amber-400' : 'bg-cyan-400'}`} />
+            ALERT OPERATIONS
           </span>
-          <span className="text-zinc-550 uppercase text-[7px] tracking-widest font-bold">STATE: ONLINE</span>
+          <span className="text-zinc-550 uppercase text-[7px] tracking-widest font-bold">
+            {loading ? 'STATE: LOADING' : dbStatus ? 'STATE: DEGRADED' : 'STATE: READY'}
+          </span>
         </div>
-        <div className="space-y-1 text-left">
-          {logs.map((log, idx) => (
+        <div className="grid gap-1 text-left sm:grid-cols-2">
+          {statusRows.map(([label, value]) => (
             <div
-              key={idx}
-              className="truncate tracking-wide opacity-90 first:opacity-100 first:text-white transition-opacity duration-300"
+              key={label}
+              className="flex items-center justify-between gap-2 rounded border border-cyan-500/5 bg-white/[0.02] px-2 py-1 tracking-wide"
             >
-              {log}
+              <span className="text-zinc-500">{label}</span>
+              <span className="truncate text-white">{value}</span>
             </div>
           ))}
         </div>
+        {dbStatus && <p className="mt-2 truncate text-[10px] text-amber-300">{dbStatus}</p>}
       </div>
     </div>
   )
@@ -475,7 +479,7 @@ function AlertsContent() {
   const [events, setEvents] = useState<AlertEventItem[]>([])
   const [testResults, setTestResults] = useState<AlertTestResultItem[]>([])
   const [evaluationResults, setEvaluationResults] = useState<AlertEvaluationResultItem[]>([])
-  const [, setDbStatus] = useState<string | null>(null)
+  const [dbStatus, setDbStatus] = useState<string | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [alertsLoading, setAlertsLoading] = useState(false)
   const [alertProtocolSlug, setAlertProtocolSlug] = useState('')
@@ -1458,7 +1462,14 @@ function AlertsContent() {
                   {/* Brief history & triggers */}
                   <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-6 shadow-2xl">
                     {/* Telemetry sweep visual */}
-                    <AlertTelemetryScanner />
+                    <AlertTelemetryScanner
+                      rules={rules}
+                      events={events}
+                      historyCount={history.length}
+                      storageMode={alertStorageMode}
+                      loading={alertsLoading || historyLoading}
+                      dbStatus={dbStatus}
+                    />
 
                     {/* Research history Timeline */}
                     <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">

@@ -80,14 +80,16 @@ const DEFAULT_MULTICHAIN_POSITIONS: ChainPortfolioPosition[] = [
   },
 ]
 
+type PortfolioInputSource = 'empty' | 'demo' | 'watchlist' | 'protocol' | 'manual'
+
 const NATIVE_ASSETS_BY_CHAIN: Record<ChainType, { symbol: string; priceUsd: number }> = {
-  [ChainType.Solana]: { symbol: 'SOL', priceUsd: 150 },
-  [ChainType.Ethereum]: { symbol: 'ETH', priceUsd: 3500 },
-  [ChainType.Arbitrum]: { symbol: 'ETH', priceUsd: 3500 },
-  [ChainType.Optimism]: { symbol: 'ETH', priceUsd: 3500 },
-  [ChainType.Base]: { symbol: 'ETH', priceUsd: 3500 },
-  [ChainType.Polygon]: { symbol: 'MATIC', priceUsd: 0.7 },
-  [ChainType.Cosmos]: { symbol: 'ATOM', priceUsd: 7 },
+  [ChainType.Solana]: { symbol: 'SOL', priceUsd: 0 },
+  [ChainType.Ethereum]: { symbol: 'ETH', priceUsd: 0 },
+  [ChainType.Arbitrum]: { symbol: 'ETH', priceUsd: 0 },
+  [ChainType.Optimism]: { symbol: 'ETH', priceUsd: 0 },
+  [ChainType.Base]: { symbol: 'ETH', priceUsd: 0 },
+  [ChainType.Polygon]: { symbol: 'MATIC', priceUsd: 0 },
+  [ChainType.Cosmos]: { symbol: 'ATOM', priceUsd: 0 },
 }
 
 const CHAIN_BY_NATIVE_SYMBOL = Object.entries(NATIVE_ASSETS_BY_CHAIN).reduce<Record<string, ChainType[]>>(
@@ -830,7 +832,8 @@ function WarRoomContent() {
   const [isImportingWatchlist, setIsImportingWatchlist] = useState(false)
 
   // Multichain states
-  const [multichainPositions, setMultichainPositions] = useState<ChainPortfolioPosition[]>(DEFAULT_MULTICHAIN_POSITIONS)
+  const [multichainPositions, setMultichainPositions] = useState<ChainPortfolioPosition[]>([])
+  const [portfolioInputSource, setPortfolioInputSource] = useState<PortfolioInputSource>('empty')
   const [selectedMultichainScenarioIdx, setSelectedMultichainScenarioIdx] = useState(0)
 
   // Custom Scenario state
@@ -880,8 +883,9 @@ function WarRoomContent() {
 
         const price = positions[0].usdValue
         setMultichainPositions(positions)
+        setPortfolioInputSource('protocol')
         setMultichainImportStatus(
-          `Successfully loaded ${protocolSlug.toUpperCase()} deployments across ${positions.length} network(s). Live Unit Price: $${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}.`,
+          `Loaded a ${protocolSlug.toUpperCase()} scenario template across ${positions.length} network(s). Unit price: $${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}. Enter your actual balances before treating this as your portfolio.`,
         )
       } catch (err) {
         if (!active) return
@@ -943,9 +947,10 @@ function WarRoomContent() {
         })
         return existing
       })
+      setPortfolioInputSource('watchlist')
       setMultichainResult(null)
       setMultichainImportStatus(
-        `Watchlist import complete. Imported ${importedCount} protocols (${allNewPositions.length} positions total).${failedCount > 0 ? ` Failed: ${failedCount}.` : ''}`,
+        `Watchlist import complete. Imported ${importedCount} protocols (${allNewPositions.length} scenario positions total). Enter your actual balances before treating this as your portfolio.${failedCount > 0 ? ` Failed: ${failedCount}.` : ''}`,
       )
     } else {
       setMultichainImportStatus(`Watchlist import failed. Could not resolve any watchlisted protocols.`)
@@ -1022,7 +1027,7 @@ function WarRoomContent() {
     liquidityScore: 80,
   })
   const [newPosUnitPrice, setNewPosUnitPrice] = useState(NATIVE_ASSETS_BY_CHAIN[ChainType.Solana].priceUsd)
-  const [newPosPriceStatus, setNewPosPriceStatus] = useState('Using SOL reference price.')
+  const [newPosPriceStatus, setNewPosPriceStatus] = useState('Select a protocol to resolve live pricing, or enter USD value manually.')
   const { data: customChainProtocols = [], isLoading: customProtocolsLoading } = useChainProtocols(newPosForm.chain)
 
   const nativeSymbolOptions = useMemo(() => Object.keys(CHAIN_BY_NATIVE_SYMBOL), [])
@@ -1112,7 +1117,7 @@ function WarRoomContent() {
       setNewPosForm((current) => ({ ...current, symbol: nativeAsset.symbol }))
     }
     setNewPosUnitPrice(nativeAsset.priceUsd)
-    setNewPosPriceStatus(`Using ${nativeAsset.symbol} reference price until a protocol price resolves.`)
+    setNewPosPriceStatus(`No default ${nativeAsset.symbol} price is assumed. Select a protocol to resolve live pricing, or enter USD value manually.`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newPosForm.chain])
 
@@ -1143,10 +1148,7 @@ function WarRoomContent() {
         const positions = await fetchAndBuildPositions(newPosForm.protocol)
         if (!active) return
         const chainPosition = positions.find((position) => position.chain === newPosForm.chain)
-        const unitPrice =
-          chainPosition && chainPosition.balance > 0
-            ? chainPosition.usdValue / chainPosition.balance
-            : nativeAsset.priceUsd
+        const unitPrice = chainPosition && chainPosition.balance > 0 ? chainPosition.usdValue / chainPosition.balance : 0
 
         setNewPosUnitPrice(unitPrice)
         setNewPosForm((current) => ({
@@ -1154,18 +1156,17 @@ function WarRoomContent() {
           kind: chainPosition?.kind ?? current.kind,
           volatility: chainPosition?.volatility ?? current.volatility,
           liquidityScore: chainPosition?.liquidityScore ?? current.liquidityScore,
-          usdValue: Math.round(current.balance * unitPrice * 100) / 100,
+          usdValue: unitPrice > 0 ? Math.round(current.balance * unitPrice * 100) / 100 : current.usdValue,
         }))
         setNewPosPriceStatus(
           chainPosition
             ? `${selectedProtocolOption?.label ?? newPosForm.protocol} unit price resolved at ${formatPrice(unitPrice)}.`
-            : `No chain-specific token price found. Using ${nativeAsset.symbol} reference price ${formatPrice(unitPrice)}.`,
+            : `No chain-specific live price found for ${nativeAsset.symbol}. Enter USD value manually.`,
         )
       } catch (err) {
         if (!active) return
-        const fallbackPrice = nativeAsset.priceUsd
-        setNewPosUnitPrice(fallbackPrice)
-        setNewPosPriceStatus(`Price lookup failed. Using ${nativeAsset.symbol} reference price ${formatPrice(fallbackPrice)}.`)
+        setNewPosUnitPrice(0)
+        setNewPosPriceStatus(`Price lookup failed for ${nativeAsset.symbol}. Enter USD value manually.`)
         console.error('Failed to resolve selected protocol price:', err)
       }
     }
@@ -1240,6 +1241,7 @@ function WarRoomContent() {
     }
 
     setMultichainPositions((current) => [...current, newPos])
+    setPortfolioInputSource('manual')
     setMultichainResult(null)
     setMultichainImportStatus(`Added ${newPos.symbol} on ${newPos.chain}.`)
     setNewPosForm({
@@ -1325,6 +1327,13 @@ function WarRoomContent() {
       </header>
 
       <div className="space-y-8 animate-in fade-in duration-500 text-left">
+        {wallet.publicKey && portfolioInputSource !== 'manual' && (
+          <div className="rounded-xs border border-amber-500/25 bg-amber-500/5 px-3.5 py-3 text-[11px] font-mono leading-relaxed text-amber-200/90">
+            Connected wallet: {wallet.publicKey.toBase58()}. Aegis does not infer your holdings from wallet connection
+            alone. Add real balances manually, or treat imported watchlist/protocol rows as scenario templates.
+          </div>
+        )}
+
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-cyan-500/10 bg-zinc-950/50 p-4 shadow-xl">
             <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-500">Total exposure</p>
@@ -1438,12 +1447,16 @@ function WarRoomContent() {
                 Total value: {formatCurrency(multichainPositions.reduce((acc, p) => acc + p.usdValue, 0))}
               </span>
             </div>
+            <p className="rounded-xs border border-zinc-850 bg-zinc-950/50 px-3 py-2 text-[10px] font-mono leading-relaxed text-zinc-400">
+              Source: {portfolioInputSource === 'empty' ? 'no holdings loaded' : portfolioInputSource}. Values here are
+              simulation inputs. They are not imported wallet balances unless you enter them yourself.
+            </p>
 
             {multichainPositions.length === 0 ? (
               <div className="text-center py-10 px-4 rounded-xs border border-dashed border-zinc-800 bg-zinc-950/20 font-mono text-zinc-550">
                 <p className="text-xs font-semibold">No holdings added yet.</p>
                 <p className="text-[10px] mt-1">
-                  Click &quot;Reset to Demo Portfolio&quot; below to load pre-configured assets.
+                  Add your real balances manually, import watchlist scenario rows, or load the demo portfolio for exploration.
                 </p>
               </div>
             ) : (
@@ -1693,7 +1706,8 @@ function WarRoomContent() {
                       setNewPosForm({
                         ...newPosForm,
                         balance: val,
-                        usdValue: Math.round(val * newPosUnitPrice * 100) / 100,
+                        usdValue:
+                          newPosUnitPrice > 0 ? Math.round(val * newPosUnitPrice * 100) / 100 : newPosForm.usdValue,
                       })
                     }}
                     className="h-9 text-xs bg-zinc-950 border-zinc-850 font-mono"
@@ -1704,9 +1718,9 @@ function WarRoomContent() {
                   <Input
                     type="number"
                     min={0}
-                    readOnly
                     value={newPosForm.usdValue || ''}
-                    className="h-9 text-xs bg-zinc-950/60 border-zinc-850 font-mono text-cyan-300"
+                    onChange={(e) => setNewPosForm({ ...newPosForm, usdValue: Number(e.target.value) })}
+                    className="h-9 text-xs bg-zinc-950 border-zinc-850 font-mono text-cyan-300"
                   />
                 </div>
               </div>
@@ -1735,12 +1749,13 @@ function WarRoomContent() {
                   size="sm"
                   onClick={() => {
                     setMultichainPositions(DEFAULT_MULTICHAIN_POSITIONS)
+                    setPortfolioInputSource('demo')
                     setMultichainResult(null)
-                    setMultichainImportStatus('Reset portfolio to demo layout.')
+                    setMultichainImportStatus('Loaded demo portfolio. These are sample simulation inputs, not wallet holdings.')
                   }}
                   className="text-zinc-400 border-zinc-850 bg-zinc-950 hover:bg-zinc-900 font-mono rounded-xs text-xs w-full sm:w-auto"
                 >
-                  Reset to Demo Portfolio
+                  Load Demo Portfolio
                 </Button>
                 <Button
                   type="button"

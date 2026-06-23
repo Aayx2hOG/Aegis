@@ -214,3 +214,15 @@ export function requireWalletOwner(req: NextRequest, claimedWalletAddress?: stri
 
   return { ok: true, walletAddress: authenticated, enforced }
 }
+
+export function getOptionalWalletOwner(req: NextRequest, claimedWalletAddress?: string | null): string | null {
+  const claimed = claimedWalletAddress?.trim()
+  if (!claimed) return null
+
+  if (!isWalletAuthEnforced()) {
+    return claimed
+  }
+
+  const authenticated = getAuthenticatedWallet(req)
+  return authenticated === claimed ? authenticated : null
+}

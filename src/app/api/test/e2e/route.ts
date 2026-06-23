@@ -2,8 +2,17 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import deliverNotificationsForEvent from '@/server/notifications/delivery'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
+
+function isE2eTestEnabled() {
+  return process.env.AEGIS_ENABLE_E2E_TEST_API === 'true' || process.env.NODE_ENV !== 'production'
+}
 
 export async function POST(req: NextRequest) {
+  if (!isE2eTestEnabled()) {
+    return Response.json({ error: 'E2E test API is disabled in this environment.' }, { status: 404 })
+  }
+
   if (!prisma) return new Response(JSON.stringify({ error: 'Database not configured' }), { status: 503 })
 
   const body = await req.json().catch(() => null)
@@ -15,10 +24,13 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: 'walletAddress and protocolSlug are required' }), { status: 400 })
   }
 
+  const auth = requireWalletOwner(req, walletAddress)
+  if (!auth.ok) return auth.response
+
   try {
     if (channelId) {
       const channel = await prisma.notificationChannel.findUnique({ where: { id: channelId } })
-      if (!channel || channel.walletAddress !== walletAddress) {
+      if (!channel || channel.walletAddress !== auth.walletAddress) {
         return new Response(JSON.stringify({ error: 'Channel not found' }), { status: 404 })
       }
       if (!channel.enabled) {
@@ -29,7 +41,7 @@ export async function POST(req: NextRequest) {
     // Create a temporary rule to attach the event to
     const rule = await prisma.alertRule.create({
       data: {
-        walletAddress,
+        walletAddress: auth.walletAddress,
         protocolSlug,
         metric: 'CHANGE_1D',
         threshold: 0,
@@ -41,7 +53,7 @@ export async function POST(req: NextRequest) {
     const event = await prisma.alertEvent.create({
       data: {
         ruleId: rule.id,
-        walletAddress,
+        walletAddress: auth.walletAddress,
         protocolSlug,
         metric: 'CHANGE_1D',
         threshold: 0,
@@ -51,7 +63,9 @@ export async function POST(req: NextRequest) {
     })
 
     // Track artifact for cleanup
-    await prisma.testArtifact.create({ data: { ruleId: rule.id, eventId: event.id, walletAddress, protocolSlug } })
+    await prisma.testArtifact.create({
+      data: { ruleId: rule.id, eventId: event.id, walletAddress: auth.walletAddress, protocolSlug },
+    })
 
     const brief = await runResearchAgent(protocolSlug)
     const summary = typeof brief.brief === 'string' ? brief.brief : null

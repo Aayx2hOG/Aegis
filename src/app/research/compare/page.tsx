@@ -39,6 +39,11 @@ function formatProtocolName(name: string): string {
     .join(' ')
 }
 
+async function readApiError(res: Response, fallback: string) {
+  const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+  return typeof body?.error === 'string' ? body.error : fallback
+}
+
 export default function ComparePage() {
   return (
     <Suspense
@@ -329,12 +334,12 @@ function CompareContent() {
         }),
       })
 
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) throw new Error(await readApiError(res, 'Comparison request failed.'))
       const data = (await res.json()) as ResearchBrief
       setBrief(data)
       toast.success('Battle Card synthesized successfully.')
     } catch (err) {
-      setError(String(err))
+      setError(err instanceof Error ? err.message : String(err))
       toast.error('AI comparison failed.')
     } finally {
       setLoading(false)

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getDatabaseSetupErrorMessage } from '@/server/db/prisma-errors'
 import { prisma } from '@/server/db/prisma'
-import { requireWalletOwner } from '@/server/auth/wallet-auth'
+import { getOptionalWalletOwner } from '@/server/auth/wallet-auth'
 
 export async function GET(req: NextRequest) {
   if (!prisma) {
@@ -15,12 +15,15 @@ export async function GET(req: NextRequest) {
   const walletAddress = url.searchParams.get('walletAddress')?.trim()
   const limitRaw = Number(url.searchParams.get('limit') ?? '10')
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(50, Math.floor(limitRaw))) : 10
-  const auth = walletAddress ? requireWalletOwner(req, walletAddress) : null
-  if (auth && !auth.ok) return auth.response
+  const authenticatedWalletAddress = getOptionalWalletOwner(req, walletAddress)
+
+  if (walletAddress && !authenticatedWalletAddress) {
+    return Response.json({ runs: [] })
+  }
 
   try {
     const runs = await prisma.researchRun.findMany({
-      where: auth?.ok ? { walletAddress: auth.walletAddress } : undefined,
+      where: walletAddress ? { walletAddress: authenticatedWalletAddress } : { walletAddress: null },
       orderBy: { createdAt: 'desc' },
       take: limit,
       select: {

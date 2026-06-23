@@ -8,9 +8,11 @@ function unauthorized() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = req.headers.get('authorization')
   if (WEBHOOK_SECRET) {
-    const auth = req.headers.get('authorization')
     if (!auth || auth !== `Bearer ${WEBHOOK_SECRET}`) return unauthorized()
+  } else if (process.env.NODE_ENV === 'production') {
+    return unauthorized()
   }
 
   const body = await req.json().catch(() => null)

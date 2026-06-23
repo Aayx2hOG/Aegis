@@ -2,8 +2,10 @@ import crypto from 'node:crypto'
 import {
   buildWalletAuthMessage,
   createWalletChallenge,
+  getOptionalWalletOwner,
   verifyWalletSignature,
 } from '@/server/auth/wallet-auth'
+import { NextRequest } from 'next/server'
 
 function base58Encode(buffer: Buffer) {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -36,6 +38,11 @@ function base58Encode(buffer: Buffer) {
 describe('wallet auth', () => {
   beforeEach(() => {
     process.env.AEGIS_AUTH_SECRET = 'test-auth-secret'
+    process.env.AEGIS_REQUIRE_WALLET_AUTH = ''
+  })
+
+  afterEach(() => {
+    delete process.env.AEGIS_REQUIRE_WALLET_AUTH
   })
 
   it('verifies a signed challenge and returns a session token', () => {
@@ -71,5 +78,33 @@ describe('wallet auth', () => {
     })
 
     expect(token).toBeNull()
+  })
+
+  it('does not attach an unsigned claimed wallet when auth is enforced', () => {
+    process.env.AEGIS_REQUIRE_WALLET_AUTH = 'true'
+    const req = new NextRequest('http://localhost/api/research')
+
+    expect(getOptionalWalletOwner(req, 'UnsignedWallet111111111111111111111111111111')).toBeNull()
+  })
+
+  it('attaches a signed wallet session when auth is enforced', () => {
+    process.env.AEGIS_REQUIRE_WALLET_AUTH = 'true'
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519')
+    const der = publicKey.export({ format: 'der', type: 'spki' })
+    const walletAddress = base58Encode(Buffer.from(der).subarray(-32))
+    const challenge = createWalletChallenge(walletAddress)
+    const signature = crypto.sign(null, Buffer.from(challenge.message), privateKey).toString('base64')
+    const token = verifyWalletSignature({
+      walletAddress,
+      message: challenge.message,
+      signature,
+      challengeToken: challenge.token,
+    })
+
+    const req = new NextRequest('http://localhost/api/research', {
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    expect(getOptionalWalletOwner(req, walletAddress)).toBe(walletAddress)
   })
 })

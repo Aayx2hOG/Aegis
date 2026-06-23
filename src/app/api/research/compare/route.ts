@@ -4,6 +4,7 @@ import { runComparisonAgent } from '@/server/ai/aegis-comparison-agent'
 import { prisma } from '@/server/db/prisma'
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
 import { ChainType } from '@/lib/chain/types'
+import { getOptionalWalletOwner } from '@/server/auth/wallet-auth'
 
 function compactError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { protocolA, protocolB, walletAddress, chainType } = parsed.data
+    const authenticatedWalletAddress = getOptionalWalletOwner(req, walletAddress)
 
     const normalizedA = normalizeProtocolSlug(protocolA)
     const normalizedB = normalizeProtocolSlug(protocolB)
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
       try {
         await prisma.researchRun.create({
           data: {
-            walletAddress: walletAddress?.trim() || null,
+            walletAddress: authenticatedWalletAddress,
             protocolSlug: combinedSlug,
             briefMarkdown: brief.brief,
             toolCalls: brief.toolCalls as unknown as Prisma.InputJsonValue,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { Activity, ArrowRight, Cpu, Layers3, Network, Search, ShieldCheck, Swords, TrendingUp } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
@@ -13,19 +13,6 @@ import { Button } from '@/components/ui/button'
 import { SpotlightCard } from '@/components/ui/spotlight-card'
 import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
 import { Sparkles } from '@/components/ui/sparkles'
-
-// Simulated logs list for active ticker feed
-const SIMULATED_LOGS = [
-  'Solana liquidity pools refreshed: Raydium, Orca.',
-  'JitoSOL yield reference checked at 7.82% APR.',
-  'EVM bridge queues currently within normal range.',
-  'Aerodrome Base USDC pool concentration above 45%.',
-  'Subscribed to 7 active chain feeds.',
-  'Base network RPC latency steady at 38ms.',
-  'Portfolio stress index low: 24/100.',
-  'Uniswap V3 Ethereum liquidity depth matched catalog.',
-  'Kamino lending rate delta verified.',
-]
 
 function RadarScanner() {
   return (
@@ -63,39 +50,41 @@ function RadarScanner() {
   )
 }
 
-function ActiveTicker() {
-  const [logs, setLogs] = useState<string[]>(['AEGIS system initialization...', 'Connecting telemetry feeds...'])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomLog = SIMULATED_LOGS[Math.floor(Math.random() * SIMULATED_LOGS.length)]
-      const timestamp = new Date().toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      })
-      setLogs((prev) => [`[${timestamp}] ${randomLog}`, ...prev.slice(0, 2)])
-    }, 4500)
-    return () => clearInterval(interval)
-  }, [])
+function WorkspaceSnapshot({
+  chainCoverage,
+  watchedProtocols,
+  connected,
+  activeChainName,
+}: {
+  chainCoverage: number
+  watchedProtocols: number
+  connected: boolean
+  activeChainName: string
+}) {
+  const statusRows = [
+    ['Active network', activeChainName],
+    ['Tracked chains', String(chainCoverage)],
+    ['Watched protocols', String(watchedProtocols)],
+    ['Wallet session', connected ? 'connected' : 'guest'],
+  ]
 
   return (
-    <div className="console-panel w-full space-y-1 rounded-lg p-3 font-mono text-[11px] text-zinc-300">
+    <div className="console-panel w-full space-y-2 rounded-lg p-3 font-mono text-[11px] text-zinc-300">
       <div className="mb-1.5 flex items-center justify-between border-b border-white/10 pb-1.5">
         <span className="flex items-center gap-1.5 font-semibold text-zinc-100">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-          Recent checks
+          Workspace state
         </span>
-        <span className="text-[10px] font-medium text-zinc-500">auto-refresh</span>
+        <span className="text-[10px] font-medium text-zinc-500">live app data</span>
       </div>
-      <div className="space-y-1 text-left">
-        {logs.map((log, idx) => (
+      <div className="grid gap-1.5 text-left">
+        {statusRows.map(([label, value]) => (
           <div
-            key={idx}
-            className="truncate opacity-80 transition-opacity duration-300 first:opacity-100 first:text-cyan-100"
+            key={label}
+            className="flex items-center justify-between gap-3 rounded border border-white/5 bg-white/[0.025] px-2 py-1"
           >
-            {log}
+            <span className="text-zinc-500">{label}</span>
+            <span className="truncate font-semibold text-cyan-100">{value}</span>
           </div>
         ))}
       </div>
@@ -201,7 +190,12 @@ export function DashboardFeature() {
 
           <div className="flex flex-col items-center gap-5 rounded-lg border border-white/10 bg-white/[0.035] p-5 shadow-inner lg:col-span-4">
             <RadarScanner />
-            <ActiveTicker />
+            <WorkspaceSnapshot
+              chainCoverage={activeChainConnections.length || 1}
+              watchedProtocols={flattenedWatchlist.length}
+              connected={Boolean(walletAddress)}
+              activeChainName={activeChain.displayName}
+            />
           </div>
         </div>
       </SpotlightCard>
@@ -318,7 +312,7 @@ export function DashboardFeature() {
           {/* Card 4: Monitor status */}
           <BentoGridItem
             title="Risk Telemetry State"
-            description="Active threat scanning metrics."
+            description="Current workspace monitoring coverage."
             icon={<Activity className="h-4 w-4 text-cyan-400" />}
             className="md:col-span-1 text-left"
           >
@@ -326,17 +320,21 @@ export function DashboardFeature() {
               <div className="flex items-baseline gap-1.5">
                 <span className="text-3xl font-semibold text-white">{flattenedWatchlist.length}</span>
                 <span className="text-xs font-medium text-zinc-500">
-                  Active Channels
+                  Watched
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400">System state</span>
+                <span className="text-xs font-medium text-zinc-400">Monitor mode</span>
                 <Badge
                   variant="outline"
-                  className="gap-1 rounded-full border-emerald-300/20 bg-emerald-300/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-100"
+                  className={`gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    flattenedWatchlist.length > 0
+                      ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+                      : 'border-zinc-700 bg-zinc-900/60 text-zinc-300'
+                  }`}
                 >
                   <TrendingUp className="h-3 w-3" />
-                  Live
+                  {flattenedWatchlist.length > 0 ? 'Tracking' : 'Idle'}
                 </Badge>
               </div>
             </div>
