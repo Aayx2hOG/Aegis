@@ -186,20 +186,20 @@ async function buildFallbackBrief(
 }
 
 export async function runResearchAgent(protocol: string, chainType?: ChainType): Promise<ResearchBrief> {
-  const groq = getGroqClient()
   const toolCalls: ResearchBrief['toolCalls'] = []
   const chainLabel = buildChainLabel(chainType)
 
-  const messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: `Generate a research brief for the ${chainLabel} DeFi protocol: "${protocol}". Use your tools to gather live data first.`,
-    },
-  ]
-
   let iterations = 0
   try {
+    const groq = getGroqClient()
+    const messages: ChatCompletionMessageParam[] = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: `Generate a research brief for the ${chainLabel} DeFi protocol: "${protocol}". Use your tools to gather live data first.`,
+      },
+    ]
+
     while (iterations < MAX_ITERATIONS) {
       iterations++
 

@@ -2,9 +2,15 @@ import { getEvmRecentTransactions, getEvmTokenMetadata, getEvmTokenPrice } from 
 
 describe('EVM API degraded states', () => {
   const originalFetch = global.fetch
+  let consoleErrorSpy: jest.SpyInstance
+
+  beforeEach(() => {
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+  })
 
   afterEach(() => {
     global.fetch = originalFetch
+    consoleErrorSpy.mockRestore()
   })
 
   it('does not return mock transactions when Blockscout fails', async () => {
