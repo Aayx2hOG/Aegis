@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/server/db/prisma'
+import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!prisma) {
     return NextResponse.json({
       success: true,
@@ -10,15 +11,19 @@ export async function GET() {
     })
   }
 
+  const walletAddress = new URL(req.url).searchParams.get('walletAddress')?.trim()
+  const auth = requireWalletOwner(req, walletAddress)
+  if (!auth.ok) return auth.response
+
   try {
-    // 1. Fetch recent research runs
     const recentResearch = await prisma.researchRun.findMany({
+      where: { walletAddress: auth.walletAddress },
       orderBy: { createdAt: 'desc' },
       take: 6,
     })
 
-    // 2. Fetch recent notifications
     const recentNotifications = await prisma.notificationLog.findMany({
+      where: { channel: { walletAddress: auth.walletAddress } },
       orderBy: { createdAt: 'desc' },
       take: 6,
       include: {
@@ -26,13 +31,12 @@ export async function GET() {
       },
     })
 
-    // 3. Fetch alert events
     const recentEvents = await prisma.alertEvent.findMany({
+      where: { walletAddress: auth.walletAddress },
       orderBy: { triggeredAt: 'desc' },
       take: 6,
     })
 
-    // Map database structures to task objects
     const tasks = [
       ...recentResearch.map((r) => ({
         id: r.id,
@@ -60,7 +64,6 @@ export async function GET() {
       })),
     ]
 
-    // Sort all tasks by time descending
     tasks.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
 
     return NextResponse.json({

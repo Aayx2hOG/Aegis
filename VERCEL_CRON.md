@@ -9,7 +9,9 @@ This project supports two ways to clean up E2E test artifacts created via the UI
   - URL: `https://<your-deploy>/api/test/cleanup`
   - Method: `POST`
   - Schedule: `@daily` (or whatever frequency you prefer)
-  - Authentication: none required (the endpoint is internal); if you prefer, restrict by checking a shared secret in the request body or headers.
+  - Authentication: set `Authorization: Bearer <TEST_CLEANUP_SECRET>`.
+
+In production, `/api/test/cleanup` rejects unauthenticated requests. Set `TEST_CLEANUP_SECRET` in your deployment environment. If it is not set, the endpoint falls back to `UPSTASH_WEBHOOK_SECRET`.
 
 2. Automatic per-artifact cleanup via Upstash (serverless, no extra Cron required)
 

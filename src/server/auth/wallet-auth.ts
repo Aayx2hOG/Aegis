@@ -19,7 +19,13 @@ export type AuthResult =
   | { ok: false; response: Response; enforced: boolean }
 
 function authSecret() {
-  return process.env.AEGIS_AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.GROQ_API_KEY || 'aegis-dev-secret'
+  if (process.env.AEGIS_AUTH_SECRET) return process.env.AEGIS_AUTH_SECRET
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('AEGIS_AUTH_SECRET is required in production.')
+  }
+
+  return process.env.NEXTAUTH_SECRET || process.env.GROQ_API_KEY || 'aegis-dev-secret'
 }
 
 export function isWalletAuthEnforced() {

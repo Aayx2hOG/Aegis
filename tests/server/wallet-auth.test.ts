@@ -36,6 +36,11 @@ function base58Encode(buffer: Buffer) {
 }
 
 describe('wallet auth', () => {
+  const originalNodeEnv = process.env.NODE_ENV
+  const originalAuthSecret = process.env.AEGIS_AUTH_SECRET
+  const originalNextAuthSecret = process.env.NEXTAUTH_SECRET
+  const originalGroqApiKey = process.env.GROQ_API_KEY
+
   beforeEach(() => {
     process.env.AEGIS_AUTH_SECRET = 'test-auth-secret'
     process.env.AEGIS_REQUIRE_WALLET_AUTH = ''
@@ -43,6 +48,22 @@ describe('wallet auth', () => {
 
   afterEach(() => {
     delete process.env.AEGIS_REQUIRE_WALLET_AUTH
+    process.env.NODE_ENV = originalNodeEnv
+    if (originalAuthSecret == null) {
+      delete process.env.AEGIS_AUTH_SECRET
+    } else {
+      process.env.AEGIS_AUTH_SECRET = originalAuthSecret
+    }
+    if (originalNextAuthSecret == null) {
+      delete process.env.NEXTAUTH_SECRET
+    } else {
+      process.env.NEXTAUTH_SECRET = originalNextAuthSecret
+    }
+    if (originalGroqApiKey == null) {
+      delete process.env.GROQ_API_KEY
+    } else {
+      process.env.GROQ_API_KEY = originalGroqApiKey
+    }
   })
 
   it('verifies a signed challenge and returns a session token', () => {
@@ -106,5 +127,16 @@ describe('wallet auth', () => {
     })
 
     expect(getOptionalWalletOwner(req, walletAddress)).toBe(walletAddress)
+  })
+
+  it('fails closed when the production auth secret is missing', () => {
+    process.env.NODE_ENV = 'production'
+    delete process.env.AEGIS_AUTH_SECRET
+    process.env.NEXTAUTH_SECRET = 'fallback-nextauth-secret'
+    process.env.GROQ_API_KEY = 'fallback-groq-secret'
+
+    expect(() => createWalletChallenge('Wallet111111111111111111111111111111111')).toThrow(
+      'AEGIS_AUTH_SECRET is required in production.',
+    )
   })
 })
