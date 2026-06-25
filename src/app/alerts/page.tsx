@@ -2,17 +2,18 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronDown, Layers3, Plus, Play, Loader2 } from 'lucide-react'
+import { ArrowLeft, Layers3, Loader2 } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Tabs } from '@/components/ui/tabs'
 import ChannelManager from '@/components/notifications/channel-manager'
-import { AlertTelemetryScanner } from '@/components/alerts/alert-telemetry-scanner'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { AlertSummaryDialog } from '@/components/alerts/alert-summary-dialog'
 import { AlertRuleTestDialog } from '@/components/alerts/alert-rule-test-dialog'
+import { AlertRuleForm } from '@/components/alerts/alert-rule-form'
+import { AlertRulesList } from '@/components/alerts/alert-rules-list'
+import { AlertEvaluationResults } from '@/components/alerts/alert-evaluation-results'
+import { AlertRecentActivity } from '@/components/alerts/alert-recent-activity'
 import { useAlertMarketData } from '@/components/alerts/use-alert-market-data'
 import { useGuestAlertWalletAddress } from '@/components/alerts/use-guest-alert-wallet-address'
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
@@ -27,7 +28,6 @@ import type {
   ResearchHistoryItem,
 } from '@/components/alerts/alert-types'
 import {
-  ALERT_METRIC_LABEL,
   buildLocalAlertSummary,
   createLocalAlertId,
   formatAlertValue,
@@ -650,499 +650,69 @@ function AlertsContent() {
               value: 'signals',
               content: (
                 <section className="grid gap-6 lg:grid-cols-2">
-                  {/* Alerts Rule Creation & Testing Form */}
                   <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-6 shadow-2xl">
-                    <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                          <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">
-                            Create Alert Vector
-                          </p>
-                          <p className="mt-1 text-xs text-zinc-400">
-                            Set one rule on a watched protocol, then run a live evaluation to verify it fires.
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-                          <Button
-                            type="button"
-                            onClick={() => runAlertEvaluation()}
-                            disabled={!alertWalletAddress || evaluatingAlerts}
-                            title="Checks every saved alert against the latest market data"
-                            className="border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-300 font-mono rounded-xs text-xs sm:min-w-[150px] cursor-pointer"
-                          >
-                            <Play className="h-3.5 w-3.5 mr-1" />
-                            {evaluatingAlerts ? 'Running check…' : 'Run saved alerts'}
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={createAndTestAlert}
-                            disabled={
-                              !alertWalletAddress ||
-                              creatingAlert ||
-                              evaluatingAlerts ||
-                              selectedAlertCurrentValue == null
-                            }
-                            title="Creates an alert at the current live value, then checks it immediately"
-                            className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all sm:min-w-[180px] text-xs h-9 sm:h-auto py-2 px-3 cursor-pointer"
-                          >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Create & test
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2 font-mono">
-                        <p>&gt; Run saved alerts: checks every enabled rule against the latest market data.</p>
-                        <p>&gt; Create & test: saves the new rule and tests only that specific rule right away.</p>
-                      </div>
-
-                      <form
-                        className="mt-4 grid gap-4 md:grid-cols-2"
-                        onSubmit={async (event) => {
-                          event.preventDefault()
-                          await createAlertRule()
-                        }}
-                      >
-                        <div className="md:col-span-2">
-                          <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
-                            Protocol slug
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={alertProtocolSlug}
-                              onChange={(event) => setAlertProtocolSlug(event.target.value)}
-                              className="flex h-11 w-full rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 pr-10 text-sm shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono appearance-none"
-                              disabled={!alertWalletAddress || creatingAlert}
-                            >
-                              <option value="" disabled className="bg-zinc-950 text-white">
-                                Select a protocol from your watchlist
-                              </option>
-                              {availableAlertProtocolSlugs.map((slug) => (
-                                <option key={slug} value={slug} className="bg-zinc-950 text-white font-mono">
-                                  {slug}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                          </div>
-                          <p className="mt-1 text-xs text-zinc-450 font-medium">
-                            Choose a protocol from your current watchlist.
-                          </p>
-                          <p className="mt-2 text-xs text-cyan-400 font-mono">
-                            Live {ALERT_METRIC_LABEL[alertMetric]}:{' '}
-                            {selectedAlertCurrentValue == null
-                              ? 'not available'
-                              : formatAlertValue(alertMetric, selectedAlertCurrentValue)}
-                          </p>
-                        </div>
-
-                        <div>
-                          <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
-                            Metric
-                          </label>
-                          <select
-                            value={alertMetric}
-                            onChange={(event) => {
-                              const nextMetric = event.target.value as AlertMetric
-                              setAlertMetric(nextMetric)
-                              if (nextMetric === 'TVL_USD') setAlertThreshold('10000000')
-                              else if (nextMetric === 'PRICE_USD') setAlertThreshold('1.00')
-                              else setAlertThreshold('10')
-                            }}
-                            className="flex h-11 w-full rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 py-1 text-sm shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono"
-                            disabled={!alertWalletAddress || creatingAlert}
-                          >
-                            <option value="CHANGE_1D" className="bg-zinc-950 text-white">
-                              24h change
-                            </option>
-                            <option value="CHANGE_7D" className="bg-zinc-950 text-white">
-                              7d change
-                            </option>
-                            <option value="TVL_USD" className="bg-zinc-950 text-white">
-                              TVL ($)
-                            </option>
-                            <option value="PRICE_USD" className="bg-zinc-950 text-white">
-                              Token Price ($)
-                            </option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
-                            Direction
-                          </label>
-                          <select
-                            value={alertDirection}
-                            onChange={(event) => setAlertDirection(event.target.value as AlertDirection)}
-                            className="flex h-11 w-full rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 py-1 text-sm shadow-xs transition-colors focus:border-cyan-500/30 text-white font-mono"
-                            disabled={!alertWalletAddress || creatingAlert}
-                          >
-                            <option value="BELOW" className="bg-zinc-950 text-white font-mono">
-                              Below threshold
-                            </option>
-                            <option value="ABOVE" className="bg-zinc-950 text-white font-mono">
-                              Above threshold
-                            </option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
-                            {alertMetric === 'CHANGE_1D' || alertMetric === 'CHANGE_7D'
-                              ? 'Threshold %'
-                              : 'Threshold ($)'}
-                          </label>
-                          <Input
-                            type="number"
-                            step={alertMetric === 'PRICE_USD' ? '0.0001' : alertMetric === 'TVL_USD' ? '1000' : '0.1'}
-                            value={alertThreshold}
-                            onChange={(event) => setAlertThreshold(event.target.value)}
-                            placeholder={
-                              alertMetric === 'PRICE_USD' ? '1.50' : alertMetric === 'TVL_USD' ? '10000000' : '10'
-                            }
-                            className="h-11 rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 text-sm text-white focus:border-cyan-500/30 font-mono"
-                            disabled={!alertWalletAddress || creatingAlert}
-                          />
-                          <p className="mt-1 text-xs text-zinc-450 leading-relaxed font-medium">
-                            {alertMetric === 'TVL_USD'
-                              ? 'Enter absolute TVL in USD (e.g. 50000000 for $50M).'
-                              : alertMetric === 'PRICE_USD'
-                                ? 'Enter target token price in USD (e.g. 1.25).'
-                                : 'Use the live value above if you want this rule to fire on the next check.'}
-                          </p>
-                        </div>
-
-                        <div className="flex items-end">
-                          <Button
-                            type="submit"
-                            disabled={!alertWalletAddress || creatingAlert}
-                            className="h-11 w-full bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all text-xs cursor-pointer"
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            {creatingAlert ? 'Creating…' : 'Save alert'}
-                          </Button>
-                        </div>
-                      </form>
-                    </div>
-
-                    {/* Alert Rules List */}
-                    <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
-                      <div className="flex items-center justify-between gap-3 border-b border-zinc-900 pb-2">
-                        <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">
-                          Active Alert Rules
-                        </p>
-                        {rules.length > 0 && (
-                          <span className="text-xs font-mono font-bold text-zinc-450">
-                            {alertsLoading ? 'loading...' : `${rules.length} saved`}
-                          </span>
-                        )}
-                      </div>
-                      {rules.length === 0 ? (
-                        <p className="text-xs text-zinc-400 leading-normal font-mono">
-                          &gt; No rules yet. Create one above to start monitoring a protocol.
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {visibleAlertRules.map((rule) => (
-                            <div
-                              key={rule.id}
-                              className="rounded-xs border border-zinc-900 bg-zinc-950/80 px-3.5 py-3 text-xs text-zinc-200"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <p className="font-bold text-white text-sm font-orbitron tracking-wider">
-                                    {rule.protocolSlug}
-                                  </p>
-                                  <p className="text-xs text-zinc-400 font-mono mt-1">
-                                    {ALERT_METRIC_LABEL[rule.metric]} {rule.direction === 'BELOW' ? '≤' : '≥'}{' '}
-                                    {formatAlertValue(rule.metric, rule.threshold)}
-                                  </p>
-                                </div>
-                                <span
-                                  className={`rounded-xs px-2 py-0.5 text-[10px] font-mono font-bold uppercase border ${rule.enabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}
-                                >
-                                  {rule.enabled ? 'Active' : 'Disabled'}
-                                </span>
-                              </div>
-                              <div className="mt-4 flex flex-wrap items-center gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openTestRuleDialog(rule)}
-                                  disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                  style={{
-                                    borderColor: 'rgba(6, 182, 212, 0.3)',
-                                    backgroundColor: 'rgba(6, 182, 212, 0.05)',
-                                    color: '#67e8f9',
-                                  }}
-                                  className="border rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer transition-all hover:bg-cyan-500/15 hover:text-cyan-200"
-                                >
-                                  Test this rule
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => toggleAlertRule(rule)}
-                                  disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                  style={
-                                    rule.enabled
-                                      ? {
-                                          borderColor: 'rgba(245, 158, 11, 0.3)',
-                                          backgroundColor: 'rgba(245, 158, 11, 0.05)',
-                                          color: '#f59e0b',
-                                        }
-                                      : {
-                                          borderColor: 'rgba(16, 185, 129, 0.3)',
-                                          backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                                          color: '#10b981',
-                                        }
-                                  }
-                                  className="border rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer transition-all hover:opacity-80"
-                                >
-                                  {updatingRuleId === rule.id ? 'Updating…' : rule.enabled ? 'Disable' : 'Enable'}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => deleteAlertRule(rule)}
-                                  disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
-                                  style={{
-                                    borderColor: 'rgba(244, 63, 94, 0.3)',
-                                    backgroundColor: 'rgba(244, 63, 94, 0.05)',
-                                    color: '#fda4af',
-                                  }}
-                                  className="border rounded-xs font-mono text-xs px-2.5 py-1.5 cursor-pointer transition-all hover:bg-rose-500/15 hover:text-rose-200"
-                                >
-                                  {deletingRuleId === rule.id ? 'Deleting…' : 'Delete'}
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {rules.length > 3 && (
-                        <div className="mt-3 flex justify-center">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowAllAlertRules((current) => !current)}
-                            className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
-                          >
-                            {showAllAlertRules ? 'Show fewer' : `Show all ${rules.length}`}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Last check results */}
-                    <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
-                      <div className="flex items-center justify-between gap-3 border-b border-zinc-900 pb-2">
-                        <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">
-                          Last Evaluation Run
-                        </p>
-                        {evaluationResults.length > 0 && (
-                          <span className="text-xs font-mono font-bold text-zinc-450">
-                            {evaluationResults.length} rules
-                          </span>
-                        )}
-                      </div>
-                      {evaluationResults.length === 0 ? (
-                        <p className="text-xs text-zinc-400 font-mono leading-normal">
-                          &gt; Run saved alerts to see which rules passed or failed.
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {evaluationResults.map((result) => {
-                            const condition = `${ALERT_METRIC_LABEL[result.metric]} ${result.direction === 'BELOW' ? '≤' : '≥'} ${formatAlertValue(result.metric, result.threshold)}`
-                            const statusLabel = result.status === 'triggered' ? 'PASSED' : 'SKIPPED'
-                            const tone =
-                              result.status === 'triggered'
-                                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
-                                : 'bg-rose-500/5 border border-rose-500/15 text-rose-300'
-
-                            return (
-                              <div key={result.ruleId} className={`rounded-xs px-3.5 py-3 text-xs ${tone}`}>
-                                <div className="flex items-start justify-between gap-2 border-b border-white/5 pb-1.5 mb-2">
-                                  <div className="font-bold font-orbitron tracking-wide">
-                                    {result.protocolSlug} {statusLabel}
-                                  </div>
-                                  <span className="text-xs font-mono font-bold uppercase opacity-85">
-                                    {result.status === 'triggered' ? 'Triggered' : 'Skipped'}
-                                  </span>
-                                </div>
-                                <p className="mt-1 text-xs text-zinc-300 font-mono leading-relaxed">
-                                  Condition: {condition} <br />
-                                  {result.currentValue == null
-                                    ? result.reason
-                                    : `${result.reason} Current value: ${formatAlertValue(result.metric, result.currentValue)}.`}
-                                </p>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Brief history & triggers */}
-                  <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-6 shadow-2xl">
-                    {/* Telemetry sweep visual */}
-                    <AlertTelemetryScanner
-                      rules={rules}
-                      events={events}
-                      historyCount={history.length}
-                      storageMode={alertStorageMode}
-                      loading={alertsLoading || historyLoading}
-                      dbStatus={dbStatus}
+                    <AlertRuleForm
+                      alertWalletAddress={alertWalletAddress}
+                      availableProtocolSlugs={availableAlertProtocolSlugs}
+                      creatingAlert={creatingAlert}
+                      evaluatingAlerts={evaluatingAlerts}
+                      protocolSlug={alertProtocolSlug}
+                      metric={alertMetric}
+                      direction={alertDirection}
+                      threshold={alertThreshold}
+                      selectedCurrentValue={selectedAlertCurrentValue}
+                      onProtocolSlugChange={setAlertProtocolSlug}
+                      onMetricChange={(nextMetric) => {
+                        setAlertMetric(nextMetric)
+                        if (nextMetric === 'TVL_USD') setAlertThreshold('10000000')
+                        else if (nextMetric === 'PRICE_USD') setAlertThreshold('1.00')
+                        else setAlertThreshold('10')
+                      }}
+                      onDirectionChange={setAlertDirection}
+                      onThresholdChange={setAlertThreshold}
+                      onCreateAlert={async () => {
+                        await createAlertRule()
+                      }}
+                      onCreateAndTestAlert={createAndTestAlert}
+                      onRunEvaluation={() => {
+                        void runAlertEvaluation()
+                      }}
                     />
 
-                    {/* Research history Timeline */}
-                    <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
-                      <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">
-                        Recent Brief History
-                      </p>
-                      {historyLoading ? (
-                        <p className="text-xs text-zinc-400 font-mono leading-normal">&gt; Loading history...</p>
-                      ) : history.length === 0 ? (
-                        <p className="text-xs text-zinc-400 font-mono leading-normal">
-                          &gt; No saved research runs yet. Generate reports to build your timeline.
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {history.slice(0, 3).map((item) => (
-                            <div key={item.id} className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-3.5">
-                              <div className="flex items-center justify-between gap-2 border-b border-zinc-900 pb-1.5 mb-2">
-                                <Link
-                                  href={`/research?q=${item.protocolSlug}`}
-                                  className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400 hover:text-cyan-300 hover:underline"
-                                >
-                                  {item.protocolSlug}
-                                </Link>
-                                <span className="text-[10px] font-mono text-zinc-550 font-semibold">
-                                  {new Date(item.createdAt).toLocaleString()}
-                                </span>
-                              </div>
-                              <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-300 font-mono">
-                                {item.briefMarkdown}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <AlertRulesList
+                      rules={rules}
+                      visibleRules={visibleAlertRules}
+                      loading={alertsLoading}
+                      showAllRules={showAllAlertRules}
+                      updatingRuleId={updatingRuleId}
+                      deletingRuleId={deletingRuleId}
+                      onShowAllRulesChange={setShowAllAlertRules}
+                      onTestRule={openTestRuleDialog}
+                      onToggleRule={toggleAlertRule}
+                      onDeleteRule={deleteAlertRule}
+                    />
 
-                    {/* Recent triggered briefs */}
-                    <div className="rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md">
-                      <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">
-                        Recent System Triggers
-                      </p>
-                      {events.length === 0 ? (
-                        <p className="text-xs text-zinc-400 font-mono leading-normal">&gt; No alert events yet.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {normalizeAlertEvents(events)
-                            .slice(0, 3)
-                            .map((event) => (
-                              <div
-                                key={event.id}
-                                className="rounded-xs border border-rose-500/15 bg-rose-500/5 px-3.5 py-3 text-xs text-rose-250"
-                              >
-                                <div className="flex items-start justify-between gap-2 border-b border-rose-500/10 pb-1.5 mb-2">
-                                  <div className="font-bold font-orbitron tracking-wide text-rose-300">
-                                    {event.protocolSlug} hit {ALERT_METRIC_LABEL[event.metric]} at{' '}
-                                    {formatAlertValue(event.metric, event.currentValue)}
-                                  </div>
-                                  <div>
-                                    <Button
-                                      variant="link"
-                                      size="sm"
-                                      className="text-xs font-mono font-bold text-rose-300 hover:text-rose-100 hover:underline p-0 h-auto cursor-pointer"
-                                      disabled={regeneratingEventId === event.id}
-                                      onClick={async () => {
-                                        try {
-                                          setRegeneratingEventId(event.id)
-                                          const res = await fetch(`/api/alerts/events/${event.id}/regenerate`, {
-                                            method: 'POST',
-                                          })
-                                          const body = await res.json()
-                                          if (res.status === 202) {
-                                            toast.success('Regeneration queued — will update shortly')
-                                            setPollingEventId(event.id)
-                                          } else if (!res.ok) {
-                                            toast.error(body?.error ?? 'Failed to regenerate summary')
-                                            return
-                                          } else {
-                                            const updated = body.event
-                                            setEvents((prev) =>
-                                              prev.map((e) =>
-                                                e.id === updated.id
-                                                  ? {
-                                                      ...e,
-                                                      summary: updated.summary,
-                                                      summaryGeneratedAt: updated.summaryGeneratedAt,
-                                                    }
-                                                  : e,
-                                              ),
-                                            )
-                                            toast.success('Summary regenerated')
-                                          }
-                                        } catch (err) {
-                                          console.error('[regen] error', err)
-                                          toast.error('Failed to regenerate summary')
-                                        } finally {
-                                          setRegeneratingEventId(null)
-                                        }
-                                      }}
-                                    >
-                                      {regeneratingEventId === event.id ? 'Regenerating…' : '[Regenerate summary]'}
-                                    </Button>
-                                  </div>
-                                </div>
-                                {event.summary ? (
-                                  <>
-                                    <p className="mt-1 line-clamp-2 text-xs text-rose-100/80 leading-relaxed font-mono">
-                                      {event.summary}
-                                    </p>
-                                    <p className="mt-2 text-[10px] font-mono text-rose-350">
-                                      Generated:{' '}
-                                      {event.summaryGeneratedAt
-                                        ? new Date(event.summaryGeneratedAt).toLocaleString()
-                                        : 'unknown'}
-                                    </p>
-                                  </>
-                                ) : (
-                                  <p className="mt-1 text-[10px] font-mono text-rose-350">No summary yet.</p>
-                                )}
-                                <div className="mt-3 flex gap-3 border-t border-rose-500/10 pt-2">
-                                  <Button
-                                    variant="link"
-                                    size="sm"
-                                    className="text-xs font-mono font-bold text-rose-300 hover:text-rose-100 hover:underline p-0 h-auto cursor-pointer"
-                                    onClick={() => {
-                                      if (event.summary) {
-                                        setFullSummaryEventId(event.id)
-                                        setFullSummaryOpen(true)
-                                      } else {
-                                        toast('No summary to view yet')
-                                      }
-                                    }}
-                                  >
-                                    [View full summary]
-                                  </Button>
-                                  {pollingEventId === event.id && (
-                                    <span className="text-xs font-mono text-zinc-450">Polling for update…</span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
+                    <AlertEvaluationResults results={evaluationResults} />
                   </div>
+
+                  <AlertRecentActivity
+                    rules={rules}
+                    events={events}
+                    history={history}
+                    storageMode={alertStorageMode}
+                    loading={alertsLoading || historyLoading}
+                    dbStatus={dbStatus}
+                    historyLoading={historyLoading}
+                    regeneratingEventId={regeneratingEventId}
+                    pollingEventId={pollingEventId}
+                    onRegeneratingEventIdChange={setRegeneratingEventId}
+                    onPollingEventIdChange={setPollingEventId}
+                    onEventsChange={(updater) => setEvents((current) => updater(current))}
+                    onViewFullSummary={(eventId) => {
+                      setFullSummaryEventId(eventId)
+                      setFullSummaryOpen(true)
+                    }}
+                  />
                 </section>
               ),
             },

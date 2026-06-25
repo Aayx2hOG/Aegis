@@ -11,7 +11,9 @@ Previously completed:
 Completed in this pass:
 
 - Split alert types, local alert storage utilities, market data fetching, guest alert identity, and alert dialogs out of the Alerts page.
+- Split the Alerts rule form, rule list, evaluation results, and recent activity panels out of the Alerts page.
 - Split the reusable War Room metric card out of the main War Room client component.
+- Split the War Room overview, scenario controls, and simulation results out of the main War Room client component.
 - Made npm the documented primary package manager while keeping Bun documented for workers/Docker.
 - Documented the Anchor watchlist as optional Solana-native infrastructure instead of required app setup.
 
