@@ -305,8 +305,9 @@ export function useWatchlist() {
       }
     },
     enabled: Array.isArray(chainProtocols) && watchlist !== undefined,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
+    refetchInterval: 2 * 60_000,
+    refetchIntervalInBackground: false,
   })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['watchlist', cluster.name, walletAddress ?? 'guest'] })

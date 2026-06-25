@@ -18,7 +18,7 @@ export function RiskDial({ score, maxDrawdown }: { score: number; maxDrawdown: n
   const getDialGlow = (val: number) => {
     if (val < 34) return 'shadow-[0_0_15px_rgba(16,185,129,0.15)] text-emerald-400'
     if (val < 67) return 'shadow-[0_0_15px_rgba(245,158,11,0.15)] text-amber-400'
-    return 'shadow-[0_0_15px_rgba(239,68,68,0.2)] text-rose-400 animate-pulse'
+    return 'shadow-[0_0_15px_rgba(239,68,68,0.2)] text-rose-400 motion-safe:animate-pulse'
   }
 
   return (
@@ -96,7 +96,7 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
   const getStatusColor = () => {
     if (isLiquidityCrisis) return 'text-amber-400'
     if (isBridgeOutage) return 'text-rose-500'
-    if (isSequencerDowntime) return 'text-rose-400 animate-pulse'
+    if (isSequencerDowntime) return 'text-rose-400 motion-safe:animate-pulse'
     return 'text-cyan-400'
   }
 
@@ -144,7 +144,7 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
     }
     if (isSequencerDowntime) {
       if (from === 'L2' || to === 'L2') {
-        return 'stroke-rose-500/80 stroke-[2.5px] stroke-dasharray-none animate-pulse'
+        return 'stroke-rose-500/80 stroke-[2.5px] stroke-dasharray-none motion-safe:animate-pulse'
       }
       return 'stroke-cyan-500/80 sweep-link-active'
     }
@@ -167,12 +167,22 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
           stroke-dasharray: 3, 3;
           animation: sweep 0.8s linear infinite;
         }
+        @media (prefers-reduced-motion: reduce) {
+          .sweep-link-active,
+          .sweep-link-alert {
+            animation: none;
+          }
+        }
       `}</style>
 
       <div className="flex items-center justify-between border-b border-cyan-500/10 pb-1.5 mb-1 select-none">
         <span className="font-bold flex items-center gap-1 uppercase tracking-wider text-zinc-300">
           <span
-            className={`h-1.5 w-1.5 rounded-full ${isLiquidityCrisis || isBridgeOutage || isSequencerDowntime ? 'bg-rose-500 animate-ping' : 'bg-cyan-400 animate-pulse'}`}
+            className={`h-1.5 w-1.5 rounded-full ${
+              isLiquidityCrisis || isBridgeOutage || isSequencerDowntime
+                ? 'bg-rose-500 motion-safe:animate-ping'
+                : 'bg-cyan-400 motion-safe:animate-pulse'
+            }`}
           />
           CROSS-CHAIN LINK SIMULATOR
         </span>
@@ -182,7 +192,7 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
       <div className="relative w-full h-[140px] bg-zinc-950 rounded-xs border border-zinc-900 flex items-center justify-center overflow-hidden">
         <Sparkles
           id="bridge-sparkles"
-          particleDensity={25}
+          particleDensity={8}
           minSize={0.4}
           maxSize={1.0}
           particleColor="#06b6d4"
@@ -224,7 +234,7 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
                   cy="70"
                   r="14"
                   fill="none"
-                  className="stroke-amber-500/40 animate-ping"
+                  className="stroke-amber-500/40 motion-safe:animate-ping"
                   strokeWidth="1.5"
                 />
               )}
@@ -234,7 +244,7 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
                   cy="70"
                   r="14"
                   fill="none"
-                  className="stroke-amber-500/40 animate-ping"
+                  className="stroke-amber-500/40 motion-safe:animate-ping"
                   strokeWidth="1.5"
                 />
               )}
@@ -248,7 +258,7 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
                   cy="70"
                   r="14"
                   fill="none"
-                  className="stroke-rose-500/40 animate-ping"
+                  className="stroke-rose-500/40 motion-safe:animate-ping"
                   strokeWidth="1.5"
                 />
               )}
@@ -258,14 +268,21 @@ export function BridgeThreatSimulator({ scenario }: { scenario: ChainScenarioCon
                   cy="70"
                   r="14"
                   fill="none"
-                  className="stroke-rose-500/40 animate-ping"
+                  className="stroke-rose-500/40 motion-safe:animate-ping"
                   strokeWidth="1.5"
                 />
               )}
             </>
           )}
           {isSequencerDowntime && isChainAffected('L2') && (
-            <circle cx="200" cy="115" r="14" fill="none" className="stroke-rose-500 animate-ping" strokeWidth="1.5" />
+            <circle
+              cx="200"
+              cy="115"
+              r="14"
+              fill="none"
+              className="stroke-rose-500 motion-safe:animate-ping"
+              strokeWidth="1.5"
+            />
           )}
 
           {/* Node Dots */}

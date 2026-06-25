@@ -219,13 +219,13 @@
   }
 
   .aegis-panel {
-    @apply rounded-lg border border-white/10 bg-zinc-950/65 shadow-xl shadow-black/25 backdrop-blur-md;
+    @apply rounded-lg border border-white/10 bg-zinc-950/82 shadow-xl shadow-black/25;
     content-visibility: auto;
     contain-intrinsic-size: auto 420px;
   }
 
   .aegis-panel-soft {
-    @apply rounded-lg border border-white/10 bg-white/[0.03] shadow-lg shadow-black/15 backdrop-blur-md;
+    @apply rounded-lg border border-white/10 bg-zinc-950/58 shadow-lg shadow-black/15;
     content-visibility: auto;
     contain-intrinsic-size: auto 360px;
   }
@@ -251,7 +251,7 @@
   }
 
   .finance-surface {
-    @apply rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] shadow-xl shadow-black/20 backdrop-blur-md;
+    @apply rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,27,0.92),rgba(9,9,11,0.78))] shadow-xl shadow-black/20;
     content-visibility: auto;
     contain-intrinsic-size: auto 360px;
   }
@@ -276,20 +276,44 @@
   .market-backdrop {
     z-index: 0;
     opacity: 0.86;
-    mask-image: linear-gradient(to bottom, transparent, black 10%, black 78%, transparent);
-    contain: strict;
+    contain: layout paint style;
   }
 
   .market-backdrop-image {
     background-image: url('/trading-chart-backdrop.svg');
-    background-position: center;
-    background-size: cover;
-    opacity: 0.78;
+    background-position: center top;
+    background-repeat: repeat-y;
+    background-size: 100% auto;
+    opacity: 0.62;
     transform: translateZ(0);
   }
 
   .market-ticker {
     transform: translateZ(0);
+  }
+
+  @keyframes trace-beam {
+    0%,
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 0.42;
+    }
+    50% {
+      stroke-dashoffset: -260;
+      opacity: 0.9;
+    }
+  }
+
+  @keyframes beam-drift {
+    0%,
+    100% {
+      transform: translate3d(-2%, 0, 0) rotate(-1deg);
+      opacity: 0.42;
+    }
+    50% {
+      transform: translate3d(2%, -1%, 0) rotate(1deg);
+      opacity: 0.72;
+    }
   }
 
   .app-atmosphere {
@@ -311,12 +335,12 @@
 
     .market-backdrop {
       position: absolute;
-      height: 100svh;
       mask-image: none;
     }
 
     .market-backdrop-image {
       opacity: 0.64;
+      background-size: auto 100svh;
     }
 
     .aegis-panel,

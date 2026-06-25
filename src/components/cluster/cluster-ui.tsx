@@ -4,7 +4,6 @@ import { useConnection } from '@solana/wallet-adapter-react'
 
 import { useQuery } from '@tanstack/react-query'
 import * as React from 'react'
-import { ReactNode } from 'react'
 
 import { useCluster } from './cluster-data-access'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -25,7 +24,7 @@ export function ExplorerLink({ path, label, className }: { path: string; label: 
   )
 }
 
-export function ClusterChecker({ children }: { children: ReactNode }) {
+export function ClusterChecker() {
   const { cluster } = useCluster()
   const { connection } = useConnection()
 
@@ -33,10 +32,9 @@ export function ClusterChecker({ children }: { children: ReactNode }) {
     queryKey: ['version', { cluster, endpoint: connection.rpcEndpoint }],
     queryFn: () => connection.getVersion(),
     retry: 1,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   })
-  if (query.isLoading) {
-    return null
-  }
   if (query.isError || !query.data) {
     return (
       <AppAlert
@@ -50,7 +48,7 @@ export function ClusterChecker({ children }: { children: ReactNode }) {
       </AppAlert>
     )
   }
-  return children
+  return null
 }
 
 export function ClusterUiSelect() {

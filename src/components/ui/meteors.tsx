@@ -8,7 +8,13 @@ export function Meteors({ number = 20 }: { number?: number }) {
   >([])
 
   useEffect(() => {
-    const styles = Array.from({ length: number }).map(() => ({
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) {
+      return
+    }
+
+    const safeNumber = Math.min(Math.max(0, number), 8)
+    const styles = Array.from({ length: safeNumber }).map(() => ({
       top: '0px',
       left: Math.floor(Math.random() * 800 - 400) + 'px',
       animationDelay: (Math.random() * (0.8 - 0.2) + 0.2).toFixed(2) + 's',

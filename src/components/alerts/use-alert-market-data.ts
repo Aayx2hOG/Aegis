@@ -36,8 +36,8 @@ export function useAlertMarketData(walletAddress?: string) {
           clearTimeout(timeout)
         }
       },
-      staleTime: 60_000,
-      refetchInterval: 60_000,
+      staleTime: 5 * 60_000,
+      refetchInterval: false,
       retry: false,
     })),
   })
@@ -83,7 +83,8 @@ export function useAlertMarketData(walletAddress?: string) {
         }
       },
       staleTime: 60_000,
-      refetchInterval: 60_000,
+      refetchInterval: 2 * 60_000,
+      refetchIntervalInBackground: false,
       retry: false,
     })),
   })
@@ -98,8 +99,8 @@ export function useAlertMarketData(walletAddress?: string) {
       queryKey: ['defillama-protocol-detail', row],
       queryFn: async () =>
         fetchJson<DefiLlamaProtocolDetail>(`/api/defillama/protocol?slug=${encodeURIComponent(row)}`),
-      staleTime: 60_000,
-      refetchInterval: 60_000,
+      staleTime: 5 * 60_000,
+      refetchInterval: false,
       retry: false,
     })),
   })

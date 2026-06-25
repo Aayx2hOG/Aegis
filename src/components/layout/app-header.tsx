@@ -39,7 +39,7 @@ export function AppHeader({
 
   return (
     <>
-      <header className="app-header sticky top-0 z-[100] border-b border-white/10 bg-zinc-950/82 px-4 py-3 backdrop-blur-xl shadow-lg shadow-black/25 md:px-8">
+      <header className="app-header sticky top-0 z-[100] border-b border-white/10 bg-zinc-950/95 px-4 py-3 shadow-lg shadow-black/25 md:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-4 lg:gap-6 xl:gap-8">
             <Link
@@ -50,12 +50,8 @@ export function AppHeader({
                 Æ
               </div>
               <div className="flex flex-col">
-                <span className="hidden text-sm font-bold tracking-tight text-zinc-100 sm:inline">
-                  Aegis
-                </span>
-                <span className="hidden text-[11px] font-medium text-zinc-500 sm:inline">
-                  DeFi intelligence
-                </span>
+                <span className="hidden text-sm font-bold tracking-tight text-zinc-100 sm:inline">Aegis</span>
+                <span className="hidden text-[11px] font-medium text-zinc-500 sm:inline">DeFi intelligence</span>
               </div>
             </Link>
 
@@ -124,17 +120,17 @@ export function AppHeader({
       </header>
 
       {showMenu && (
-        <div className="fixed inset-x-0 bottom-0 top-[57px] z-[100] flex flex-col gap-6 overflow-y-auto border-t border-white/10 bg-zinc-950/95 p-4 backdrop-blur-xl lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 top-[57px] z-[100] flex flex-col gap-6 overflow-y-auto border-t border-white/10 bg-zinc-950/98 p-4 lg:hidden">
           <div className="flex flex-col gap-6 shrink-0">
             <nav className="flex flex-col gap-3">
-              <p className="mb-1 text-xs font-semibold text-zinc-500">
-                Navigation
-              </p>
+              <p className="mb-1 text-xs font-semibold text-zinc-500">Navigation</p>
               {mainNavLinks.map(({ label, path }) => (
                 <Link
                   key={path}
                   className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-                    isLinkActive(path) ? 'bg-white/[0.08] text-white' : 'text-zinc-400 hover:bg-white/[0.04] hover:text-white'
+                    isLinkActive(path)
+                      ? 'bg-white/[0.08] text-white'
+                      : 'text-zinc-400 hover:bg-white/[0.04] hover:text-white'
                   }`}
                   href={path}
                   onClick={() => setShowMenu(false)}
@@ -147,9 +143,7 @@ export function AppHeader({
             <div className="h-[1px] bg-zinc-800" />
 
             <div className="flex flex-col gap-4">
-              <p className="text-xs font-semibold text-zinc-500">
-                Identity & Settings
-              </p>
+              <p className="text-xs font-semibold text-zinc-500">Identity & Settings</p>
               <div className="flex flex-col gap-3">
                 <WalletButton />
                 <div className="flex items-center justify-between">
@@ -157,7 +151,9 @@ export function AppHeader({
                   <button
                     onClick={() => setBeginnerMode(!beginnerMode)}
                     className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition-all duration-300 ${
-                      beginnerMode ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100' : 'border-white/10 bg-white/[0.03] text-zinc-400'
+                      beginnerMode
+                        ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
+                        : 'border-white/10 bg-white/[0.03] text-zinc-400'
                     }`}
                   >
                     <span className={`h-1.5 w-1.5 rounded-full ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-700'}`} />
@@ -175,7 +171,6 @@ export function AppHeader({
               </div>
             </div>
           </div>
-
 
           <div className="pb-4 mt-auto shrink-0">
             <Link

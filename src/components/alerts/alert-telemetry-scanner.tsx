@@ -43,11 +43,11 @@ export function AlertTelemetryScanner({
 
   return (
     <div className="relative overflow-hidden rounded-xs border border-cyan-500/10 bg-zinc-950/60 p-4 space-y-4 shadow-md flex flex-col sm:flex-row items-center gap-4">
-      <Meteors number={6} />
+      <Meteors number={3} />
       <div className="relative w-28 h-28 border border-cyan-500/20 rounded-full flex items-center justify-center bg-zinc-950 shadow-[0_0_12px_rgba(6,182,212,0.1)] overflow-hidden shrink-0">
         <Sparkles
           id="sonar-sparkles"
-          particleDensity={20}
+          particleDensity={8}
           minSize={0.4}
           maxSize={1.0}
           particleColor="#06b6d4"
@@ -59,14 +59,14 @@ export function AlertTelemetryScanner({
         <div className="absolute w-full h-[1px] bg-cyan-500/10" />
         <div className="absolute h-full w-[1px] bg-cyan-500/10" />
 
-        <span className="absolute top-6 left-6 w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping duration-1000" />
+        <span className="absolute top-6 left-6 w-1.5 h-1.5 rounded-full bg-cyan-400 motion-safe:animate-ping duration-1000" />
         <span className="absolute top-6 left-6 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#06b6d4]" />
 
-        <span className="absolute bottom-8 right-6 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping duration-800" />
+        <span className="absolute bottom-8 right-6 w-1.5 h-1.5 rounded-full bg-rose-500 motion-safe:animate-ping duration-800" />
         <span className="absolute bottom-8 right-6 w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_#ef4444]" />
 
         <div
-          className="absolute inset-0 origin-center bg-[conic-gradient(from_0deg,rgba(6,182,212,0.12)_0deg,transparent_90deg)] rounded-full animate-spin"
+          className="absolute inset-0 origin-center bg-[conic-gradient(from_0deg,rgba(6,182,212,0.12)_0deg,transparent_90deg)] rounded-full motion-safe:animate-spin"
           style={{ animationDuration: '5s' }}
         />
         <span className="absolute bottom-1 left-0 right-0 text-center text-[6px] font-mono text-cyan-500/40 uppercase tracking-widest">

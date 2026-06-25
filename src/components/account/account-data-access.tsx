@@ -21,6 +21,7 @@ export function useGetBalance({ address }: { address: PublicKey }) {
   return useQuery({
     queryKey: ['get-balance', { endpoint: connection.rpcEndpoint, address }],
     queryFn: () => connection.getBalance(address),
+    staleTime: 60_000,
   })
 }
 
@@ -30,6 +31,7 @@ export function useGetSignatures({ address }: { address: PublicKey }) {
   return useQuery({
     queryKey: ['get-signatures', { endpoint: connection.rpcEndpoint, address }],
     queryFn: () => connection.getSignaturesForAddress(address),
+    staleTime: 60_000,
   })
 }
 
@@ -49,6 +51,7 @@ export function useGetTokenAccounts({ address }: { address: PublicKey }) {
       ])
       return [...tokenAccounts.value, ...token2022Accounts.value]
     },
+    staleTime: 60_000,
   })
 }
 

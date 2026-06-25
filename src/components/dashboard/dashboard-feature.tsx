@@ -45,7 +45,10 @@ function WorkspaceSnapshot({
       </div>
       <div className="mt-4 grid gap-3">
         {stats.map((stat) => (
-          <div key={stat.label} className="flex items-center justify-between gap-4 rounded-md border border-white/10 bg-zinc-950/55 px-3 py-2">
+          <div
+            key={stat.label}
+            className="flex items-center justify-between gap-4 rounded-md border border-white/10 bg-zinc-950/55 px-3 py-2"
+          >
             <span className="text-xs text-zinc-500">{stat.label}</span>
             <span className="truncate text-sm font-semibold text-zinc-100">{stat.value}</span>
           </div>
@@ -109,10 +112,7 @@ export function DashboardFeature() {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/40 to-transparent" />
         <div className="relative z-10 grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
           <div className="flex flex-col gap-5 text-left lg:col-span-8">
-            <Badge
-              variant="outline"
-              className="aegis-kicker w-fit"
-            >
+            <Badge variant="outline" className="aegis-kicker w-fit">
               <Layers3 className="h-3.5 w-3.5" />
               Multichain research workspace
             </Badge>
@@ -128,28 +128,19 @@ export function DashboardFeature() {
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">
-              <Button
-                asChild
-                className="aegis-button-primary h-11"
-              >
+              <Button asChild className="aegis-button-primary h-11">
                 <Link href="/research">
                   <Search className="h-4 w-4" />
                   Start research
                 </Link>
               </Button>
-              <Button
-                asChild
-                className="aegis-button-secondary h-11"
-              >
+              <Button asChild className="aegis-button-secondary h-11">
                 <Link href="/research/compare">
                   <Swords className="h-4 w-4" />
                   Compare protocols
                 </Link>
               </Button>
-              <Button
-                asChild
-                className="aegis-button-secondary h-11"
-              >
+              <Button asChild className="aegis-button-secondary h-11">
                 <Link href="/war-room">
                   Open war room
                   <ArrowRight className="h-4 w-4" />
@@ -189,14 +180,10 @@ export function DashboardFeature() {
             className="md:col-span-1 text-left"
           >
             <div className="mt-4 flex flex-col justify-between h-[5.5rem]">
-              <p className="text-2xl font-semibold tracking-tight text-white">
-                {activeChain.displayName}
-              </p>
+              <p className="text-2xl font-semibold tracking-tight text-white">{activeChain.displayName}</p>
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                <span className="text-xs font-medium text-emerald-200">
-                  RPC connected
-                </span>
+                <span className="text-xs font-medium text-emerald-200">RPC connected</span>
               </div>
             </div>
           </BentoGridItem>
@@ -211,15 +198,11 @@ export function DashboardFeature() {
             <div className="mt-4 grid grid-cols-2 gap-4">
               <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
                 <p className="text-xs font-medium text-zinc-500">Chain coverage</p>
-                <p className="mt-1 text-2xl font-semibold text-cyan-100">
-                  {activeChainConnections.length || 1}
-                </p>
+                <p className="mt-1 text-2xl font-semibold text-cyan-100">{activeChainConnections.length || 1}</p>
               </div>
               <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
                 <p className="text-xs font-medium text-zinc-500">Watched protocols</p>
-                <p className="mt-1 text-2xl font-semibold text-cyan-100">
-                  {flattenedWatchlist.length}
-                </p>
+                <p className="mt-1 text-2xl font-semibold text-cyan-100">{flattenedWatchlist.length}</p>
               </div>
             </div>
           </BentoGridItem>
@@ -236,18 +219,12 @@ export function DashboardFeature() {
                 <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center space-y-3">
                   <ShieldCheck className="h-6 w-6 text-zinc-600 stroke-[1.5]" />
                   <div className="space-y-0.5">
-                    <p className="text-sm font-semibold text-zinc-200">
-                      No watched protocols yet
-                    </p>
+                    <p className="text-sm font-semibold text-zinc-200">No watched protocols yet</p>
                     <p className="text-xs text-zinc-500">
                       Add protocols from Research to monitor market movement and alert rules.
                     </p>
                   </div>
-                  <Button
-                    asChild
-                    size="sm"
-                    className="aegis-button-secondary h-8 px-4 text-xs"
-                  >
+                  <Button asChild size="sm" className="aegis-button-secondary h-8 px-4 text-xs">
                     <Link href="/research">Browse Research</Link>
                   </Button>
                 </div>
@@ -290,9 +267,7 @@ export function DashboardFeature() {
             <div className="mt-4 flex flex-col justify-between h-[5.5rem]">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-3xl font-semibold text-white">{flattenedWatchlist.length}</span>
-                <span className="text-xs font-medium text-zinc-500">
-                  Watched
-                </span>
+                <span className="text-xs font-medium text-zinc-500">Watched</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-400">Monitor mode</span>

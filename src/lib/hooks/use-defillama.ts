@@ -18,8 +18,8 @@ export function useChainProtocols(chainType: ChainType) {
         clearTimeout(timeout)
       }
     },
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    staleTime: 5 * 60_000,
+    refetchInterval: false,
     retry: false,
   })
 }

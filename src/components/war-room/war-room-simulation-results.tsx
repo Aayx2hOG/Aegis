@@ -45,9 +45,9 @@ export function WarRoomSimulationResults({ result, onApplyMitigation }: WarRoomS
           borderColor="rgba(6, 182, 212, 0.2)"
           className="relative overflow-hidden border border-cyan-500/20 bg-zinc-950/90 p-5 rounded-xs font-mono text-xs text-left"
         >
-          <Meteors number={10} />
+          <Meteors number={4} />
           <div className="relative z-10 flex items-center gap-2 border-b border-cyan-500/10 pb-2 mb-3">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 motion-safe:animate-ping" />
             <span className="font-bold text-cyan-400 uppercase tracking-widest text-[10px]">
               AEGIS DYNAMIC THREAT BRIEFING
             </span>

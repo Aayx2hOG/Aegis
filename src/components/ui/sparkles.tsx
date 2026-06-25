@@ -16,7 +16,7 @@ export function Sparkles({
   id = 'sparkles',
   minSize = 0.6,
   maxSize = 1.8,
-  particleDensity = 100,
+  particleDensity = 36,
   className = '',
   particleColor = '#22d3ee',
 }: SparklesProps) {
@@ -28,7 +28,11 @@ export function Sparkles({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    let animationFrameId: number
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const safeDensity = Math.min(Math.max(0, particleDensity), prefersReducedMotion ? 10 : 48)
+    let animationFrameId: number | null = null
+    let isTabVisible = document.visibilityState === 'visible'
+    let isInViewport = true
     let width = (canvas.width = canvas.offsetWidth)
     let height = (canvas.height = canvas.offsetHeight)
 
@@ -92,21 +96,52 @@ export function Sparkles({
       ctx.restore()
     }
 
-    const particles: Particle[] = Array.from({ length: particleDensity }).map(createParticle)
+    const particles: Particle[] = Array.from({ length: safeDensity }).map(createParticle)
 
-    const animate = () => {
+    const drawFrame = (shouldUpdate: boolean) => {
       ctx.clearRect(0, 0, width, height)
       particles.forEach((particle) => {
-        updateParticle(particle)
+        if (shouldUpdate) updateParticle(particle)
         drawParticle(particle)
       })
+    }
+
+    const animate = () => {
+      if (!isTabVisible || !isInViewport) {
+        animationFrameId = null
+        return
+      }
+      drawFrame(true)
       animationFrameId = requestAnimationFrame(animate)
     }
 
-    animate()
+    const startAnimation = () => {
+      if (animationFrameId === null && isTabVisible && isInViewport && !prefersReducedMotion) {
+        animationFrameId = requestAnimationFrame(animate)
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      isTabVisible = document.visibilityState === 'visible'
+      startAnimation()
+    }
+
+    const intersectionObserver = new IntersectionObserver(([entry]) => {
+      isInViewport = entry?.isIntersecting ?? true
+      startAnimation()
+    })
+    intersectionObserver.observe(canvas)
+
+    drawFrame(false)
+    startAnimation()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      cancelAnimationFrame(animationFrameId)
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId)
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      intersectionObserver.disconnect()
       resizeObserver.disconnect()
     }
   }, [maxSize, minSize, particleColor, particleDensity])

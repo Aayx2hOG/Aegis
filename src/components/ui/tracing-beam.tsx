@@ -1,16 +1,9 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { motion, useTransform, useScroll, useSpring } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 export function TracingBeam({ children, className }: { children: React.ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start start', 'end start'],
-  })
-
   const contentRef = useRef<HTMLDivElement>(null)
   const [svgHeight, setSvgHeight] = useState(0)
 
@@ -32,15 +25,8 @@ export function TracingBeam({ children, className }: { children: React.ReactNode
     return () => resizeObserver.disconnect()
   }, [])
 
-  const y1 = useTransform(scrollYProgress, [0, 0.8], [50, svgHeight - 50])
-
-  const y1Spring = useSpring(y1, {
-    stiffness: 80,
-    damping: 15,
-  })
-
   return (
-    <div ref={ref} className={cn('relative w-full max-w-5xl mx-auto flex flex-row gap-0 md:gap-10', className)}>
+    <div className={cn('relative mx-auto flex w-full max-w-5xl flex-row gap-0 md:gap-10', className)}>
       <div className="relative left-0 hidden md:block shrink-0 mt-4">
         <svg
           viewBox={`0 0 20 ${svgHeight}`}
@@ -50,16 +36,14 @@ export function TracingBeam({ children, className }: { children: React.ReactNode
           aria-hidden="true"
         >
           <path d={`M 10 0 V ${svgHeight}`} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2" />
-          <motion.path
+          <path
             d={`M 10 0 V ${svgHeight}`}
             fill="none"
             stroke="url(#beam-gradient)"
             strokeWidth="3.5"
             strokeLinecap="round"
-            style={{
-              strokeDasharray: svgHeight,
-              strokeDashoffset: useTransform(scrollYProgress, [0, 1], [svgHeight, 0]),
-            }}
+            strokeDasharray={`${Math.max(svgHeight * 0.35, 120)} ${Math.max(svgHeight, 1)}`}
+            className="motion-safe:animate-[trace-beam_7s_ease-in-out_infinite]"
           />
           <defs>
             <linearGradient id="beam-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -69,9 +53,9 @@ export function TracingBeam({ children, className }: { children: React.ReactNode
             </linearGradient>
           </defs>
           {/* Glowing indicator dot */}
-          <motion.circle
+          <circle
             cx="10"
-            cy={y1Spring}
+            cy={Math.max(42, Math.min(svgHeight - 42, svgHeight * 0.3))}
             r="5"
             fill="#ffffff"
             stroke="#a1a1aa"

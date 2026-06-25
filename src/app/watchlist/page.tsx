@@ -278,7 +278,7 @@ function WatchlistAnalyticsPanel({ rows }: { rows: WatchlistMarketRow[] }) {
     <SpotlightCard
       spotlightColor="rgba(6, 182, 212, 0.03)"
       borderColor="rgba(6, 182, 212, 0.15)"
-      className="border-cyan-500/10 bg-zinc-950/40 shadow-2xl backdrop-blur-xl !p-5 corner-decor"
+      className="border-cyan-500/10 bg-zinc-950/82 shadow-2xl !p-5 corner-decor"
     >
       <div className="space-y-3 pb-3 border-b border-zinc-900 mb-4 text-left">
         <h3 className="text-sm font-orbitron font-black text-white uppercase tracking-wider">
@@ -293,7 +293,11 @@ function WatchlistAnalyticsPanel({ rows }: { rows: WatchlistMarketRow[] }) {
         {/* Stacked Chart */}
         <div className="space-y-2 text-left">
           <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">
-            {beginnerMode ? <DeFiTooltip term="TVL">TVL ALLOCATION BY NETWORK</DeFiTooltip> : 'TVL ALLOCATION BY NETWORK'}
+            {beginnerMode ? (
+              <DeFiTooltip term="TVL">TVL ALLOCATION BY NETWORK</DeFiTooltip>
+            ) : (
+              'TVL ALLOCATION BY NETWORK'
+            )}
           </p>
           {chainMetrics.totalTvl === 0 ? (
             <div className="text-[10px] text-zinc-650 py-1">&gt; Metric inputs currently zero or unavailable.</div>
@@ -325,7 +329,11 @@ function WatchlistAnalyticsPanel({ rows }: { rows: WatchlistMarketRow[] }) {
         {/* Risk Distribution */}
         <div className="space-y-2 text-left">
           <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">
-            {beginnerMode ? <DeFiTooltip term="Risk State">BASKET RISK THREAT FACTOR</DeFiTooltip> : 'BASKET RISK THREAT FACTOR'}
+            {beginnerMode ? (
+              <DeFiTooltip term="Risk State">BASKET RISK THREAT FACTOR</DeFiTooltip>
+            ) : (
+              'BASKET RISK THREAT FACTOR'
+            )}
           </p>
           <div className="space-y-2.5">
             <div className="space-y-1">
@@ -591,8 +599,8 @@ export default function WatchlistPage() {
           clearTimeout(timeout)
         }
       },
-      staleTime: 60_000,
-      refetchInterval: 60_000,
+      staleTime: 5 * 60_000,
+      refetchInterval: false,
       retry: false,
     })),
   })
@@ -638,7 +646,8 @@ export default function WatchlistPage() {
         }
       },
       staleTime: 60_000,
-      refetchInterval: 60_000,
+      refetchInterval: 2 * 60_000,
+      refetchIntervalInBackground: false,
       retry: false,
     })),
   })
@@ -653,8 +662,8 @@ export default function WatchlistPage() {
       queryKey: ['defillama-protocol-detail', row],
       queryFn: async () =>
         fetchJson<DefiLlamaProtocolDetail>(`/api/defillama/protocol?slug=${encodeURIComponent(row)}`),
-      staleTime: 60_000,
-      refetchInterval: 60_000,
+      staleTime: 5 * 60_000,
+      refetchInterval: false,
       retry: false,
     })),
   })
@@ -799,11 +808,11 @@ export default function WatchlistPage() {
         <BeginnerOnboardingCard
           title="DeFi Asset Monitor Guide"
           steps={[
-            "This dashboard allows you to track key performance metrics of DeFi protocols you are interested in.",
-            "TVL (Total Value Locked) shows the volume of funds deposited in each protocol. High TVL indicates popularity and stability.",
+            'This dashboard allows you to track key performance metrics of DeFi protocols you are interested in.',
+            'TVL (Total Value Locked) shows the volume of funds deposited in each protocol. High TVL indicates popularity and stability.',
             "The 'Risk State' column displays how safe a protocol is based on sudden value drops: Stable is green, Watch is yellow, and Critical is red.",
-            "Hover over dotted terms like LTV, APY, or Risk State to view their definitions instantly.",
-            "Toggling off Beginner Mode in the header navigation will restore the technical system parameters."
+            'Hover over dotted terms like LTV, APY, or Risk State to view their definitions instantly.',
+            'Toggling off Beginner Mode in the header navigation will restore the technical system parameters.',
           ]}
         />
       )}
@@ -842,7 +851,7 @@ export default function WatchlistPage() {
           </div>
 
           {/* Console Metric Panel */}
-          <div className="grid grid-cols-3 gap-2 rounded-xs border border-cyan-500/10 bg-zinc-950/90 p-3.5 backdrop-blur-xl shrink-0 font-mono text-xs text-left shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] min-w-[240px]">
+          <div className="grid grid-cols-3 gap-2 rounded-xs border border-cyan-500/10 bg-zinc-950/95 p-3.5 shrink-0 font-mono text-xs text-left shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] min-w-[240px]">
             <div>
               <span className="text-[8px] font-bold text-zinc-550 block uppercase tracking-wider">Networks</span>
               <span className="text-sm font-bold text-white font-orbitron mt-0.5 block">{chainViews.length || 1}</span>
@@ -883,7 +892,7 @@ export default function WatchlistPage() {
         <SpotlightCard
           spotlightColor="rgba(6, 182, 212, 0.03)"
           borderColor="rgba(6, 182, 212, 0.15)"
-          className="border-cyan-500/10 bg-zinc-950/40 shadow-2xl backdrop-blur-xl !p-5 corner-decor"
+          className="border-cyan-500/10 bg-zinc-950/82 shadow-2xl !p-5 corner-decor"
         >
           <div className="space-y-3 pb-3 border-b border-zinc-900 mb-4">
             <div className="flex items-center justify-between gap-3">
@@ -970,7 +979,7 @@ export default function WatchlistPage() {
           <SpotlightCard
             spotlightColor="rgba(6, 182, 212, 0.03)"
             borderColor="rgba(6, 182, 212, 0.15)"
-            className="border-cyan-500/10 bg-zinc-950/40 shadow-2xl backdrop-blur-xl !p-5 corner-decor"
+            className="border-cyan-500/10 bg-zinc-950/82 shadow-2xl !p-5 corner-decor"
           >
             <div className="space-y-3 pb-3 border-b border-zinc-900 mb-4">
               <h3 className="text-sm font-orbitron font-black text-white uppercase tracking-wider">
@@ -1078,11 +1087,7 @@ export default function WatchlistPage() {
                         <span
                           className={`inline-flex rounded-xs border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider ${status.tone}`}
                         >
-                          {beginnerMode ? (
-                            <DeFiTooltip term="Risk State">{status.label}</DeFiTooltip>
-                          ) : (
-                            status.label
-                          )}
+                          {beginnerMode ? <DeFiTooltip term="Risk State">{status.label}</DeFiTooltip> : status.label}
                         </span>
                       </div>
 
