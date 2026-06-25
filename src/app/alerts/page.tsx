@@ -4,250 +4,40 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ChevronDown, Layers3, Plus, Play, Loader2 } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { useQueries } from '@tanstack/react-query'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Tabs } from '@/components/ui/tabs'
 import ChannelManager from '@/components/notifications/channel-manager'
 import { AlertTelemetryScanner } from '@/components/alerts/alert-telemetry-scanner'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
-import { useMultiChain } from '@/components/chain/chain-provider'
-import { useMultiChainWatchlistByChain } from '@/lib/hooks/use-multichain-watchlist'
-import { fetchJson } from '@/lib/api/fetch-json'
-import { normalizeProtocolSlug, resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
-import { ChainType } from '@/lib/chain/types'
-import type { SolanaProtocol } from '@/lib/types'
+import { AlertSummaryDialog } from '@/components/alerts/alert-summary-dialog'
+import { AlertRuleTestDialog } from '@/components/alerts/alert-rule-test-dialog'
+import { useAlertMarketData } from '@/components/alerts/use-alert-market-data'
+import { useGuestAlertWalletAddress } from '@/components/alerts/use-guest-alert-wallet-address'
+import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
+import type {
+  AlertDirection,
+  AlertEvaluationResultItem,
+  AlertEventItem,
+  AlertMetric,
+  AlertRuleItem,
+  AlertStorageMode,
+  AlertTestResultItem,
+  ResearchHistoryItem,
+} from '@/components/alerts/alert-types'
+import {
+  ALERT_METRIC_LABEL,
+  buildLocalAlertSummary,
+  createLocalAlertId,
+  formatAlertValue,
+  getLocalCurrentValueForRule,
+  isLocalAlertTriggered,
+  normalizeAlertEvents,
+  readLocalAlertStore,
+  writeLocalAlertStore,
+} from '@/components/alerts/alert-utils'
 import { toast } from 'sonner'
-
-type AlertMetric = 'CHANGE_1D' | 'CHANGE_7D' | 'TVL_USD' | 'PRICE_USD'
-type AlertDirection = 'BELOW' | 'ABOVE'
-
-interface ResearchHistoryItem {
-  id: string
-  protocolSlug: string
-  briefMarkdown: string
-  createdAt: string
-}
-
-interface AlertRuleItem {
-  id: string
-  protocolSlug: string
-  metric: AlertMetric
-  threshold: number
-  direction: AlertDirection
-  enabled: boolean
-  createdAt: string
-}
-
-interface AlertEventItem {
-  ruleId?: string
-  id: string
-  protocolSlug: string
-  metric: AlertMetric
-  threshold: number
-  direction: AlertDirection
-  currentValue: number
-  triggeredAt: string
-  summary?: string
-  summaryGeneratedAt?: string
-}
-
-interface AlertTestResultItem {
-  id: string
-  ruleId: string
-  protocolSlug: string
-  metric: AlertMetric
-  threshold: number
-  direction: AlertDirection
-  currentValue: number
-  triggered: boolean
-  createdAt: string
-  summary: string
-}
-
-interface AlertEvaluationResultItem {
-  ruleId: string
-  protocolSlug: string
-  metric: AlertMetric
-  threshold: number
-  direction: AlertDirection
-  status: 'triggered' | 'skipped'
-  currentValue: number | null
-  reason: string
-}
-
-type CoinGeckoResponse = {
-  market_data?: {
-    current_price?: {
-      usd?: number | null
-    }
-    price_change_percentage_24h?: number | null
-  }
-}
-
-type DefiLlamaProtocolDetail = {
-  slug?: string
-  tokensInUsd?: Array<{ date: number; tokens?: Record<string, number> }>
-  tokens?: Array<{ date: number; tokens?: Record<string, number> }>
-  mcap?: number | null
-  symbol?: string | null
-  address?: string | null
-}
-
-type WatchlistMarketRow = {
-  slug: string
-  chainName: string
-  chainType: ChainType
-  market?: SolanaProtocol & {
-    gecko_id?: string | null
-    geckoId?: string | null
-  }
-  geckoId: string | null
-}
-
-type LocalAlertStore = {
-  rules: AlertRuleItem[]
-  events: AlertEventItem[]
-  updatedAt: string
-}
-
-const LOCAL_ALERT_STORAGE_PREFIX = 'aegis-alerts:'
-
-function getLocalAlertStorageKey(walletAddress: string) {
-  return `${LOCAL_ALERT_STORAGE_PREFIX}${walletAddress}`
-}
-
-function createLocalAlertId(prefix: string) {
-  return `${prefix}-${crypto.randomUUID()}`
-}
-
-function readLocalAlertStore(walletAddress: string): LocalAlertStore {
-  if (typeof window === 'undefined') {
-    return { rules: [], events: [], updatedAt: new Date().toISOString() }
-  }
-
-  try {
-    const raw = window.localStorage.getItem(getLocalAlertStorageKey(walletAddress))
-    if (!raw) return { rules: [], events: [], updatedAt: new Date().toISOString() }
-
-    const parsed = JSON.parse(raw) as Partial<LocalAlertStore>
-    return {
-      rules: Array.isArray(parsed.rules) ? (parsed.rules as AlertRuleItem[]) : [],
-      events: Array.isArray(parsed.events) ? (parsed.events as AlertEventItem[]) : [],
-      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
-    }
-  } catch {
-    return { rules: [], events: [], updatedAt: new Date().toISOString() }
-  }
-}
-
-function writeLocalAlertStore(walletAddress: string, store: LocalAlertStore) {
-  if (typeof window === 'undefined') return
-
-  try {
-    window.localStorage.setItem(getLocalAlertStorageKey(walletAddress), JSON.stringify(store))
-  } catch {
-    console.error('Failed to save local alerts')
-  }
-}
-
-function formatAlertValue(metric: AlertMetric, value: number): string {
-  if (metric === 'TVL_USD') {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      notation: 'compact',
-      maximumFractionDigits: 1,
-    }).format(value)
-  }
-  if (metric === 'PRICE_USD') {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 2,
-    }).format(value)
-  }
-  return `${value.toFixed(2)}%`
-}
-
-function buildLocalAlertSummary(rule: AlertRuleItem, currentValue: number) {
-  const metricLabel = ALERT_METRIC_LABEL[rule.metric]
-  const relationLabel = currentValue === rule.threshold ? 'equal to' : currentValue < rule.threshold ? 'below' : 'above'
-  const formattedVal = formatAlertValue(rule.metric, currentValue)
-  const formattedThreshold = formatAlertValue(rule.metric, rule.threshold)
-  return `${rule.protocolSlug} ${metricLabel} is ${formattedVal}, which is ${relationLabel} ${formattedThreshold}.`
-}
-
-function getLocalCurrentValueForRule(rule: AlertRuleItem, market?: SolanaProtocol, price?: number | null) {
-  if (rule.metric === 'TVL_USD') return market?.tvl ?? null
-  if (rule.metric === 'PRICE_USD') return price ?? null
-  if (!market) return null
-  return rule.metric === 'CHANGE_7D' ? (market.change_7d ?? null) : (market.change_1d ?? null)
-}
-
-function isLocalAlertTriggered(rule: AlertRuleItem, currentValue: number) {
-  return rule.direction === 'BELOW' ? currentValue <= rule.threshold : currentValue >= rule.threshold
-}
-
-function getAlertEventKey(event: AlertEventItem) {
-  return event.ruleId ?? `${event.protocolSlug}:${event.metric}:${event.direction}:${event.threshold.toFixed(4)}`
-}
-
-function normalizeAlertEvents(events: AlertEventItem[]) {
-  const deduped = new Map<string, AlertEventItem>()
-
-  events
-    .slice()
-    .sort((left, right) => new Date(right.triggeredAt).getTime() - new Date(left.triggeredAt).getTime())
-    .forEach((event) => {
-      const key = getAlertEventKey(event)
-      if (!deduped.has(key)) {
-        deduped.set(key, event)
-      }
-    })
-
-  return Array.from(deduped.values())
-}
-
-function getLatestTokenPriceFromProtocolDetail(detail?: DefiLlamaProtocolDetail): number | null {
-  if (!detail) return null
-
-  const latestUsdEntry = detail.tokensInUsd?.[detail.tokensInUsd.length - 1]
-  const latestTokenEntry = detail.tokens?.[detail.tokens.length - 1]
-  if (!latestUsdEntry || !latestTokenEntry) return null
-
-  const usdTokens = latestUsdEntry.tokens ?? {}
-  const rawTokens = latestTokenEntry.tokens ?? {}
-  const symbols = Object.keys(usdTokens)
-
-  for (const symbol of symbols) {
-    const usdValue = usdTokens[symbol]
-    const tokenAmount = rawTokens[symbol]
-    if (typeof usdValue === 'number' && typeof tokenAmount === 'number' && tokenAmount > 0) {
-      const derived = usdValue / tokenAmount
-      if (Number.isFinite(derived) && derived > 0) return derived
-    }
-  }
-
-  return null
-}
-
-const ALERT_METRIC_LABEL: Record<AlertMetric, string> = {
-  CHANGE_1D: '24h change',
-  CHANGE_7D: '7d change',
-  TVL_USD: 'TVL',
-  PRICE_USD: 'Token Price',
-}
 
 function AlertsContent() {
   const router = useRouter()
@@ -260,132 +50,11 @@ function AlertsContent() {
     router.replace(`/alerts?${params.toString()}`)
   }
 
-  const { allChains } = useMultiChain()
   const wallet = useWallet()
   const walletAddress = wallet.publicKey?.toBase58()
-  const { data: watchlistsByChainData } = useMultiChainWatchlistByChain(walletAddress)
-  const watchlistsByChain = useMemo<Record<string, string[]>>(
-    () => watchlistsByChainData ?? {},
-    [watchlistsByChainData],
-  )
-
-  const protocolChainTypes = useMemo(() => Array.from(new Set(allChains.map((chain) => chain.type))), [allChains])
-
-  const protocolQueries = useQueries({
-    queries: protocolChainTypes.map((chainType) => ({
-      queryKey: ['chain-protocols', chainType],
-      queryFn: async () => {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 12_000)
-
-        try {
-          return await fetchJson<SolanaProtocol[]>(`/api/defillama?chain=${encodeURIComponent(chainType)}`, {
-            signal: controller.signal,
-          })
-        } finally {
-          clearTimeout(timeout)
-        }
-      },
-      staleTime: 60_000,
-      refetchInterval: 60_000,
-      retry: false,
-    })),
-  })
-
-  const protocolsByChainType = useMemo(() => {
-    return protocolChainTypes.reduce<Partial<Record<ChainType, SolanaProtocol[]>>>((acc, chainType, index) => {
-      acc[chainType] = (protocolQueries[index]?.data as SolanaProtocol[] | undefined) ?? []
-      return acc
-    }, {})
-  }, [protocolChainTypes, protocolQueries])
-
-  const watchlistMarketRows = useMemo(() => {
-    return allChains.flatMap((chain) => {
-      const protocols = protocolsByChainType[chain.type] ?? []
-      return (watchlistsByChain[chain.name] ?? []).map<WatchlistMarketRow>((slug) => {
-        const market = resolveProtocolFromList(slug, protocols)
-        const geckoId =
-          (market as WatchlistMarketRow['market'] | undefined)?.gecko_id ??
-          (market as WatchlistMarketRow['market'] | undefined)?.geckoId ??
-          slug
-
-        return { slug, chainName: chain.name, chainType: chain.type, market, geckoId }
-      })
-    })
-  }, [allChains, protocolsByChainType, watchlistsByChain])
-
-  const geckoIds = useMemo(
-    () =>
-      Array.from(
-        new Set(watchlistMarketRows.map((row) => row.geckoId).filter((value): value is string => Boolean(value))),
-      ),
-    [watchlistMarketRows],
-  )
-
-  const priceQueries = useQueries({
-    queries: geckoIds.map((geckoId) => ({
-      queryKey: ['coingecko-price', geckoId],
-      queryFn: async () => {
-        const res = await fetchJson<CoinGeckoResponse>(`/api/coingecko?id=${encodeURIComponent(geckoId)}`)
-        return {
-          priceUsd: res.market_data?.current_price?.usd ?? null,
-          priceChange24h: res.market_data?.price_change_percentage_24h ?? null,
-        }
-      },
-      staleTime: 60_000,
-      refetchInterval: 60_000,
-      retry: false,
-    })),
-  })
-
-  const detailTargets = useMemo(
-    () => watchlistMarketRows.filter((row) => !row.geckoId).map((row) => row.slug),
-    [watchlistMarketRows],
-  )
-
-  const detailQueries = useQueries({
-    queries: detailTargets.map((row) => ({
-      queryKey: ['defillama-protocol-detail', row],
-      queryFn: async () =>
-        fetchJson<DefiLlamaProtocolDetail>(`/api/defillama/protocol?slug=${encodeURIComponent(row)}`),
-      staleTime: 60_000,
-      refetchInterval: 60_000,
-      retry: false,
-    })),
-  })
-
-  const priceByGeckoId = useMemo(() => {
-    return priceQueries.reduce<Record<string, { priceUsd: number | null; priceChange24h: number | null }>>(
-      (acc, query, index) => {
-        const geckoId = geckoIds[index]
-        if (geckoId && query.data) {
-          acc[geckoId] = query.data
-        }
-        return acc
-      },
-      {},
-    )
-  }, [geckoIds, priceQueries])
-
-  const priceBySlug = useMemo(() => {
-    const result: Record<string, { priceUsd: number | null; priceChange24h: number | null }> = {}
-
-    watchlistMarketRows.forEach((row) => {
-      if (row.geckoId) {
-        const price = priceByGeckoId[row.geckoId]
-        if (price) result[row.slug] = price
-        return
-      }
-
-      const detail = detailQueries[detailTargets.indexOf(row.slug)]?.data as DefiLlamaProtocolDetail | undefined
-      const priceUsd = getLatestTokenPriceFromProtocolDetail(detail)
-      if (priceUsd != null) {
-        result[row.slug] = { priceUsd, priceChange24h: null }
-      }
-    })
-
-    return result
-  }, [detailQueries, detailTargets, priceByGeckoId, watchlistMarketRows])
+  const guestAlertWalletAddress = useGuestAlertWalletAddress()
+  const { availableAlertProtocolSlugs, findMarketProtocol, getSelectedAlertCurrentValue, priceBySlug } =
+    useAlertMarketData(walletAddress)
 
   const [history, setHistory] = useState<ResearchHistoryItem[]>([])
   const [rules, setRules] = useState<AlertRuleItem[]>([])
@@ -410,52 +79,12 @@ function AlertsContent() {
   const [testRuleOpen, setTestRuleOpen] = useState(false)
   const [selectedTestRule, setSelectedTestRule] = useState<AlertRuleItem | null>(null)
   const [testRuleValue, setTestRuleValue] = useState('')
-  const [guestAlertWalletAddress, setGuestAlertWalletAddress] = useState<string | null>(null)
-  const [alertStorageMode, setAlertStorageMode] = useState<'database' | 'local' | 'loading'>('loading')
+  const [alertStorageMode, setAlertStorageMode] = useState<AlertStorageMode>('loading')
   const [showAllAlertRules, setShowAllAlertRules] = useState(false)
 
-  const findMarketProtocol = useMemo(() => {
-    return (protocolSlug: string): SolanaProtocol | undefined => {
-      const normalizedTarget = normalizeProtocolSlug(protocolSlug)
-
-      const flatProtocols = Object.values(protocolsByChainType)
-        .flat()
-        .filter((p): p is SolanaProtocol => Boolean(p))
-      const match = resolveProtocolFromList(normalizedTarget, flatProtocols)
-      if (match) return match
-
-      const rowMatch = watchlistMarketRows.find(
-        (row) =>
-          normalizeProtocolSlug(row.slug) === normalizedTarget ||
-          (row.market && normalizeProtocolSlug(row.market.slug) === normalizedTarget),
-      )
-      return rowMatch?.market
-    }
-  }, [protocolsByChainType, watchlistMarketRows])
-
-  const availableAlertProtocolSlugs = useMemo(
-    () => Array.from(new Set(watchlistMarketRows.map((row) => row.slug))),
-    [watchlistMarketRows],
-  )
-
-  const selectedAlertMarketRow = useMemo(
-    () =>
-      watchlistMarketRows.find((row) => normalizeProtocolSlug(row.slug) === normalizeProtocolSlug(alertProtocolSlug)),
-    [alertProtocolSlug, watchlistMarketRows],
-  )
-
   const selectedAlertCurrentValue = useMemo(() => {
-    if (!selectedAlertMarketRow) return null
-    if (alertMetric === 'TVL_USD') {
-      return selectedAlertMarketRow.market?.tvl ?? null
-    }
-    if (alertMetric === 'PRICE_USD') {
-      return priceBySlug[selectedAlertMarketRow.slug]?.priceUsd ?? null
-    }
-    return alertMetric === 'CHANGE_7D'
-      ? (selectedAlertMarketRow.market?.change_7d ?? null)
-      : (selectedAlertMarketRow.market?.change_1d ?? null)
-  }, [alertMetric, selectedAlertMarketRow, priceBySlug])
+    return getSelectedAlertCurrentValue(alertProtocolSlug, alertMetric)
+  }, [alertMetric, alertProtocolSlug, getSelectedAlertCurrentValue])
 
   const visibleAlertRules = useMemo(() => (showAllAlertRules ? rules : rules.slice(0, 3)), [rules, showAllAlertRules])
 
@@ -863,28 +492,6 @@ function AlertsContent() {
     }
   }
 
-  // Local storage generated address setup
-  const [currentAlertWalletAddress, setCurrentAlertWalletAddress] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!currentAlertWalletAddress) return
-    setGuestAlertWalletAddress(currentAlertWalletAddress)
-  }, [currentAlertWalletAddress])
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const storageKey = 'aegis-alert-guest-id'
-    const existing = window.localStorage.getItem(storageKey)
-    if (existing) {
-      setCurrentAlertWalletAddress(existing)
-      return
-    }
-
-    const generated = `guest-${crypto.randomUUID()}`
-    window.localStorage.setItem(storageKey, generated)
-    setCurrentAlertWalletAddress(generated)
-  }, [])
-
   useEffect(() => {
     if (!alertProtocolSlug && availableAlertProtocolSlugs.length > 0) {
       setAlertProtocolSlug(availableAlertProtocolSlugs[0])
@@ -1070,7 +677,10 @@ function AlertsContent() {
                             type="button"
                             onClick={createAndTestAlert}
                             disabled={
-                              !alertWalletAddress || creatingAlert || evaluatingAlerts || selectedAlertCurrentValue == null
+                              !alertWalletAddress ||
+                              creatingAlert ||
+                              evaluatingAlerts ||
+                              selectedAlertCurrentValue == null
                             }
                             title="Creates an alert at the current live value, then checks it immediately"
                             className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all sm:min-w-[180px] text-xs h-9 sm:h-auto py-2 px-3 cursor-pointer"
@@ -1178,14 +788,18 @@ function AlertsContent() {
 
                         <div>
                           <label className="mb-1.5 block text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
-                            {alertMetric === 'CHANGE_1D' || alertMetric === 'CHANGE_7D' ? 'Threshold %' : 'Threshold ($)'}
+                            {alertMetric === 'CHANGE_1D' || alertMetric === 'CHANGE_7D'
+                              ? 'Threshold %'
+                              : 'Threshold ($)'}
                           </label>
                           <Input
                             type="number"
                             step={alertMetric === 'PRICE_USD' ? '0.0001' : alertMetric === 'TVL_USD' ? '1000' : '0.1'}
                             value={alertThreshold}
                             onChange={(event) => setAlertThreshold(event.target.value)}
-                            placeholder={alertMetric === 'PRICE_USD' ? '1.50' : alertMetric === 'TVL_USD' ? '10000000' : '10'}
+                            placeholder={
+                              alertMetric === 'PRICE_USD' ? '1.50' : alertMetric === 'TVL_USD' ? '10000000' : '10'
+                            }
                             className="h-11 rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 text-sm text-white focus:border-cyan-500/30 font-mono"
                             disabled={!alertWalletAddress || creatingAlert}
                           />
@@ -1331,7 +945,9 @@ function AlertsContent() {
                           Last Evaluation Run
                         </p>
                         {evaluationResults.length > 0 && (
-                          <span className="text-xs font-mono font-bold text-zinc-450">{evaluationResults.length} rules</span>
+                          <span className="text-xs font-mono font-bold text-zinc-450">
+                            {evaluationResults.length} rules
+                          </span>
                         )}
                       </div>
                       {evaluationResults.length === 0 ? (
@@ -1543,202 +1159,23 @@ function AlertsContent() {
         />
       </div>
 
-      {/* SSE full summary details dialog */}
-      {fullSummaryOpen && fullSummaryEventId
-        ? (() => {
-            const evt = events.find((e) => e.id === fullSummaryEventId)
-            if (!evt) return null
-            const condition = `${ALERT_METRIC_LABEL[evt.metric]} ${evt.direction === 'BELOW' ? '≤' : '≥'} ${formatAlertValue(evt.metric, evt.threshold)}`
+      <AlertSummaryDialog
+        event={events.find((event) => event.id === fullSummaryEventId) ?? null}
+        open={fullSummaryOpen}
+        onOpenChange={setFullSummaryOpen}
+      />
 
-            return (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-                <div className="max-h-[84vh] w-[min(900px,95%)] overflow-auto rounded-xs border border-cyan-500/20 bg-zinc-950 p-6 shadow-2xl">
-                  <div className="flex items-start justify-between gap-4 border-b border-zinc-900 pb-3">
-                    <div>
-                      <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">
-                        &gt; telemetry metadata
-                      </p>
-                      <h3 className="mt-2 text-xl font-orbitron font-black text-white">{evt.protocolSlug}</h3>
-                      <p className="mt-1 text-xs text-zinc-400 font-mono">
-                        Why this alert fired and what exactly was checked.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
-                      onClick={() => setFullSummaryOpen(false)}
-                    >
-                      Close
-                    </Button>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 font-mono">
-                    <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Metric</p>
-                      <p className="mt-2 text-sm font-semibold text-zinc-200">{ALERT_METRIC_LABEL[evt.metric]}</p>
-                    </div>
-                    <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Condition</p>
-                      <p className="mt-2 text-sm font-semibold text-zinc-200">{condition}</p>
-                    </div>
-                    <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Current value</p>
-                      <p className="mt-2 text-sm font-semibold text-zinc-200">
-                        {formatAlertValue(evt.metric, evt.currentValue)}
-                      </p>
-                    </div>
-                    <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Triggered at</p>
-                      <p className="mt-2 text-sm font-semibold text-zinc-200">
-                        {new Date(evt.triggeredAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
-                    <p className="text-[10px] font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">
-                      Full AI Summary
-                    </p>
-                    <div className="mt-3 whitespace-pre-wrap text-xs leading-6 text-zinc-200 font-mono">
-                      {evt.summary ?? 'No summary available.'}
-                    </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 font-mono pt-3 border-t border-zinc-900">
-                      <span>
-                        Generated:{' '}
-                        {evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-xs text-xs px-3 py-1.5 cursor-pointer"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(
-                              [
-                                `Protocol: ${evt.protocolSlug}`,
-                                `Metric: ${ALERT_METRIC_LABEL[evt.metric]}`,
-                                `Condition: ${condition}`,
-                                `Current value: ${formatAlertValue(evt.metric, evt.currentValue)}`,
-                                `Triggered at: ${new Date(evt.triggeredAt).toLocaleString()}`,
-                                `Generated: ${evt.summaryGeneratedAt ? new Date(evt.summaryGeneratedAt).toLocaleString() : 'unknown'}`,
-                                '',
-                                evt.summary ?? 'No summary available.',
-                              ].join('\n'),
-                            )
-                            toast.success('Copied full summary to clipboard.')
-                          } catch {
-                            toast.error('Could not copy the summary.')
-                          }
-                        }}
-                      >
-                        Copy full summary
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })()
-        : null}
-
-      {/* Rule testing dialog */}
-      <Dialog open={testRuleOpen} onOpenChange={setTestRuleOpen}>
-        <DialogContent className="border-cyan-500/20 bg-zinc-950/95 text-zinc-100 sm:max-w-lg rounded-xs backdrop-blur-md shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-orbitron tracking-wider text-lg uppercase text-cyan-400">
-              Manual test rule
-            </DialogTitle>
-            <DialogDescription className="text-zinc-400 text-xs font-mono">
-              Enter a value to see whether the rule would pass or fail. This does not create a real alert.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedTestRule && (
-            <div className="space-y-4">
-              <div className="rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 text-xs text-zinc-200">
-                <p className="font-orbitron font-bold text-white uppercase tracking-wider">
-                  {selectedTestRule.protocolSlug}
-                </p>
-                <p className="mt-1.5 font-mono text-zinc-400">
-                  {ALERT_METRIC_LABEL[selectedTestRule.metric]} {selectedTestRule.direction === 'BELOW' ? '≤' : '≥'}{' '}
-                  {formatAlertValue(selectedTestRule.metric, selectedTestRule.threshold)}
-                </p>
-              </div>
-              <label className="grid gap-2 text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400/80">
-                Test value
-                <Input
-                  type="number"
-                  step={
-                    selectedTestRule.metric === 'PRICE_USD'
-                      ? '0.0001'
-                      : selectedTestRule.metric === 'TVL_USD'
-                        ? '1000'
-                        : '0.1'
-                  }
-                  value={testRuleValue}
-                  onChange={(event) => setTestRuleValue(event.target.value)}
-                  className="rounded-xs border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-zinc-100 outline-hidden transition focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 font-mono text-xs"
-                />
-              </label>
-              <p className="text-xs text-zinc-400 font-mono">
-                Current live value for reference:{' '}
-                {(() => {
-                  const market = findMarketProtocol(selectedTestRule.protocolSlug)
-                  const price = priceBySlug[selectedTestRule.protocolSlug]?.priceUsd ?? null
-                  const liveValue = getLocalCurrentValueForRule(selectedTestRule, market, price)
-                  return liveValue == null ? 'unavailable' : formatAlertValue(selectedTestRule.metric, liveValue)
-                })()}
-              </p>
-              {testResults[0]?.ruleId === selectedTestRule.id ? (
-                <div
-                  className={`rounded-xs border p-4 text-xs space-y-2 backdrop-blur-md ${
-                    testResults[0].triggered
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                      : 'bg-rose-500/5 border-rose-500/15 text-rose-350'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold uppercase tracking-wider text-[10px] font-orbitron text-zinc-400">
-                      Latest manual result
-                    </p>
-                    <span
-                      className={`rounded-xs px-2 py-0.5 text-[10px] font-mono font-bold uppercase border ${
-                        testResults[0].triggered
-                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                          : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                      }`}
-                    >
-                      {testResults[0].triggered ? '🟢 PASSED (Alert Fires)' : '🔴 FAILED (No Alert)'}
-                    </span>
-                  </div>
-                  <p className="text-zinc-300 text-xs leading-relaxed font-mono">{testResults[0].summary}</p>
-                </div>
-              ) : null}
-            </div>
-          )}
-          <DialogFooter className="sm:justify-between gap-2 mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setTestRuleOpen(false)}
-              className="border border-zinc-800 bg-zinc-900/50 text-zinc-350 hover:text-white hover:bg-zinc-900 rounded-xs font-mono text-xs px-3 py-1.5 cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={async () => {
-                if (!selectedTestRule) return
-                await runSpecificAlertTest(selectedTestRule, testRuleValue)
-              }}
-              className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-black uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.2)] transition-all text-xs cursor-pointer px-4 py-1.5"
-            >
-              Evaluate test
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AlertRuleTestDialog
+        open={testRuleOpen}
+        onOpenChange={setTestRuleOpen}
+        selectedRule={selectedTestRule}
+        testRuleValue={testRuleValue}
+        onTestRuleValueChange={setTestRuleValue}
+        testResults={testResults}
+        findMarketProtocol={findMarketProtocol}
+        priceBySlug={priceBySlug}
+        onEvaluate={runSpecificAlertTest}
+      />
     </>
   )
 }

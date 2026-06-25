@@ -29,5 +29,5 @@ docker compose down
 
 Notes
 
-- The compose file uses the `oven/bun:edge` image so the project runs using Bun. It mounts the repository into `/app` and runs `bun install` on startup.
+- Local app development uses npm and `package-lock.json`. The compose file intentionally uses the `oven/bun:edge` image because the background workers run with Bun; it mounts the repository into `/app` and runs `bun install` on startup.
 - For production deployments, build a proper Dockerfile and run workers as separate services (this compose file is intended for staging / developer convenience).

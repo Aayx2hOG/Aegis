@@ -23,6 +23,7 @@
     "start": "next start"
   },
   "displayName": "Aegis",
+  "packageManager": "npm@11.12.1",
   "usecase": "Solana DeFi research",
   "description": "AI-powered Solana DeFi research workspace with watchlists, alerts, and war-room simulations",
   "keywords": [

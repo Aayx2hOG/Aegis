@@ -13,7 +13,7 @@ Aegis is a Next.js Solana DeFi research workspace. It combines a watchlist, live
 Install dependencies:
 
 ```shell
-pnpm install
+npm install
 ```
 
 Create a `.env.local` file with:
@@ -37,31 +37,39 @@ Email alert delivery has been removed in this branch; alerts still create events
 After setting `DATABASE_URL`, generate the Prisma client and apply migrations:
 
 ```shell
-pnpm prisma:generate
-pnpm prisma:migrate --name init_history_alerts
+npm run prisma:generate
+npm run prisma:migrate -- --name init_history_alerts
 ```
 
 For production deploys, use:
 
 ```shell
-pnpm prisma:migrate:deploy
+npm run prisma:migrate:deploy
 ```
 
 ## Commands
 
 ```shell
-pnpm dev
-pnpm build
-pnpm lint
-pnpm format
+npm run dev
+npm run build
+npm run lint
+npm run format
 ```
 
 ## Anchor Program
 
-The `anchor/` workspace contains the Solana program and generated client used by the app's on-chain watchlist flow.
+The `anchor/` workspace is optional infrastructure for Solana-native watchlist experiments. The production watchlist UX uses browser/database-backed state first, so app setup does not require building or deploying the Anchor program.
+
+Use these commands only when working on the on-chain watchlist path:
 
 ```shell
-pnpm anchor-build
-pnpm anchor-localnet
-pnpm anchor-test
+npm run anchor-build
+npm run anchor-localnet
+npm run anchor-test
 ```
+
+Optional program IDs can be supplied with `NEXT_PUBLIC_WATCHLIST_PROGRAM_ID`, or the cluster-specific `NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_DEVNET`, `NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_TESTNET`, and `NEXT_PUBLIC_WATCHLIST_PROGRAM_ID_MAINNET`.
+
+## Package Managers
+
+The app uses npm as the primary package manager and keeps `package-lock.json` as the source of truth. Bun is still used by the worker scripts and Docker Compose image, so `bun.lock` is retained for that runtime path.

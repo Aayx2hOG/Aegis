@@ -35,6 +35,15 @@ function base58Encode(buffer: Buffer) {
     .join('')
 }
 
+function setNodeEnv(value: string | undefined) {
+  Object.defineProperty(process.env, 'NODE_ENV', {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  })
+}
+
 describe('wallet auth', () => {
   const originalNodeEnv = process.env.NODE_ENV
   const originalAuthSecret = process.env.AEGIS_AUTH_SECRET
@@ -48,7 +57,7 @@ describe('wallet auth', () => {
 
   afterEach(() => {
     delete process.env.AEGIS_REQUIRE_WALLET_AUTH
-    process.env.NODE_ENV = originalNodeEnv
+    setNodeEnv(originalNodeEnv)
     if (originalAuthSecret == null) {
       delete process.env.AEGIS_AUTH_SECRET
     } else {
@@ -130,7 +139,7 @@ describe('wallet auth', () => {
   })
 
   it('fails closed when the production auth secret is missing', () => {
-    process.env.NODE_ENV = 'production'
+    setNodeEnv('production')
     delete process.env.AEGIS_AUTH_SECRET
     process.env.NEXTAUTH_SECRET = 'fallback-nextauth-secret'
     process.env.GROQ_API_KEY = 'fallback-groq-secret'
