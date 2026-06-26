@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/server/db/prisma'
-import { enqueueSummary } from '@/server/queue/summary-queue'
+import { enqueueOptionalExplanation } from '@/server/queue/optional-explanation-queue'
 import { requireWalletOwner } from '@/server/auth/wallet-auth'
 
 export async function POST(req: NextRequest, context: { params: Promise<{ eventId: string }> }) {
@@ -18,10 +18,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ eventI
   if (!auth.ok) return auth.response
 
   try {
-    const job = await enqueueSummary(eventId, event.protocolSlug)
+    const job = await enqueueOptionalExplanation(eventId, event.protocolSlug)
     return Response.json({ jobId: job.id, status: 'queued' }, { status: 202 })
   } catch (err) {
-    console.error('[regenerate] failed to enqueue summary job', err)
+    console.error('[regenerate] failed to enqueue optional explanation job', err)
     return Response.json({ error: String(err) }, { status: 500 })
   }
 }

@@ -5,7 +5,7 @@ const mockFindLastEvent = jest.fn()
 const mockCreateEvent = jest.fn()
 const mockUpdateRule = jest.fn()
 const mockGetSolanaProtocols = jest.fn()
-const mockEnqueueSummary = jest.fn()
+const mockEnqueueOptionalExplanation = jest.fn()
 const mockPublishAlertEvent = jest.fn()
 const mockExecuteTool = jest.fn()
 
@@ -26,8 +26,8 @@ jest.mock('@/server/api/defillama', () => ({
   getSolanaProtocols: mockGetSolanaProtocols,
 }))
 
-jest.mock('@/server/queue/summary-queue', () => ({
-  enqueueSummary: mockEnqueueSummary,
+jest.mock('@/server/queue/optional-explanation-queue', () => ({
+  enqueueOptionalExplanation: mockEnqueueOptionalExplanation,
 }))
 
 jest.mock('@/server/db/redis', () => ({
@@ -49,7 +49,7 @@ describe('evaluateAlertsForWallet', () => {
     mockCreateEvent.mockReset()
     mockUpdateRule.mockReset()
     mockGetSolanaProtocols.mockReset()
-    mockEnqueueSummary.mockReset()
+    mockEnqueueOptionalExplanation.mockReset()
     mockPublishAlertEvent.mockReset()
     mockExecuteTool.mockReset()
 
@@ -71,7 +71,7 @@ describe('evaluateAlertsForWallet', () => {
       summaryGeneratedAt: null,
     })
     mockUpdateRule.mockResolvedValue({})
-    mockEnqueueSummary.mockResolvedValue({ id: 'summary-job-1' })
+    mockEnqueueOptionalExplanation.mockResolvedValue({ id: 'explanation-job-1' })
     mockPublishAlertEvent.mockResolvedValue(undefined)
   })
 
@@ -114,7 +114,7 @@ describe('evaluateAlertsForWallet', () => {
       },
     })
     expect(mockPublishAlertEvent).toHaveBeenCalledWith('EVENT_CREATED', expect.objectContaining({ id: 'event-1' }))
-    expect(mockEnqueueSummary).toHaveBeenCalledWith('event-1', 'jito')
+    expect(mockEnqueueOptionalExplanation).toHaveBeenCalledWith('event-1', 'jito')
     expect(mockUpdateRule).toHaveBeenCalledWith({
       where: { id: 'rule-1' },
       data: { lastTriggeredAt: expect.any(Date) },
@@ -141,7 +141,7 @@ describe('evaluateAlertsForWallet', () => {
 
     expect(result.triggered).toBe(1)
     expect(mockCreateEvent).toHaveBeenCalled()
-    expect(mockEnqueueSummary).not.toHaveBeenCalled()
+    expect(mockEnqueueOptionalExplanation).not.toHaveBeenCalled()
   })
 
   it('deduplicates repeated rule triggers within the six-hour event window', async () => {
@@ -167,7 +167,7 @@ describe('evaluateAlertsForWallet', () => {
     expect(result.skipped).toBe(1)
     expect(result.results[0].reason).toContain('last 6 hours')
     expect(mockCreateEvent).not.toHaveBeenCalled()
-    expect(mockEnqueueSummary).not.toHaveBeenCalled()
+    expect(mockEnqueueOptionalExplanation).not.toHaveBeenCalled()
   })
 
   it('skips a rule when no live value can be resolved', async () => {

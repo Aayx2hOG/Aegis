@@ -32,12 +32,19 @@ export function AlertTelemetryScanner({
   const latestEventLabel = latestEvent
     ? `${latestEvent.protocolSlug} ${new Date(latestEvent.triggeredAt).toLocaleDateString()}`
     : 'none'
+  const storageLabel = storageMode === 'database' ? 'Database' : storageMode === 'local' ? 'Local browser' : 'Resolving'
+  const storageDetail =
+    storageMode === 'database'
+      ? 'Rules and events are persisted in the configured database.'
+      : storageMode === 'local'
+        ? 'Rules and events are stored in this browser for the current alert identity.'
+        : 'Aegis is checking whether database storage is available.'
   const statusRows = [
     ['Saved rules', String(rules.length)],
     ['Enabled rules', String(enabledRules)],
     ['Recent events', String(events.length)],
     ['Research runs', String(historyCount)],
-    ['Storage', storageMode],
+    ['Storage', storageLabel],
     ['Latest event', latestEventLabel],
   ]
 
@@ -83,6 +90,23 @@ export function AlertTelemetryScanner({
           <span className="text-zinc-550 uppercase text-[7px] tracking-widest font-bold">
             {loading ? 'STATE: LOADING' : dbStatus ? 'STATE: DEGRADED' : 'STATE: READY'}
           </span>
+        </div>
+        <div
+          className={`mb-2 rounded border px-2 py-1.5 text-left ${
+            storageMode === 'database'
+              ? 'border-emerald-300/15 bg-emerald-300/10 text-emerald-100'
+              : storageMode === 'local'
+                ? 'border-amber-300/15 bg-amber-300/10 text-amber-100'
+                : 'border-cyan-300/15 bg-cyan-300/10 text-cyan-100'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider">Storage: {storageLabel}</span>
+            <span className="text-[8px] uppercase tracking-widest opacity-75">
+              {storageMode === 'database' ? 'Persistent' : storageMode === 'local' ? 'Browser fallback' : 'Loading'}
+            </span>
+          </div>
+          <p className="mt-1 text-[10px] leading-relaxed opacity-80">{storageDetail}</p>
         </div>
         <div className="grid gap-1 text-left sm:grid-cols-2">
           {statusRows.map(([label, value]) => (

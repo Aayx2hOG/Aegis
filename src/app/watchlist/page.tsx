@@ -826,7 +826,7 @@ export default function WatchlistPage() {
               variant="accent"
               className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20"
             >
-              <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Saved Protocols
+              <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Advanced Saved Protocols
             </Badge>
             <Button
               type="button"
@@ -871,11 +871,11 @@ export default function WatchlistPage() {
 
         <div className="space-y-2">
           <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
-            Saved Protocols
+            Saved Protocol Detail
           </h1>
           <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed">
-            Review protocols saved from Research, compare market movement, and route warning signals into rule-based
-            alerts or War Room simulations.
+            Advanced detail view for saved protocols. The default path is still Research, Alerts, and War Room; use this
+            page when you need bulk review and anomaly diagnostics.
           </p>
         </div>
 

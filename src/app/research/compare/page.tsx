@@ -430,17 +430,17 @@ function CompareContent() {
               variant="accent"
               className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20"
             >
-              <Swords className="w-3.5 h-3.5 inline mr-1.5" /> Arena Battleground
+              <Swords className="w-3.5 h-3.5 inline mr-1.5" /> Advanced Compare
             </Badge>
           </div>
         </div>
         <div className="space-y-2">
           <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
-            Protocol <span className="text-cyan-400 font-black">Battleground</span>
+            Protocol <span className="text-cyan-400 font-black">Compare</span>
           </h1>
           <p className="max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-400">
-            Conduct quantitative metrics audit and comparative security reviews for any two registered DeFi platforms
-            side-by-side.
+            Advanced research mode for side-by-side metrics review. Use the main Research page for the default
+            single-protocol workflow.
           </p>
         </div>
       </header>

@@ -99,7 +99,7 @@ export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
         <div className="mt-5 border-t border-white/10 pt-4">
           <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="finance-label text-zinc-500">Optional tools</p>
+              <p className="finance-label text-zinc-500">Advanced optional tools</p>
               <p className="mt-1 text-sm text-zinc-400">
                 Advanced features stay available without blocking the main flow.
               </p>

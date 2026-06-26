@@ -1,6 +1,6 @@
 # Running services with Docker Compose
 
-This repository includes a `docker-compose.yml` that starts Redis, the Next dev server, and the two background workers (AI summary and notifications). This lets you run workers as long‑running services instead of executing them manually in separate terminals.
+This repository includes a `docker-compose.yml` that starts Redis, the Next dev server, and the two background workers (optional explanations and notifications). This lets you run workers as long-running services instead of executing them manually in separate terminals.
 
 Prerequisites
 
@@ -16,7 +16,7 @@ docker compose up -d --build
 Tail logs:
 
 ```bash
-docker compose logs -f worker_ai
+docker compose logs -f worker_explanations
 docker compose logs -f worker_notifications
 docker compose logs -f web
 ```

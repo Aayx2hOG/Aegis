@@ -1,7 +1,7 @@
 import { AlertDirection, AlertMetric } from '@prisma/client'
 import { prisma } from '@/server/db/prisma'
 import { getSolanaProtocols } from '@/server/api/defillama'
-import { enqueueSummary } from '@/server/queue/summary-queue'
+import { enqueueOptionalExplanation } from '@/server/queue/optional-explanation-queue'
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { publishAlertEvent } from '@/server/db/redis'
 import { executeTool } from '@/server/ai/aegis-tools'
@@ -207,9 +207,9 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
     if (areAlertAiSummariesEnabled()) {
       // Optional explanation layer; alert triggering itself is fully rule-based.
       try {
-        await enqueueSummary(createdEvent.id, rule.protocolSlug as string)
+        await enqueueOptionalExplanation(createdEvent.id, rule.protocolSlug as string)
       } catch (err) {
-        console.error('[evaluateAlertsForWallet] failed to enqueue optional summary job', err)
+        console.error('[evaluateAlertsForWallet] failed to enqueue optional explanation job', err)
       }
     }
 

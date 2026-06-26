@@ -7,22 +7,22 @@ import { updateEventAndPublishSummary } from '@/server/db/redis'
 
 const redisUrl = process.env.REDIS_URL
 if (!redisUrl) {
-  console.error('[ai-summary-worker] REDIS_URL not set; this worker requires Redis')
+  console.error('[optional-explanation-worker] REDIS_URL not set; this worker requires Redis')
   process.exit(1)
 }
 
 const connection = new Redis(redisUrl, { maxRetriesPerRequest: null })
 
 if (!prisma) {
-  console.error('[ai-summary-worker] DATABASE_URL is not configured; worker cannot run')
+  console.error('[optional-explanation-worker] DATABASE_URL is not configured; worker cannot run')
   process.exit(1)
 }
 
 const worker = new Worker(
-  'ai-summary',
+  'optional-explanation',
   async (job) => {
     const { eventId, protocolSlug } = job.data as { eventId: string; protocolSlug: string }
-    console.log('[ai-summary-worker] processing', eventId, protocolSlug)
+    console.log('[optional-explanation-worker] processing', eventId, protocolSlug)
 
     const brief = await runResearchAgent(protocolSlug)
     const summary = typeof brief.brief === 'string' ? brief.brief : null
@@ -33,14 +33,14 @@ const worker = new Worker(
     try {
       await enqueueNotification(eventId)
     } catch (err) {
-      console.error('[ai-summary-worker] failed to enqueue notification', err)
+      console.error('[optional-explanation-worker] failed to enqueue notification', err)
       throw err
     }
   },
   { connection, concurrency: 2 },
 )
 
-worker.on('completed', (job) => console.log('[ai-summary-worker] completed', job.id))
-worker.on('failed', (job, err) => console.error('[ai-summary-worker] failed', job?.id, err))
+worker.on('completed', (job) => console.log('[optional-explanation-worker] completed', job.id))
+worker.on('failed', (job, err) => console.error('[optional-explanation-worker] failed', job?.id, err))
 
-console.log('[ai-summary-worker] started')
+console.log('[optional-explanation-worker] started')

@@ -19,14 +19,14 @@ services:
     depends_on:
       - redis
 
-  worker_ai:
+  worker_explanations:
     image: oven/bun:edge
     working_dir: /app
     volumes:
       - ./:/app:cached
     env_file:
       - .env
-    command: bash -lc "bun install && bun run worker:ai"
+    command: bash -lc "bun install && bun run worker:explanations"
     depends_on:
       - redis
 

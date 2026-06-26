@@ -8,7 +8,7 @@
     "build": "prisma generate && next build",
     "ci": "npm run build && npm run lint && npm run format:check",
     "dev": "next dev --turbopack",
-    "worker:ai": "bun src/server/workers/ai-summary-worker.ts",
+    "worker:explanations": "bun src/server/workers/optional-explanation-worker.ts",
     "worker:notifications": "bun src/server/workers/notification-worker.ts",
     "worker:scheduler": "bun src/server/workers/scheduler-worker.ts",
     "format": "prettier --write .",
@@ -25,7 +25,7 @@
   "displayName": "Aegis",
   "packageManager": "npm@11.12.1",
   "usecase": "Solana DeFi research",
-  "description": "AI-powered Solana DeFi research workspace with watchlists, alerts, and war-room simulations",
+  "description": "Solana DeFi risk monitoring workspace with saved protocols, alerts, and war-room simulations",
   "keywords": [
     "solana",
     "defi",
