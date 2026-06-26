@@ -117,10 +117,10 @@ export function AlertRecentActivity({
                             })
                             const body = await res.json()
                             if (res.status === 202) {
-                              toast.success('Optional summary queued - will update shortly')
+                              toast.success('Optional explanation queued - will update shortly')
                               onPollingEventIdChange(event.id)
                             } else if (!res.ok) {
-                              toast.error(body?.error ?? 'Failed to generate optional summary')
+                              toast.error(body?.error ?? 'Failed to generate optional explanation')
                               return
                             } else {
                               const updated = body.event as AlertEventItem
@@ -135,17 +135,17 @@ export function AlertRecentActivity({
                                     : existing,
                                 ),
                               )
-                              toast.success('Optional summary generated')
+                              toast.success('Optional explanation generated')
                             }
                           } catch (err) {
                             console.error('[regen] error', err)
-                            toast.error('Failed to generate optional summary')
+                            toast.error('Failed to generate optional explanation')
                           } finally {
                             onRegeneratingEventIdChange(null)
                           }
                         }}
                       >
-                        {regeneratingEventId === event.id ? 'Generating...' : '[Generate optional summary]'}
+                        {regeneratingEventId === event.id ? 'Generating...' : '[Generate optional explanation]'}
                       </Button>
                     </div>
                   </div>
@@ -161,7 +161,7 @@ export function AlertRecentActivity({
                     </>
                   ) : (
                     <p className="mt-1 text-[10px] font-mono text-rose-350">
-                      No optional summary generated. Alert was triggered by rule-based market data.
+                      No optional explanation generated. Alert was triggered by rule-based market data.
                     </p>
                   )}
                   <div className="mt-3 flex gap-3 border-t border-rose-500/10 pt-2">
@@ -173,11 +173,11 @@ export function AlertRecentActivity({
                         if (event.summary) {
                           onViewFullSummary(event.id)
                         } else {
-                          toast('No optional summary to view yet')
+                          toast('No optional explanation to view yet')
                         }
                       }}
                     >
-                      [View optional summary]
+                      [View optional explanation]
                     </Button>
                     {pollingEventId === event.id && (
                       <span className="text-xs font-mono text-zinc-450">Polling for update...</span>

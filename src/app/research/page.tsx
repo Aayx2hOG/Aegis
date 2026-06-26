@@ -289,6 +289,10 @@ function ResearchContent() {
             Search the active chain catalog, review a data-backed brief, and save relevant protocols before creating
             alerts.
           </p>
+          <p className="max-w-2xl rounded-md border border-emerald-300/15 bg-emerald-300/10 px-3 py-2 text-xs font-medium text-emerald-100">
+            Research works without an AI provider. The default brief is built from live market data; generated AI
+            analysis is an optional enhancement when enabled.
+          </p>
         </div>
       </header>
 

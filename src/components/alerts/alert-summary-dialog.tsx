@@ -64,10 +64,10 @@ export function AlertSummaryDialog({ event, open, onOpenChange }: AlertSummaryDi
 
         <div className="mt-5 rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
           <p className="text-[10px] font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">
-            Optional Summary
+            Optional Explanation
           </p>
           <div className="mt-3 whitespace-pre-wrap text-xs leading-6 text-zinc-200 font-mono">
-            {event.summary ?? 'No summary available.'}
+            {event.summary ?? 'No optional explanation available.'}
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 font-mono pt-3 border-t border-zinc-900">
             <span>
@@ -91,16 +91,16 @@ export function AlertSummaryDialog({ event, open, onOpenChange }: AlertSummaryDi
                         event.summaryGeneratedAt ? new Date(event.summaryGeneratedAt).toLocaleString() : 'unknown'
                       }`,
                       '',
-                      event.summary ?? 'No summary available.',
+                      event.summary ?? 'No optional explanation available.',
                     ].join('\n'),
                   )
-                  toast.success('Copied full summary to clipboard.')
+                  toast.success('Copied full explanation to clipboard.')
                 } catch {
-                  toast.error('Could not copy the summary.')
+                  toast.error('Could not copy the explanation.')
                 }
               }}
             >
-              Copy full summary
+              Copy full explanation
             </Button>
           </div>
         </div>

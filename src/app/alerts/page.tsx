@@ -112,6 +112,10 @@ function AlertsContent() {
             <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed font-medium">
               Create risk rules, check saved protocols, review triggered events, and manage notification channels.
             </p>
+            <p className="max-w-3xl rounded-md border border-emerald-300/15 bg-emerald-300/10 px-3 py-2 text-xs font-medium text-emerald-100">
+              Alert checks are rule-based and run on market data. Generated explanations are optional and can stay
+              disabled without breaking monitoring.
+            </p>
           </div>
         </header>
 

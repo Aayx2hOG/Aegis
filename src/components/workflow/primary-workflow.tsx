@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Activity, BellRing, BrainCircuit, DatabaseZap, FlaskConical, Search, ShieldCheck, Star } from 'lucide-react'
+import { Activity, BarChart3, BellRing, FlaskConical, Search, ShieldCheck, Star } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -46,16 +46,10 @@ const OPTIONAL_TOOLS = [
     icon: Activity,
   },
   {
-    title: 'AI summaries',
-    body: 'Generate explanations only when an optional summary is needed.',
-    href: '/alerts',
-    icon: BrainCircuit,
-  },
-  {
-    title: 'On-chain saved list',
-    body: 'Experimental Solana-native storage path, not required for normal use.',
-    href: '/watchlist',
-    icon: DatabaseZap,
+    title: 'Compare protocols',
+    body: 'Use side-by-side research only when one protocol brief is not enough.',
+    href: '/research/compare',
+    icon: BarChart3,
   },
 ]
 

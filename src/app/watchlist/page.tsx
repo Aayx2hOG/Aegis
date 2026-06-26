@@ -519,7 +519,7 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
         severity: compressionScore > 60 ? 'critical' : 'high',
         title: `${protocol.slug.toUpperCase()} liquidity compressing`,
         detail: `Both 24H and 7D trend lines move lower, signaling possible slip parameters increase. TVL at ${formatCompactUsd(protocol.tvl)} and delta is ${formatSignedPct(protocol.change1d ?? 0)} / ${formatSignedPct(protocol.change7d ?? 0)}.`,
-        actionLabel: 'Optional Simulation',
+        actionLabel: 'Simulate Risk',
         actionKind: 'war-room',
         protocolSlug: protocol.slug,
       })
@@ -826,7 +826,7 @@ export default function WatchlistPage() {
               variant="accent"
               className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20"
             >
-              <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Threat Watchlist
+              <Layers3 className="h-3.5 w-3.5 inline mr-1.5" /> Saved Protocols
             </Badge>
             <Button
               type="button"
@@ -871,12 +871,42 @@ export default function WatchlistPage() {
 
         <div className="space-y-2">
           <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
-            Active Threat Tracking Dashboard
+            Saved Protocols
           </h1>
           <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed">
-            Compare TVL momentum side-by-side, inspect local and systemic anomalies, and route warning signals into
-            research or rule-based alerts.
+            Review protocols saved from Research, compare market movement, and route warning signals into rule-based
+            alerts or War Room simulations.
           </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-xs border border-emerald-300/20 bg-emerald-300/10 p-4 text-left">
+            <p className="text-[10px] font-orbitron font-bold uppercase tracking-wider text-emerald-200">
+              Default storage
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-emerald-50/85">
+              Saved protocols are kept in browser storage and scoped by wallet when connected. This keeps the main
+              monitoring workflow fast, free, and usable without signing transactions.
+            </p>
+          </div>
+          <div className="rounded-xs border border-cyan-300/20 bg-cyan-300/10 p-4 text-left">
+            <p className="text-[10px] font-orbitron font-bold uppercase tracking-wider text-cyan-200">
+              On-chain experiment
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-cyan-50/85">
+              The Anchor watchlist is optional Solana infrastructure. It is useful for portable, wallet-owned state, but
+              it adds rent, fees, deployment, cluster, and wallet-signature friction.
+            </p>
+          </div>
+          <div className="rounded-xs border border-amber-300/20 bg-amber-300/10 p-4 text-left">
+            <p className="text-[10px] font-orbitron font-bold uppercase tracking-wider text-amber-200">
+              Product choice
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-amber-50/85">
+              Aegis treats on-chain storage as an advanced lab path, not the primary UX. Alerts and monitoring do not
+              require the Anchor program.
+            </p>
+          </div>
         </div>
         {hasTestNetworkData && (
           <div className="rounded-xs border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-xs font-mono text-amber-200/90">
@@ -960,7 +990,7 @@ export default function WatchlistPage() {
                             type="button"
                             className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.25)] h-9 px-4 cursor-pointer"
                           >
-                            <Link href={`/war-room?protocol=${alert.protocolSlug ?? ''}`}>Optional Simulation</Link>
+                            <Link href={`/war-room?protocol=${alert.protocolSlug ?? ''}`}>Simulate Risk</Link>
                           </Button>
                         )}
                       </div>
@@ -1140,7 +1170,7 @@ export default function WatchlistPage() {
                           className="border border-zinc-800 bg-zinc-900/40 text-zinc-450 hover:text-white hover:bg-zinc-800 rounded-xs h-7 text-[10px] font-mono font-bold uppercase tracking-wider flex-1"
                         >
                           <Link href={`/war-room?protocol=${slug}`} className="flex items-center justify-center gap-1">
-                            Optional Simulation <ShieldAlert className="h-3 w-3" />
+                            Simulate Risk <ShieldAlert className="h-3 w-3" />
                           </Link>
                         </Button>
                         <Button

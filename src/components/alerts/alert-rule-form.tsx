@@ -100,7 +100,7 @@ export function AlertRuleForm({
               disabled={!alertWalletAddress || creatingAlert}
             >
               <option value="" disabled className="bg-zinc-950 text-white">
-                Select a protocol from your watchlist
+                Select a saved protocol
               </option>
               {availableProtocolSlugs.map((slug) => (
                 <option key={slug} value={slug} className="bg-zinc-950 text-white font-mono">
@@ -110,7 +110,7 @@ export function AlertRuleForm({
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           </div>
-          <p className="mt-1 text-xs text-zinc-450 font-medium">Choose a protocol from your current watchlist.</p>
+          <p className="mt-1 text-xs text-zinc-450 font-medium">Choose one of your saved protocols.</p>
           <p className="mt-2 text-xs text-cyan-400 font-mono">
             Live {ALERT_METRIC_LABEL[metric]}:{' '}
             {selectedCurrentValue == null ? 'not available' : formatAlertValue(metric, selectedCurrentValue)}
