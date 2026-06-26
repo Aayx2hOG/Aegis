@@ -25,8 +25,7 @@ export function AppHeader({
 
   const activeTab = searchParams.get('tab')
 
-  // Merge Alerts into main links list, keep Notifications for the right-side bell icon
-  const mainNavLinks = [...links, ...utilityLinks.filter((item) => item.label === 'Alerts')]
+  const notificationsPath = utilityLinks.find((item) => item.label === 'Notifications')?.path ?? '/alerts?tab=channels'
 
   function isLinkActive(path: string) {
     if (path === '/alerts') {
@@ -62,7 +61,7 @@ export function AppHeader({
 
             <nav className="hidden lg:block">
               <ul className="flex items-center gap-1.5">
-                {mainNavLinks.map(({ label, path }) => (
+                {links.map(({ label, path }) => (
                   <li key={path}>
                     <Link
                       className={`relative flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -103,6 +102,21 @@ export function AppHeader({
 
             <div className="mx-1 my-auto h-5 border-l border-white/10" />
 
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className={`rounded-md border ${
+                isBellActive
+                  ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
+                  : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08] hover:text-white'
+              }`}
+              title="Notifications"
+            >
+              <Link href={notificationsPath} aria-label="Notifications">
+                <Bell className="h-4 w-4" />
+              </Link>
+            </Button>
             <WalletButton />
             <ChainUiSelect />
             <ThemeSelect />
@@ -124,7 +138,7 @@ export function AppHeader({
           <div className="flex flex-col gap-6 shrink-0">
             <nav className="flex flex-col gap-3">
               <p className="mb-1 text-xs font-semibold text-zinc-500">Navigation</p>
-              {mainNavLinks.map(({ label, path }) => (
+              {links.map(({ label, path }) => (
                 <Link
                   key={path}
                   className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
@@ -174,7 +188,7 @@ export function AppHeader({
 
           <div className="pb-4 mt-auto shrink-0">
             <Link
-              href="/alerts?tab=channels"
+              href={notificationsPath}
               className={`flex w-full items-center justify-center gap-2 rounded-md border py-3 text-sm font-semibold transition-colors ${
                 isBellActive
                   ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
@@ -183,7 +197,7 @@ export function AppHeader({
               onClick={() => setShowMenu(false)}
             >
               <Bell className="h-4 w-4" />
-              Notifications Configuration
+              Notifications
             </Link>
           </div>
         </div>

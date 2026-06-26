@@ -265,44 +265,29 @@ function ResearchContent() {
       <header className="space-y-4 text-left">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Badge
-              variant="accent"
-              className="aegis-kicker"
-            >
+            <Badge variant="accent" className="aegis-kicker">
               <Search className="h-3.5 w-3.5" />
               Research analyst
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="aegis-button-secondary"
-            >
+            <Button asChild variant="outline" size="sm" className="aegis-button-secondary">
               <Link href="/research/compare" className="flex items-center gap-1.5">
                 <Swords className="h-3.5 w-3.5" /> Compare
               </Link>
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="aegis-button-secondary"
-            >
+            <Button asChild variant="outline" size="sm" className="aegis-button-secondary">
               <Link href="/watchlist" className="flex items-center gap-1.5">
-                Watchlist <Star className="h-3.5 w-3.5 fill-current text-cyan-200" />
+                Saved protocols <Star className="h-3.5 w-3.5 fill-current text-cyan-200" />
               </Link>
             </Button>
           </div>
         </div>
         <div className="space-y-2">
-          <h1 className="aegis-heading">
-            {activeChain.displayName} protocol research
-          </h1>
+          <h1 className="aegis-heading">{activeChain.displayName} protocol research</h1>
           <p className="aegis-muted max-w-2xl">
-            Search the active chain catalog, review a data-backed brief, and send relevant protocols into the
-            watchlist before creating alerts.
+            Search the active chain catalog, review a data-backed brief, and save relevant protocols before creating
+            alerts.
           </p>
         </div>
       </header>
@@ -317,18 +302,12 @@ function ResearchContent() {
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-white/[0.03] px-6 py-4">
                 <div className="flex items-center gap-3">
                   <span className="h-2 w-2 rounded-full bg-cyan-300" />
-                  <span className="text-sm font-semibold text-cyan-100">
-                    Research brief: {brief.protocol}
-                  </span>
+                  <span className="text-sm font-semibold text-cyan-100">Research brief: {brief.protocol}</span>
                 </div>
                 <div className="flex gap-2">
                   {brief?.protocol && (
-                    <Button
-                      asChild
-                      size="sm"
-                      className="aegis-button-primary"
-                    >
-                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>Optional simulation</Link>
+                    <Button asChild size="sm" className="aegis-button-primary">
+                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>Simulate risk</Link>
                     </Button>
                   )}
                   <Button
@@ -336,7 +315,7 @@ function ResearchContent() {
                       const slug = brief.protocol.toLowerCase()
                       toggle(slug)
                       if (!isWatched(slug)) {
-                        toast.success(`${slug} added to watchlist.`)
+                        toast.success(`${slug} saved for monitoring.`)
                       }
                     }}
                     variant={isWatched(brief.protocol.toLowerCase()) ? 'outline' : 'default'}
@@ -347,7 +326,7 @@ function ResearchContent() {
                         : 'rounded-md bg-white font-semibold text-zinc-950 transition-all hover:bg-zinc-200'
                     }
                   >
-                    {isWatched(brief.protocol.toLowerCase()) ? 'Active monitor' : 'Watch protocol'}
+                    {isWatched(brief.protocol.toLowerCase()) ? 'Saved' : 'Save protocol'}
                   </Button>
                 </div>
               </div>
@@ -355,7 +334,7 @@ function ResearchContent() {
               {!isConnected && (
                 <div className="px-6 pt-4 md:px-10">
                   <div className="rounded-md border border-cyan-300/15 bg-cyan-300/10 px-3.5 py-2 text-xs font-medium text-cyan-100">
-                    Guest mode: watchlist changes are saved locally in this browser.
+                    Guest mode: saved protocols stay local to this browser.
                   </div>
                 </div>
               )}
@@ -590,11 +569,7 @@ function MarkdownBrief({ content }: { content: string }) {
               {children}
             </h2>
           ),
-          h3: ({ children }) => (
-            <h3 className="mb-1.5 mt-5 text-sm font-semibold text-white">
-              {children}
-            </h3>
-          ),
+          h3: ({ children }) => <h3 className="mb-1.5 mt-5 text-sm font-semibold text-white">{children}</h3>,
           p: ({ children }) => (
             <p className="mb-4 text-xs sm:text-sm leading-relaxed text-zinc-300 font-medium">{children}</p>
           ),

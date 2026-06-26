@@ -13,9 +13,9 @@ const WORKFLOW_STEPS = [
     icon: Search,
   },
   {
-    title: 'Watchlist',
-    body: 'Save the protocols that need repeated monitoring.',
-    href: '/watchlist',
+    title: 'Save',
+    body: 'Add important protocols to your monitoring list from Research.',
+    href: '/research',
     icon: Star,
   },
   {
@@ -25,10 +25,10 @@ const WORKFLOW_STEPS = [
     icon: ShieldCheck,
   },
   {
-    title: 'Review',
-    body: 'Run saved checks and inspect triggered risk events.',
-    href: '/alerts',
-    icon: Activity,
+    title: 'Simulate',
+    body: 'Stress-test portfolio impact when an alert or protocol deserves deeper review.',
+    href: '/war-room',
+    icon: FlaskConical,
   },
 ]
 
@@ -40,10 +40,10 @@ const OPTIONAL_TOOLS = [
     icon: BellRing,
   },
   {
-    title: 'Simulation',
-    body: 'Run what-if portfolio stress tests after monitoring is set up.',
-    href: '/war-room',
-    icon: FlaskConical,
+    title: 'Saved protocols',
+    body: 'Open the full saved-protocol workspace when you need bulk review tools.',
+    href: '/watchlist',
+    icon: Activity,
   },
   {
     title: 'AI summaries',
@@ -52,7 +52,7 @@ const OPTIONAL_TOOLS = [
     icon: BrainCircuit,
   },
   {
-    title: 'On-chain watchlist',
+    title: 'On-chain saved list',
     body: 'Experimental Solana-native storage path, not required for normal use.',
     href: '/watchlist',
     icon: DatabaseZap,
@@ -64,15 +64,13 @@ export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
     <section className="finance-surface p-4 text-left md:p-5">
       <div className="flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="finance-label text-cyan-300">
-            Core workflow
-          </p>
+          <p className="finance-label text-cyan-300">Core workflow</p>
           <h2 className="mt-1 text-lg font-semibold text-white">
-            Research, watch, alert, then review triggered risk events.
+            Research, save, alert, then simulate what needs deeper review.
           </h2>
         </div>
         <Button asChild className="aegis-button-primary h-9 w-full text-xs md:w-auto">
-          <Link href="/alerts">Create alert</Link>
+          <Link href="/research">Start with Research</Link>
         </Button>
       </div>
 
@@ -108,7 +106,9 @@ export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
           <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="finance-label text-zinc-500">Optional tools</p>
-              <p className="mt-1 text-sm text-zinc-400">Advanced features stay available without blocking the main flow.</p>
+              <p className="mt-1 text-sm text-zinc-400">
+                Advanced features stay available without blocking the main flow.
+              </p>
             </div>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

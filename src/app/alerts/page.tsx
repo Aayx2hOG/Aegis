@@ -94,7 +94,7 @@ function AlertsContent() {
             <div className="flex items-center gap-2">
               <Link href="/watchlist">
                 <span className="inline-flex items-center justify-center gap-1.5 font-orbitron font-bold border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-900 text-zinc-300 rounded-xs text-xs px-3.5 py-2 cursor-pointer transition-all">
-                  <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" /> Back to Watchlist
+                  <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" /> Saved Protocols
                 </span>
               </Link>
               <Badge
@@ -107,11 +107,10 @@ function AlertsContent() {
           </div>
           <div className="space-y-2">
             <h1 className="text-4xl font-orbitron font-black tracking-wide text-white md:text-5xl drop-shadow-[0_0_15px_rgba(255,255,255,0.08)] uppercase">
-              Alerts & Briefs
+              Alert Hub
             </h1>
             <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed font-medium">
-              Create and evaluate active alert rules, manually test parameters on watched protocols, and view your
-              research brief timeline.
+              Create risk rules, check saved protocols, review triggered events, and manage notification channels.
             </p>
           </div>
         </header>
@@ -121,7 +120,7 @@ function AlertsContent() {
           onTabChange={handleTabChange}
           tabs={[
             {
-              title: 'Alert Signals',
+              title: 'Rules & Events',
               value: 'signals',
               content: (
                 <section className="grid gap-6 lg:grid-cols-2">
@@ -216,7 +215,7 @@ function AlertsContent() {
               ),
             },
             {
-              title: 'Delivery Channels',
+              title: 'Notifications',
               value: 'channels',
               content: (
                 <section className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs shadow-2xl md:p-6 text-left">

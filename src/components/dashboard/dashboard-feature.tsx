@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Activity, Cpu, Layers3, Network, Search, ShieldCheck, Star, TrendingUp } from 'lucide-react'
+import { Activity, Cpu, Layers3, Network, Search, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
@@ -28,7 +28,7 @@ function WorkspaceSnapshot({
   const stats = [
     { label: 'Network', value: activeChainName },
     { label: 'Tracked chains', value: String(chainCoverage) },
-    { label: 'Watchlist', value: String(watchedProtocols) },
+    { label: 'Saved protocols', value: String(watchedProtocols) },
     { label: 'Session', value: connected ? 'Connected' : 'Guest' },
   ]
 
@@ -114,16 +114,14 @@ export function DashboardFeature() {
           <div className="flex flex-col gap-5 text-left lg:col-span-8">
             <Badge variant="outline" className="aegis-kicker w-fit">
               <Layers3 className="h-3.5 w-3.5" />
-              DeFi risk monitoring dashboard
+              Dashboard
             </Badge>
 
             <div className="space-y-4">
-              <h1 className="aegis-heading max-w-4xl leading-[1.06]">
-                Research protocols, build a watchlist, and run rule-based risk alerts.
-              </h1>
+              <h1 className="aegis-heading max-w-4xl leading-[1.06]">Know what to check next.</h1>
               <p className="aegis-muted max-w-2xl">
-                Aegis focuses on the practical monitoring loop: inspect live DeFi metrics, track selected protocols,
-                and create alerts when TVL, price, or movement thresholds change.
+                Use Aegis as one loop: research a protocol, save it for monitoring, create an alert, and run a War Room
+                simulation only when risk needs deeper review.
               </p>
             </div>
 
@@ -135,15 +133,15 @@ export function DashboardFeature() {
                 </Link>
               </Button>
               <Button asChild className="aegis-button-secondary h-11">
-                <Link href="/watchlist">
-                  <Star className="h-4 w-4" />
-                  Open watchlist
+                <Link href="/alerts">
+                  <ShieldCheck className="h-4 w-4" />
+                  Create alerts
                 </Link>
               </Button>
               <Button asChild className="aegis-button-secondary h-11">
-                <Link href="/alerts">
-                  <ShieldCheck className="h-4 w-4" />
-                  Run alerts
+                <Link href="/war-room">
+                  <Activity className="h-4 w-4" />
+                  Simulate risk
                 </Link>
               </Button>
             </div>
@@ -191,7 +189,7 @@ export function DashboardFeature() {
           {/* Card 2: Workspace Overview */}
           <BentoGridItem
             title="Core Monitoring Scope"
-            description="Current watchlist size and chain coverage for alert checks."
+            description="Saved protocols and chain coverage used by alert checks."
             icon={<Cpu className="h-4 w-4 text-cyan-400" />}
             className="md:col-span-2 text-left"
           >
@@ -209,8 +207,8 @@ export function DashboardFeature() {
 
           {/* Card 3: Recent Watchlist */}
           <BentoGridItem
-            title="Recent Watchlist"
-            description="Top monitored entries across connected networks."
+            title="Saved Protocols"
+            description="Recent protocols saved from Research."
             icon={<ShieldCheck className="h-4 w-4 text-cyan-400" />}
             className="md:col-span-2 text-left"
           >
@@ -219,13 +217,13 @@ export function DashboardFeature() {
                 <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center space-y-3">
                   <ShieldCheck className="h-6 w-6 text-zinc-600 stroke-[1.5]" />
                   <div className="space-y-0.5">
-                    <p className="text-sm font-semibold text-zinc-200">No watched protocols yet</p>
+                    <p className="text-sm font-semibold text-zinc-200">No saved protocols yet</p>
                     <p className="text-xs text-zinc-500">
-                      Add protocols from Research to monitor market movement and alert rules.
+                      Start in Research, then save protocols that need repeated monitoring.
                     </p>
                   </div>
                   <Button asChild size="sm" className="aegis-button-secondary h-8 px-4 text-xs">
-                    <Link href="/research">Browse Research</Link>
+                    <Link href="/research">Start Research</Link>
                   </Button>
                 </div>
               ) : (
@@ -259,8 +257,8 @@ export function DashboardFeature() {
 
           {/* Card 4: Monitor status */}
           <BentoGridItem
-            title="Risk Telemetry State"
-            description="Current workspace monitoring coverage."
+            title="Monitoring State"
+            description="Whether this workspace has saved protocols ready for alerts."
             icon={<Activity className="h-4 w-4 text-cyan-400" />}
             className="md:col-span-1 text-left"
           >

@@ -11,16 +11,13 @@ export const metadata: Metadata = {
 }
 
 const links: { label: string; path: string }[] = [
-  { label: 'Home', path: '/' },
+  { label: 'Dashboard', path: '/' },
   { label: 'Research', path: '/research' },
-  { label: 'Watchlist', path: '/watchlist' },
-  { label: 'Simulation', path: '/war-room' },
+  { label: 'Alerts', path: '/alerts' },
+  { label: 'War Room', path: '/war-room' },
 ]
 
-const utilityLinks: { label: string; path: string }[] = [
-  { label: 'Alerts', path: '/alerts' },
-  { label: 'Notifications', path: '/alerts?tab=channels' },
-]
+const utilityLinks: { label: string; path: string }[] = [{ label: 'Notifications', path: '/alerts?tab=channels' }]
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
