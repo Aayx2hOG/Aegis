@@ -49,7 +49,7 @@ export function AlertRuleForm({
         <div>
           <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-cyan-400">Create Alert Vector</p>
           <p className="mt-1 text-xs text-zinc-400">
-            Set one rule on a watched protocol, then run a live evaluation to verify it fires.
+            Saving only stores the rule. Use Run saved alerts or Create & test to create alert events.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
@@ -77,7 +77,7 @@ export function AlertRuleForm({
       </div>
 
       <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2 font-mono">
-        <p>&gt; Run saved alerts: checks every enabled rule against the latest market data.</p>
+        <p>&gt; Run saved alerts: checks every enabled rule and writes real events when thresholds match.</p>
         <p>&gt; Create & test: saves the new rule and tests only that specific rule right away.</p>
       </div>
 

@@ -14,6 +14,7 @@ import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain, removeFromWatchlist } from '@/lib/hooks/use-multichain-watchlist'
 import { fetchJson } from '@/lib/api/fetch-json'
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
+import { resolveProtocolGeckoId } from '@/lib/protocol/token-price-resolver'
 import MiniMetric from '@/components/ui/mini-metric'
 import { ChainEnvironment, ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/lib/types'
@@ -617,10 +618,7 @@ export default function WatchlistPage() {
       const protocols = protocolsByChainType[chain.type] ?? []
       return (watchlistsByChain[chain.name] ?? []).map<WatchlistMarketRow>((slug) => {
         const market = resolveProtocolFromList(slug, protocols)
-        const geckoId =
-          (market as WatchlistMarketRow['market'] | undefined)?.gecko_id ??
-          (market as WatchlistMarketRow['market'] | undefined)?.geckoId ??
-          slug
+        const geckoId = resolveProtocolGeckoId(slug, market)
 
         return { slug, chainName: chain.name, chainType: chain.type, market, geckoId }
       })

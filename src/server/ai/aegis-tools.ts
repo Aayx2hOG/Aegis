@@ -3,8 +3,10 @@ import { getTokenPrice } from '@/server/api/birdeye'
 import { getRecentTransactions, getTokenMetadata } from '@/server/api/helius'
 import { getEvmRecentTransactions, getEvmTokenMetadata, getEvmTokenPrice } from '@/server/api/evm'
 import { getProtocolSlugCandidates, normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
+import { PROTOCOL_TOKEN_PRICE_OVERRIDES } from '@/lib/protocol/token-price-resolver'
 
 const PROTOCOL_TOKEN_OVERRIDES: Record<string, { mint?: string; geckoId?: string; symbol?: string; name?: string }> = {
+  ...PROTOCOL_TOKEN_PRICE_OVERRIDES,
   'phantom-sol': {
     mint: 'So11111111111111111111111111111111111111112', // Native wrapped SOL
     geckoId: 'solana',

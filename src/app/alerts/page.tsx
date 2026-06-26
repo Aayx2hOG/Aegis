@@ -592,7 +592,7 @@ function AlertsContent() {
             ),
           )
           setPollingEventId((current) => (current === payload.event.id ? null : current))
-          toast.success(`🤖 AI Brief generated for ${payload.event.protocolSlug}!`, {
+          toast.success(`Optional summary generated for ${payload.event.protocolSlug}`, {
             description: payload.event.summary ? `${payload.event.summary.slice(0, 100)}...` : undefined,
             duration: 6000,
           })

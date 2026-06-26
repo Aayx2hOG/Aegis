@@ -6,6 +6,7 @@ import { useMultiChain } from '@/components/chain/chain-provider'
 import { useMultiChainWatchlistByChain } from '@/lib/hooks/use-multichain-watchlist'
 import { fetchJson } from '@/lib/api/fetch-json'
 import { normalizeProtocolSlug, resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
+import { resolveProtocolGeckoId } from '@/lib/protocol/token-price-resolver'
 import type { ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/lib/types'
 import type { AlertMetric, CoinGeckoResponse, DefiLlamaProtocolDetail, WatchlistMarketRow } from './alert-types'
@@ -54,10 +55,7 @@ export function useAlertMarketData(walletAddress?: string) {
       const protocols = protocolsByChainType[chain.type] ?? []
       return (watchlistsByChain[chain.name] ?? []).map<WatchlistMarketRow>((slug) => {
         const market = resolveProtocolFromList(slug, protocols)
-        const geckoId =
-          (market as WatchlistMarketRow['market'] | undefined)?.gecko_id ??
-          (market as WatchlistMarketRow['market'] | undefined)?.geckoId ??
-          slug
+        const geckoId = resolveProtocolGeckoId(slug, market)
 
         return { slug, chainName: chain.name, chainType: chain.type, market, geckoId }
       })

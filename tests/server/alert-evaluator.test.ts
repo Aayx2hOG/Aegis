@@ -39,8 +39,11 @@ jest.mock('@/server/ai/aegis-tools', () => ({
 }))
 
 describe('evaluateAlertsForWallet', () => {
+  const originalAlertSummariesEnabled = process.env.AEGIS_ALERT_AI_SUMMARIES_ENABLED
+
   beforeEach(() => {
     jest.useRealTimers()
+    process.env.AEGIS_ALERT_AI_SUMMARIES_ENABLED = 'true'
     mockFindRules.mockReset()
     mockFindLastEvent.mockReset()
     mockCreateEvent.mockReset()
@@ -70,6 +73,14 @@ describe('evaluateAlertsForWallet', () => {
     mockUpdateRule.mockResolvedValue({})
     mockEnqueueSummary.mockResolvedValue({ id: 'summary-job-1' })
     mockPublishAlertEvent.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    if (originalAlertSummariesEnabled == null) {
+      delete process.env.AEGIS_ALERT_AI_SUMMARIES_ENABLED
+    } else {
+      process.env.AEGIS_ALERT_AI_SUMMARIES_ENABLED = originalAlertSummariesEnabled
+    }
   })
 
   it('creates an alert event and enqueues summary generation when a rule triggers', async () => {
@@ -108,6 +119,29 @@ describe('evaluateAlertsForWallet', () => {
       where: { id: 'rule-1' },
       data: { lastTriggeredAt: expect.any(Date) },
     })
+  })
+
+  it('creates an alert event without automatic summaries when AI summaries are disabled', async () => {
+    process.env.AEGIS_ALERT_AI_SUMMARIES_ENABLED = 'false'
+    const { evaluateAlertsForWallet } = await import('@/server/alerts/evaluator')
+    mockFindRules.mockResolvedValue([
+      {
+        id: 'rule-1',
+        walletAddress: 'wallet-1',
+        protocolSlug: 'jito',
+        metric: AlertMetric.CHANGE_1D,
+        threshold: 5,
+        direction: AlertDirection.ABOVE,
+        enabled: true,
+        createdAt: new Date('2026-06-24T00:00:00.000Z'),
+      },
+    ])
+
+    const result = await evaluateAlertsForWallet('wallet-1')
+
+    expect(result.triggered).toBe(1)
+    expect(mockCreateEvent).toHaveBeenCalled()
+    expect(mockEnqueueSummary).not.toHaveBeenCalled()
   })
 
   it('deduplicates repeated rule triggers within the six-hour event window', async () => {

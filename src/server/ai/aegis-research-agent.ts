@@ -5,6 +5,7 @@ import { TOOLS, executeTool } from './aegis-tools'
 import { SYSTEM_PROMPT } from './aegis-prompts'
 import type { ResearchBrief } from '@/lib/types'
 import { formatTokenUsd, formatUsd } from '@/lib/format/number'
+import { isResearchAiEnabled } from './config'
 
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY
@@ -188,6 +189,10 @@ async function buildFallbackBrief(
 export async function runResearchAgent(protocol: string, chainType?: ChainType): Promise<ResearchBrief> {
   const toolCalls: ResearchBrief['toolCalls'] = []
   const chainLabel = buildChainLabel(chainType)
+
+  if (!isResearchAiEnabled()) {
+    return buildFallbackBrief(protocol, toolCalls, chainType)
+  }
 
   let iterations = 0
   try {

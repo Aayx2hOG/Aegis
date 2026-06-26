@@ -27,7 +27,9 @@ export function AlertSummaryDialog({ event, open, onOpenChange }: AlertSummaryDi
               &gt; telemetry metadata
             </p>
             <h3 className="mt-2 text-xl font-orbitron font-black text-white">{event.protocolSlug}</h3>
-            <p className="mt-1 text-xs text-zinc-400 font-mono">Why this alert fired and what exactly was checked.</p>
+            <p className="mt-1 text-xs text-zinc-400 font-mono">
+              Rule-based alert details, with an optional generated explanation.
+            </p>
           </div>
           <Button
             variant="outline"
@@ -62,7 +64,7 @@ export function AlertSummaryDialog({ event, open, onOpenChange }: AlertSummaryDi
 
         <div className="mt-5 rounded-xs border border-zinc-900 bg-zinc-950/80 p-4 shadow-md">
           <p className="text-[10px] font-orbitron font-bold uppercase tracking-wider text-cyan-400 border-b border-zinc-900 pb-2">
-            Full AI Summary
+            Optional Summary
           </p>
           <div className="mt-3 whitespace-pre-wrap text-xs leading-6 text-zinc-200 font-mono">
             {event.summary ?? 'No summary available.'}

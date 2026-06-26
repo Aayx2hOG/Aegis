@@ -9,7 +9,7 @@ import { getOptionalWalletOwner } from '@/server/auth/wallet-auth'
 function compactError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
   if (raw.includes('GROQ_API_KEY')) {
-    return 'Server is missing GROQ_API_KEY. Configure it in deployment environment variables.'
+    return 'Optional AI provider is not configured. Data-backed comparison is still available.'
   }
   if (raw.toLowerCase().includes('failed to call a function') || raw.toLowerCase().includes('failed_generation')) {
     return 'AI tool-calling failed for this query. A fallback brief was generated.'

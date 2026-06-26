@@ -5,6 +5,7 @@ import { TOOLS, executeTool } from './aegis-tools'
 import { COMPARISON_SYSTEM_PROMPT as COMP_PROMPT } from './aegis-prompts'
 import type { ResearchBrief } from '@/lib/types'
 import { formatTokenUsd, formatUsd } from '@/lib/format/number'
+import { isResearchAiEnabled } from './config'
 
 function getGroqClient() {
   const apiKey = process.env.GROQ_API_KEY
@@ -247,6 +248,10 @@ export async function runComparisonAgent(
       content: JSON.stringify(output),
     })
   })
+
+  if (!isResearchAiEnabled()) {
+    return buildFallbackComparisonBrief(protocolA, protocolB, results, toolCalls, chainType)
+  }
 
   try {
     const groq = getGroqClient()

@@ -5,6 +5,7 @@ import { enqueueSummary } from '@/server/queue/summary-queue'
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { publishAlertEvent } from '@/server/db/redis'
 import { executeTool } from '@/server/ai/aegis-tools'
+import { areAlertAiSummariesEnabled } from '@/server/ai/config'
 import type { SolanaProtocol } from '@/lib/types'
 
 const EVENT_DEDUP_MS = 1000 * 60 * 60 * 6
@@ -203,11 +204,13 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
     // Email delivery is disabled. Record that delivery was not attempted.
     const emailMessage = 'Email delivery disabled.'
 
-    // Enqueue summary generation job (worker will update the event).
-    try {
-      await enqueueSummary(createdEvent.id, rule.protocolSlug as string)
-    } catch (err) {
-      console.error('[evaluateAlertsForWallet] failed to enqueue AI summary job', err)
+    if (areAlertAiSummariesEnabled()) {
+      // Optional explanation layer; alert triggering itself is fully rule-based.
+      try {
+        await enqueueSummary(createdEvent.id, rule.protocolSlug as string)
+      } catch (err) {
+        console.error('[evaluateAlertsForWallet] failed to enqueue optional summary job', err)
+      }
     }
 
     await prisma.alertRule.update({

@@ -451,7 +451,7 @@ export default function ChannelManager() {
 
           <div className="mt-6 border-t border-zinc-900 pt-4 space-y-3">
             <p className="text-xs font-mono text-zinc-400">
-              &gt; End-to-end test: generate an AI summary for a protocol and deliver notifications to your configured
+              &gt; End-to-end test: generate an optional protocol summary and deliver notifications to your configured
               channels.
             </p>
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)_auto] items-center">
