@@ -519,7 +519,7 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
         severity: compressionScore > 60 ? 'critical' : 'high',
         title: `${protocol.slug.toUpperCase()} liquidity compressing`,
         detail: `Both 24H and 7D trend lines move lower, signaling possible slip parameters increase. TVL at ${formatCompactUsd(protocol.tvl)} and delta is ${formatSignedPct(protocol.change1d ?? 0)} / ${formatSignedPct(protocol.change7d ?? 0)}.`,
-        actionLabel: 'Open War Room',
+        actionLabel: 'Optional Simulation',
         actionKind: 'war-room',
         protocolSlug: protocol.slug,
       })
@@ -874,8 +874,8 @@ export default function WatchlistPage() {
             Active Threat Tracking Dashboard
           </h1>
           <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed">
-            Compare TVL momentum side-by-side, inspect local and systemic anomalies in real-time, and route warning
-            triggers directly into AI research audits.
+            Compare TVL momentum side-by-side, inspect local and systemic anomalies, and route warning signals into
+            research or rule-based alerts.
           </p>
         </div>
         {hasTestNetworkData && (
@@ -960,7 +960,7 @@ export default function WatchlistPage() {
                             type="button"
                             className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.25)] h-9 px-4 cursor-pointer"
                           >
-                            <Link href={`/war-room?protocol=${alert.protocolSlug ?? ''}`}>Model Risk</Link>
+                            <Link href={`/war-room?protocol=${alert.protocolSlug ?? ''}`}>Optional Simulation</Link>
                           </Button>
                         )}
                       </div>
@@ -1140,7 +1140,7 @@ export default function WatchlistPage() {
                           className="border border-zinc-800 bg-zinc-900/40 text-zinc-450 hover:text-white hover:bg-zinc-800 rounded-xs h-7 text-[10px] font-mono font-bold uppercase tracking-wider flex-1"
                         >
                           <Link href={`/war-room?protocol=${slug}`} className="flex items-center justify-center gap-1">
-                            War Room <ShieldAlert className="h-3 w-3" />
+                            Optional Simulation <ShieldAlert className="h-3 w-3" />
                           </Link>
                         </Button>
                         <Button

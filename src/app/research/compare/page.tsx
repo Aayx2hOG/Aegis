@@ -341,7 +341,7 @@ function CompareContent() {
       toast.success('Battle Card synthesized successfully.')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
-      toast.error('AI comparison failed.')
+      toast.error('Protocol comparison failed.')
     } finally {
       setLoading(false)
     }
@@ -839,7 +839,7 @@ function CompareContent() {
             </div>
           </details>
 
-          {/* Comparative AI Report (Battle Card Dossier) */}
+          {/* Comparative Report (Battle Card Dossier) */}
           <article className="relative overflow-hidden rounded-xl bg-zinc-950/70 border border-cyan-500/15 shadow-[0_15px_50px_rgba(0,0,0,0.6)] corner-decor">
             {/* Dossier Header Strip */}
             <div className="border-b border-cyan-500/15 bg-cyan-950/15 px-6 py-4 flex flex-wrap items-center justify-between gap-4">

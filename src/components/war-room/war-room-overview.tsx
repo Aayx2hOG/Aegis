@@ -40,7 +40,7 @@ export function WarRoomOverview({
     <>
       {simpleMode && (
         <BeginnerOnboardingCard
-          title="War Room quick start"
+          title="Optional simulation quick start"
           steps={[
             'Start with the demo portfolio or import your watchlist. This is only a simulation, not a real trade.',
             'Pick a preset scenario to ask: what happens if prices fall, liquidity dries up, or bridges stop working?',
@@ -57,7 +57,7 @@ export function WarRoomOverview({
             variant="accent"
             className="px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] font-orbitron font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)] bg-cyan-950/20 text-cyan-400 border-cyan-500/20"
           >
-            Portfolio stress simulator
+            Optional portfolio stress simulator
           </Badge>
         </div>
         <div className="space-y-2">

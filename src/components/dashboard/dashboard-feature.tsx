@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Activity, ArrowRight, Cpu, Layers3, Network, Search, ShieldCheck, Swords, TrendingUp } from 'lucide-react'
+import { Activity, Cpu, Layers3, Network, Search, ShieldCheck, Star, TrendingUp } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 import { useMultiChain } from '@/components/chain/chain-provider'
@@ -114,16 +114,16 @@ export function DashboardFeature() {
           <div className="flex flex-col gap-5 text-left lg:col-span-8">
             <Badge variant="outline" className="aegis-kicker w-fit">
               <Layers3 className="h-3.5 w-3.5" />
-              Multichain research workspace
+              DeFi risk monitoring dashboard
             </Badge>
 
             <div className="space-y-4">
               <h1 className="aegis-heading max-w-4xl leading-[1.06]">
-                Research protocols, track risk, and rehearse market stress in one focused workspace.
+                Research protocols, build a watchlist, and run rule-based risk alerts.
               </h1>
               <p className="aegis-muted max-w-2xl">
-                Aegis brings protocol briefs, watchlists, alert rules, and portfolio simulations into an analyst-grade
-                interface built for fast DeFi decisions across Solana and EVM networks.
+                Aegis focuses on the practical monitoring loop: inspect live DeFi metrics, track selected protocols,
+                and create alerts when TVL, price, or movement thresholds change.
               </p>
             </div>
 
@@ -135,15 +135,15 @@ export function DashboardFeature() {
                 </Link>
               </Button>
               <Button asChild className="aegis-button-secondary h-11">
-                <Link href="/research/compare">
-                  <Swords className="h-4 w-4" />
-                  Compare protocols
+                <Link href="/watchlist">
+                  <Star className="h-4 w-4" />
+                  Open watchlist
                 </Link>
               </Button>
               <Button asChild className="aegis-button-secondary h-11">
-                <Link href="/war-room">
-                  Open war room
-                  <ArrowRight className="h-4 w-4" />
+                <Link href="/alerts">
+                  <ShieldCheck className="h-4 w-4" />
+                  Run alerts
                 </Link>
               </Button>
             </div>
@@ -166,16 +166,16 @@ export function DashboardFeature() {
         <div className="flex flex-col gap-1 text-left">
           <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-white">
             <span className="h-2 w-2 rounded-full bg-cyan-300" />
-            Workspace overview
+            Monitoring overview
           </h2>
-          <p className="aegis-muted">Live state, watchlist coverage, and next actions across your active chains.</p>
+          <p className="aegis-muted">Live state, watchlist coverage, and rule-based alert readiness.</p>
         </div>
 
         <BentoGrid>
           {/* Card 1: Active Chain Info */}
           <BentoGridItem
             title="Active Network State"
-            description="Details of the network targeted by active research simulations."
+            description="Network used for current protocol data and alert checks."
             icon={<Network className="h-4 w-4 text-cyan-400" />}
             className="md:col-span-1 text-left"
           >
@@ -190,8 +190,8 @@ export function DashboardFeature() {
 
           {/* Card 2: Workspace Overview */}
           <BentoGridItem
-            title="Workspace Overview"
-            description="Summary of active telemetry grids and watch parameters."
+            title="Core Monitoring Scope"
+            description="Current watchlist size and chain coverage for alert checks."
             icon={<Cpu className="h-4 w-4 text-cyan-400" />}
             className="md:col-span-2 text-left"
           >

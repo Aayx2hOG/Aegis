@@ -301,8 +301,8 @@ function ResearchContent() {
             {activeChain.displayName} protocol research
           </h1>
           <p className="aegis-muted max-w-2xl">
-            Search the active chain catalog, generate a research brief, and send relevant protocols directly into
-            watchlists or war-room simulations.
+            Search the active chain catalog, review a data-backed brief, and send relevant protocols into the
+            watchlist before creating alerts.
           </p>
         </div>
       </header>
@@ -328,7 +328,7 @@ function ResearchContent() {
                       size="sm"
                       className="aegis-button-primary"
                     >
-                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>Run War Room Simulation</Link>
+                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>Optional simulation</Link>
                     </Button>
                   )}
                   <Button

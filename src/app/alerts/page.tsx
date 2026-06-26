@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Tabs } from '@/components/ui/tabs'
 import ChannelManager from '@/components/notifications/channel-manager'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { AlertSummaryDialog } from '@/components/alerts/alert-summary-dialog'
 import { AlertRuleTestDialog } from '@/components/alerts/alert-rule-test-dialog'
 import { AlertRuleForm } from '@/components/alerts/alert-rule-form'
@@ -16,6 +17,7 @@ import { AlertEvaluationResults } from '@/components/alerts/alert-evaluation-res
 import { AlertRecentActivity } from '@/components/alerts/alert-recent-activity'
 import { useAlertMarketData } from '@/components/alerts/use-alert-market-data'
 import { useGuestAlertWalletAddress } from '@/components/alerts/use-guest-alert-wallet-address'
+import { useWalletAuth } from '@/lib/hooks/use-wallet-auth'
 import { normalizeProtocolSlug } from '@/lib/protocol/slug-resolver'
 import type {
   AlertDirection,
@@ -52,6 +54,7 @@ function AlertsContent() {
 
   const wallet = useWallet()
   const walletAddress = wallet.publicKey?.toBase58()
+  const { authenticate, isAuthenticating } = useWalletAuth(wallet)
   const guestAlertWalletAddress = useGuestAlertWalletAddress()
   const { availableAlertProtocolSlugs, findMarketProtocol, getSelectedAlertCurrentValue, priceBySlug } =
     useAlertMarketData(walletAddress)
@@ -81,6 +84,7 @@ function AlertsContent() {
   const [testRuleValue, setTestRuleValue] = useState('')
   const [alertStorageMode, setAlertStorageMode] = useState<AlertStorageMode>('loading')
   const [showAllAlertRules, setShowAllAlertRules] = useState(false)
+  const [walletAuthRequired, setWalletAuthRequired] = useState(false)
 
   const selectedAlertCurrentValue = useMemo(() => {
     return getSelectedAlertCurrentValue(alertProtocolSlug, alertMetric)
@@ -94,7 +98,9 @@ function AlertsContent() {
     const res = await fetch(`/api/alerts/rules?walletAddress=${encodeURIComponent(targetWalletAddress)}`)
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null
-      throw new Error(body?.error ?? 'Alerts unavailable.')
+      const error = new Error(body?.error ?? 'Alerts unavailable.')
+      error.name = res.status === 401 ? 'WalletAuthRequired' : 'AlertFetchError'
+      throw error
     }
 
     return (await res.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] }
@@ -114,7 +120,17 @@ function AlertsContent() {
       setRules(body.rules ?? [])
       setEvents(normalizeAlertEvents(body.recentEvents ?? []))
       setDbStatus(null)
+      setWalletAuthRequired(false)
     } catch (err) {
+      if (err instanceof Error && err.name === 'WalletAuthRequired' && walletAddress) {
+        setAlertStorageMode('loading')
+        setRules([])
+        setEvents([])
+        setWalletAuthRequired(true)
+        setDbStatus('Sign your connected wallet to load saved database alerts.')
+        return
+      }
+
       const localStore = readLocalAlertStore(alertWalletAddress)
       setAlertStorageMode('local')
       setRules(localStore.rules)
@@ -182,6 +198,7 @@ function AlertsContent() {
       const res = await fetch('/api/alerts/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           walletAddress: alertWalletAddress,
           protocolSlug,
@@ -193,6 +210,11 @@ function AlertsContent() {
 
       const body = (await res.json().catch(() => null)) as { error?: string; rule?: AlertRuleItem } | null
       if (!res.ok) {
+        if (res.status === 401 && walletAddress) {
+          setWalletAuthRequired(true)
+          setDbStatus('Sign your connected wallet to save database alerts.')
+          throw new Error('Wallet authentication required')
+        }
         throw new Error(body?.error ?? 'Failed to create alert rule.')
       }
 
@@ -211,6 +233,11 @@ function AlertsContent() {
         },
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Wallet authentication required' && walletAddress) {
+        toast.error('Sign your wallet first to save database alerts.')
+        return null
+      }
+
       if (alertWalletAddress) {
         const localRule: AlertRuleItem = {
           id: createLocalAlertId('rule'),
@@ -394,6 +421,7 @@ function AlertsContent() {
       const res = await fetch('/api/alerts/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ walletAddress: alertWalletAddress }),
       })
 
@@ -404,6 +432,11 @@ function AlertsContent() {
         results?: AlertEvaluationResultItem[]
       } | null
       if (!res.ok) {
+        if (res.status === 401 && walletAddress) {
+          setWalletAuthRequired(true)
+          setDbStatus('Sign your connected wallet to run saved database alerts.')
+          return
+        }
         throw new Error(body?.error ?? 'Failed to evaluate alerts.')
       }
 
@@ -537,7 +570,17 @@ function AlertsContent() {
         const res = await fetch(`/api/alerts/rules?walletAddress=${encodeURIComponent(alertWalletAddress)}`)
         if (!res.ok) {
           const body = (await res.json().catch(() => null)) as { error?: string } | null
-          if (!cancelled) setDbStatus(body?.error ?? 'Alerts unavailable.')
+          if (!cancelled) {
+            if (res.status === 401 && walletAddress) {
+              setWalletAuthRequired(true)
+              setAlertStorageMode('loading')
+              setRules([])
+              setEvents([])
+              setDbStatus('Sign your connected wallet to load saved database alerts.')
+            } else {
+              setDbStatus(body?.error ?? 'Alerts unavailable.')
+            }
+          }
           return
         }
         const body = (await res.json()) as { rules: AlertRuleItem[]; recentEvents: AlertEventItem[] }
@@ -545,6 +588,8 @@ function AlertsContent() {
           setRules(body.rules ?? [])
           setEvents(body.recentEvents ?? [])
           setDbStatus(null)
+          setAlertStorageMode('database')
+          setWalletAuthRequired(false)
         }
       } catch {
         if (!cancelled) setDbStatus('Alerts unavailable.')
@@ -561,8 +606,20 @@ function AlertsContent() {
     }
   }, [walletAddress, alertWalletAddress])
 
+  async function authenticateWalletAndReload() {
+    try {
+      await authenticate()
+      setWalletAuthRequired(false)
+      setDbStatus(null)
+      await reloadAlerts()
+      toast.success('Wallet authenticated. Saved alerts loaded.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Wallet authentication failed.')
+    }
+  }
+
   useEffect(() => {
-    if (!alertWalletAddress) return
+    if (!alertWalletAddress || walletAuthRequired) return
 
     const eventSource = new EventSource(`/api/alerts/stream?walletAddress=${encodeURIComponent(alertWalletAddress)}`)
 
@@ -609,7 +666,7 @@ function AlertsContent() {
     return () => {
       eventSource.close()
     }
-  }, [alertWalletAddress])
+  }, [alertWalletAddress, walletAuthRequired])
 
   return (
     <>
@@ -651,6 +708,30 @@ function AlertsContent() {
               content: (
                 <section className="grid gap-6 lg:grid-cols-2">
                   <div className="console-panel corner-decor border border-cyan-500/10 bg-zinc-950/40 p-5 rounded-xs space-y-6 shadow-2xl">
+                    {walletAuthRequired && walletAddress && (
+                      <div className="rounded-xs border border-amber-300/25 bg-amber-400/10 p-4 text-left">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-xs font-orbitron font-bold uppercase tracking-wider text-amber-200">
+                              Wallet signature required
+                            </p>
+                            <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
+                              Your wallet is connected, but database alerts require a signed ownership session before
+                              saved rules and events can be loaded.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => void authenticateWalletAndReload()}
+                            disabled={isAuthenticating}
+                            className="bg-amber-300 text-zinc-950 hover:bg-amber-200 font-orbitron font-black uppercase tracking-wider rounded-xs text-xs"
+                          >
+                            {isAuthenticating ? 'Signing...' : 'Sign wallet'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     <AlertRuleForm
                       alertWalletAddress={alertWalletAddress}
                       availableProtocolSlugs={availableAlertProtocolSlugs}

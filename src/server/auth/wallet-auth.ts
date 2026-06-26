@@ -186,7 +186,8 @@ export function verifyWalletSignature(input: {
 
 export function getSessionCookieHeader(sessionToken: string) {
   const maxAge = Math.floor(SESSION_TTL_MS / 1000)
-  return `${SESSION_COOKIE}=${encodeURIComponent(sessionToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  return `${SESSION_COOKIE}=${encodeURIComponent(sessionToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`
 }
 
 export function getAuthenticatedWallet(req: NextRequest) {
