@@ -13,7 +13,7 @@ import { formatUsd } from '@/lib/format/number'
 import { useProtocolYields } from '@/lib/hooks/use-defillama-yields'
 import { useChainProtocols } from '@/lib/hooks/use-defillama'
 import { useWatchlist } from '@/lib/hooks/use-multichain-watchlist'
-import { getOpportunityRiskFlags } from '@/lib/opportunities/risk-flags'
+import { getOpportunityAssessment, getOpportunityRiskFlags } from '@/lib/opportunities/risk-flags'
 import { getProtocolAuditEvidence } from '@/lib/opportunities/audit-evidence'
 import {
   scoreOpportunities,
@@ -188,6 +188,7 @@ function OpportunityFinderContent() {
   const leader = rankings[0]
   const yieldIncludedInScore = leader?.includedFactors.yield ?? false
   const leaderYieldSummary = leader ? findYieldSummary(leader, yieldSummaries) : undefined
+  const leaderAssessment = leader ? getOpportunityAssessment(leader, leaderYieldSummary) : undefined
   const depositValue = Math.max(0, Number(depositAmount) || 0)
   const historySignature = `${activeChain.type}:${profile}:${[...selectedSlugs].sort().join(',')}`
   const previousComparison = comparisonHistory[historySignature]
@@ -439,7 +440,7 @@ function OpportunityFinderContent() {
           <section className="overflow-hidden rounded-lg border border-emerald-300/20 bg-emerald-300/[0.06]">
             <div className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center md:p-6">
               <div>
-                <p className="finance-label text-emerald-300">Best current match · {profile}</p>
+                <p className="finance-label text-emerald-300">Highest market score · {profile}</p>
                 <h2 className="mt-2 text-2xl font-bold text-white">{leader.name}</h2>
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
                   {leaderReasons(leader, rankings).map((reason) => (
@@ -453,7 +454,12 @@ function OpportunityFinderContent() {
               <div className="flex items-center gap-4">
                 <div>
                   <span className="block text-right text-3xl font-bold text-emerald-300">{leader.score}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-zinc-500">Relative score</span>
+                  <span className="block text-[10px] uppercase tracking-wide text-zinc-500">Market score</span>
+                  {leaderAssessment && (
+                    <span className="mt-1 block text-right text-[10px] text-amber-200">
+                      {leaderAssessment.confidence} confidence · {leaderAssessment.verdict}
+                    </span>
+                  )}
                 </div>
                 <Button asChild className="aegis-button-primary">
                   <Link href={`/protocol/${encodeURIComponent(leader.slug)}`}>
@@ -534,7 +540,7 @@ function OpportunityFinderContent() {
                     <th className="px-4 py-3 font-semibold">Est. yearly</th>
                     <th className="px-4 py-3 font-semibold">7d</th>
                     <th className="px-4 py-3 font-semibold">Market stability</th>
-                    <th className="px-4 py-3 text-right font-semibold">Score</th>
+                    <th className="px-4 py-3 text-right font-semibold">Market score</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -542,6 +548,7 @@ function OpportunityFinderContent() {
                     const yieldSummary = findYieldSummary(protocol, yieldSummaries)
                     const riskFlags = getOpportunityRiskFlags(protocol, yieldSummary)
                     const auditEvidence = getProtocolAuditEvidence(protocol)
+                    const assessment = getOpportunityAssessment(protocol, yieldSummary)
                     const previous = previousComparison?.protocols[protocol.slug]
                     const rankMovement = previous ? previous.rank - protocol.rank : 0
 
@@ -591,7 +598,9 @@ function OpportunityFinderContent() {
                                   adjustments.
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-500">
-                                  <span>Coverage: {protocol.dataCompleteness}%</span>
+                                  <span>Market data coverage: {protocol.dataCompleteness}%</span>
+                                  <span>Security evidence: {assessment.securityEvidence}</span>
+                                  <span>Overall confidence: {assessment.confidence}</span>
                                   <span>Updated: {dataUpdatedLabel}</span>
                                   <span>Source: DeFiLlama</span>
                                 </div>
@@ -655,6 +664,9 @@ function OpportunityFinderContent() {
                                       >
                                         <p className="text-xs font-semibold text-zinc-200">{flag.label}</p>
                                         <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">{flag.detail}</p>
+                                        <p className="mt-2 text-[10px] font-medium leading-relaxed text-zinc-300">
+                                          Impact: {flag.impact}
+                                        </p>
                                       </div>
                                     ))}
                                   </div>
@@ -688,7 +700,9 @@ function OpportunityFinderContent() {
                           ) : (
                             <>
                               <span className="block text-xs text-zinc-500">Current yield unavailable</span>
-                              <span className="mt-0.5 block text-[10px] text-zinc-600">Excluded from every score</span>
+                              <span className="mt-0.5 block text-[10px] text-zinc-600">
+                                Not included in this market score
+                              </span>
                             </>
                           )}
                         </td>
@@ -703,8 +717,22 @@ function OpportunityFinderContent() {
                         <td className={`px-4 py-3 font-medium ${stabilityColor(protocol.stabilityBand)}`}>
                           {protocol.stabilityBand}
                         </td>
-                        <td className={`px-4 py-3 text-right text-lg font-bold ${scoreColor(protocol.score)}`}>
-                          {protocol.score}
+                        <td className="px-4 py-3 text-right">
+                          <span className={`block text-lg font-bold ${scoreColor(protocol.score)}`}>
+                            {protocol.score}
+                          </span>
+                          <span className="block text-[10px] text-zinc-500">{assessment.confidence} confidence</span>
+                          <span
+                            className={`block text-[10px] ${
+                              assessment.verdict === 'Review required'
+                                ? 'text-rose-300'
+                                : assessment.verdict === 'Elevated risk'
+                                  ? 'text-amber-300'
+                                  : 'text-zinc-500'
+                            }`}
+                          >
+                            {assessment.verdict}
+                          </span>
                         </td>
                       </tr>
                     )

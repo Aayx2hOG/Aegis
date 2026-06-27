@@ -6,7 +6,14 @@ export type OpportunityRiskFlag = {
   id: string
   label: string
   detail: string
+  impact: string
   severity: 'warning' | 'caution' | 'info'
+}
+
+export type OpportunityAssessment = {
+  confidence: 'High' | 'Medium' | 'Low'
+  verdict: 'Standard review' | 'Elevated risk' | 'Review required'
+  securityEvidence: 'Verified' | 'Unverified'
 }
 
 export function getOpportunityRiskFlags(
@@ -18,8 +25,9 @@ export function getOpportunityRiskFlags(
   if (!getProtocolAuditEvidence(protocol)) {
     flags.push({
       id: 'audit-unavailable',
-      label: 'Audit coverage unavailable',
+      label: 'Audit status unverified',
       detail: 'The market feed does not confirm a completed security audit.',
+      impact: 'Confidence reduced; no security conclusion is included in the market score.',
       severity: 'caution',
     })
   }
@@ -28,6 +36,7 @@ export function getOpportunityRiskFlags(
       id: 'low-liquidity',
       label: 'Low protocol TVL',
       detail: 'Lower liquidity can increase exit difficulty and price impact.',
+      impact: 'Raises the risk verdict; review exit liquidity before depositing.',
       severity: 'warning',
     })
   }
@@ -36,6 +45,7 @@ export function getOpportunityRiskFlags(
       id: 'tvl-decline',
       label: 'Rapid TVL decline',
       detail: `TVL declined ${Math.abs(protocol.change7d).toFixed(1)}% over seven days.`,
+      impact: 'Raises the risk verdict; the decline is reflected in market momentum.',
       severity: 'warning',
     })
   }
@@ -44,6 +54,7 @@ export function getOpportunityRiskFlags(
       id: 'high-apy',
       label: 'Unusually high APY',
       detail: 'High advertised yield can reflect temporary incentives or additional risk.',
+      impact: 'Raises the risk verdict; verify whether the rate is sustainable.',
       severity: 'caution',
     })
   }
@@ -52,6 +63,7 @@ export function getOpportunityRiskFlags(
       id: 'reward-heavy',
       label: 'Reward-heavy yield',
       detail: 'At least half of the APY comes from token incentives that may change.',
+      impact: 'Raises the risk verdict; the market score does not forecast reward durability.',
       severity: 'caution',
     })
   }
@@ -60,6 +72,7 @@ export function getOpportunityRiskFlags(
       id: 'impermanent-loss',
       label: 'Impermanent-loss exposure',
       detail: 'The representative pool is marked as having impermanent-loss risk.',
+      impact: 'Raises the risk verdict; loss size depends on assets, prices, and position settings.',
       severity: 'warning',
     })
   }
@@ -68,6 +81,7 @@ export function getOpportunityRiskFlags(
       id: 'alternate-chain-yield',
       label: `Yield shown on ${yieldSummary.poolChain}`,
       detail: 'No representative pool was matched on the selected chain, so this APY requires using another chain.',
+      impact: 'Confidence reduced; this yield is not available on the selected chain.',
       severity: 'caution',
     })
   }
@@ -76,10 +90,33 @@ export function getOpportunityRiskFlags(
       id: 'yield-unavailable',
       label: 'Yield unavailable',
       detail: 'No representative yield pool was matched for this protocol.',
+      impact: 'Confidence reduced; yield is excluded from all protocols in this comparison.',
       severity: 'info',
     })
   }
 
   const priority = { warning: 0, caution: 1, info: 2 }
   return flags.sort((left, right) => priority[left.severity] - priority[right.severity]).slice(0, 3)
+}
+
+export function getOpportunityAssessment(
+  protocol: OpportunityScore,
+  yieldSummary?: ProtocolYieldSummary,
+): OpportunityAssessment {
+  const flags = getOpportunityRiskFlags(protocol, yieldSummary)
+  const securityEvidence = getProtocolAuditEvidence(protocol) ? 'Verified' : 'Unverified'
+  const confidenceReductions =
+    (protocol.dataCompleteness < 100 ? 1 : 0) +
+    (securityEvidence === 'Unverified' ? 1 : 0) +
+    (!yieldSummary || !yieldSummary.isCurrentChain ? 1 : 0)
+
+  return {
+    confidence: confidenceReductions >= 2 ? 'Low' : confidenceReductions === 1 ? 'Medium' : 'High',
+    verdict: flags.some((flag) => flag.severity === 'warning')
+      ? 'Review required'
+      : flags.some((flag) => flag.severity === 'caution')
+        ? 'Elevated risk'
+        : 'Standard review',
+    securityEvidence,
+  }
 }
