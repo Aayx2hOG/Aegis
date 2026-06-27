@@ -29,9 +29,7 @@ export function Tabs({
 }) {
   const [activeInternal, setActiveInternal] = useState<Tab>(propTabs[0])
 
-  const active = activeTabValue
-    ? (propTabs.find((t) => t.value === activeTabValue) || propTabs[0])
-    : activeInternal
+  const active = activeTabValue ? propTabs.find((t) => t.value === activeTabValue) || propTabs[0] : activeInternal
 
   const handlePress = (tab: Tab) => {
     if (onTabChange) {

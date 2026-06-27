@@ -1,4 +1,3 @@
-
 export async function sendTelegramMessage(botToken: string, chatId: string, text: string) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`
 

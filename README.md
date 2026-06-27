@@ -1,12 +1,12 @@
 # Aegis
 
-Aegis is a Next.js DeFi risk monitoring dashboard. Its core workflow is simple: research a protocol, save it for monitoring, create rule-based alerts, and review triggered risk events.
+Aegis is a Next.js DeFi risk monitoring dashboard. Its core workflow is simple: research protocols, save them for monitoring, compare their current risk-adjusted opportunity, create rule-based alerts, and review triggered risk events.
 
 ## Onboarding Modes
 
 - Guest mode (default): saved protocols are stored locally in the browser and work without wallet connection.
 - Wallet-connected mode: scopes saved protocols and research history to a wallet, and unlocks alert automation endpoints when configured.
-- Optional advanced tools include generated explanations, notifications, simulation, and Solana-native on-chain watchlist experiments.
+- Optional advanced tools include generated explanations, notifications, and Solana-native on-chain watchlist experiments.
 
 ## Storage Model
 
@@ -49,16 +49,10 @@ Install dependencies:
 npm install
 ```
 
-Create a `.env.local` file with:
+Copy the complete environment template, then edit only the services you plan to use:
 
 ```shell
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public
-AEGIS_AUTH_SECRET=long_random_auth_secret
-AEGIS_ENCRYPTION_KEY=long_random_encryption_secret
-AEGIS_REQUIRE_WALLET_AUTH=true
-AEGIS_RESEARCH_AI_ENABLED=false
-AEGIS_ALERT_AI_SUMMARIES_ENABLED=false
-GROQ_API_KEY=your_optional_groq_key
+cp .env.example .env.local
 ```
 
 `DATABASE_URL` enables persistent research history and alert rules/events. If you use Vercel Postgres, you can point it at `POSTGRES_PRISMA_URL`.
@@ -90,8 +84,19 @@ npm run prisma:migrate:deploy
 npm run dev
 npm run build
 npm run lint
+npm test
 npm run format
 ```
+
+Run the browser-level core workflow test:
+
+```shell
+npm run test:e2e:install
+npm run test:e2e
+```
+
+The Opportunity Finder uses deterministic scoring and independently labels TVL, yield, and reviewed audit-evidence
+freshness. AI cannot modify its rankings.
 
 ## Anchor Program
 

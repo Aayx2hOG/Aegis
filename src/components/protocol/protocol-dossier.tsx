@@ -276,8 +276,8 @@ export function ProtocolDossier({ slug }: { slug: string }) {
               </Link>
             </Button>
             <Button asChild className="aegis-button-secondary h-10 justify-between">
-              <Link href={`/war-room?protocol=${encodeURIComponent(protocolSlug)}`}>
-                Simulate
+              <Link href={`/research/compare?protocols=${encodeURIComponent(protocolSlug)}`}>
+                Compare opportunity
                 <Swords className="h-4 w-4" />
               </Link>
             </Button>

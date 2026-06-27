@@ -31,12 +31,22 @@ function scoreTvl(tvl: number | null): RiskSignal {
   }
 
   if (tvl >= 1_000_000_000) {
-    return { label: 'TVL coverage', value: tvl, contribution: 2, rationale: 'Large TVL reduces liquidity-fragility risk.' }
+    return {
+      label: 'TVL coverage',
+      value: tvl,
+      contribution: 2,
+      rationale: 'Large TVL reduces liquidity-fragility risk.',
+    }
   }
   if (tvl >= 100_000_000) {
     return { label: 'TVL coverage', value: tvl, contribution: 8, rationale: 'Moderate TVL suggests acceptable depth.' }
   }
-  return { label: 'TVL coverage', value: tvl, contribution: 18, rationale: 'Lower TVL increases liquidity-fragility risk.' }
+  return {
+    label: 'TVL coverage',
+    value: tvl,
+    contribution: 18,
+    rationale: 'Lower TVL increases liquidity-fragility risk.',
+  }
 }
 
 function scoreChange(label: string, value: number | null, severe: number, moderate: number): RiskSignal {

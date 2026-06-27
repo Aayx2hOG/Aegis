@@ -59,4 +59,3 @@ export function useWalletAuth(wallet: WalletContextState) {
 
   return { authenticate, isAuthenticating }
 }
-

@@ -10,4 +10,3 @@ export function isResearchAiEnabled(): boolean {
 export function areAlertAiSummariesEnabled(): boolean {
   return isEnabled(process.env.AEGIS_ALERT_AI_SUMMARIES_ENABLED)
 }
-

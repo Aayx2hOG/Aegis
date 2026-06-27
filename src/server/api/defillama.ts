@@ -3,7 +3,7 @@ import type { SolanaProtocol } from '@/lib/types'
 import Redis from 'ioredis'
 
 const BASE = 'https://api.llama.fi'
-const REDIS_COMMAND_TIMEOUT_MS = process.env.NODE_ENV === 'development' ? 5000 : 600
+const REDIS_COMMAND_TIMEOUT_MS = process.env.NODE_ENV === 'development' ? 1000 : 600
 const redisOptions = {
   maxRetriesPerRequest: 1,
   lazyConnect: true,
@@ -85,6 +85,17 @@ function matchesChain(protocolChains: string[] | undefined, chainType: ChainType
   })
 }
 
+function getChainTvl(protocol: SolanaProtocol, chainType: ChainType): number {
+  const chainTvls = protocol.chainTvls
+  if (!chainTvls) return protocol.tvl ?? 0
+  const labels = DEFILLAMA_CHAIN_LABELS[chainType] ?? [chainType]
+  for (const label of labels) {
+    const exact = Object.entries(chainTvls).find(([chain]) => chain.trim().toLowerCase() === label.trim().toLowerCase())
+    if (exact && Number.isFinite(exact[1])) return exact[1]
+  }
+  return 0
+}
+
 export async function getProtocolsByChain(chainType: ChainType): Promise<SolanaProtocol[]> {
   // Try cache first
   const cached = await tryGetCachedProtocols(chainType)
@@ -112,6 +123,8 @@ export async function getProtocolsByChain(chainType: ChainType): Promise<SolanaP
     await trySetCachedProtocols(chainType, protocols)
   }
   return protocols
+    .map((protocol) => ({ ...protocol, tvl: getChainTvl(protocol, chainType) }))
+    .filter((protocol) => (protocol.tvl ?? 0) > 0)
 }
 
 export async function getSolanaProtocols(): Promise<SolanaProtocol[]> {

@@ -107,10 +107,11 @@ export function useMultiChainWatchlist(walletAddress?: string) {
 
       knownTypes.forEach((chainType) => {
         // Prefer the active chain if types match, otherwise match environment of the active chain, falling back to first available.
-        const chain = (activeChain?.type === chainType)
-          ? activeChain
-          : (allChains.find((c) => c.type === chainType && c.environment === activeChain?.environment) ||
-             allChains.find((c) => c.type === chainType))
+        const chain =
+          activeChain?.type === chainType
+            ? activeChain
+            : allChains.find((c) => c.type === chainType && c.environment === activeChain?.environment) ||
+              allChains.find((c) => c.type === chainType)
         if (chain) {
           result[chainType] = migrateLegacyWatchlist(chainType, chain.environment, walletAddress)
         }

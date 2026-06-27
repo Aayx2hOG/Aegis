@@ -64,7 +64,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const updated = await prisma.notificationChannel.update({
       where: { id },
-      data: { name: body.name ?? undefined, config: config ? protectNotificationConfig(config) : undefined, enabled: body.enabled ?? undefined },
+      data: {
+        name: body.name ?? undefined,
+        config: config ? protectNotificationConfig(config) : undefined,
+        enabled: body.enabled ?? undefined,
+      },
     })
     return Response.json({ channel: redactNotificationChannel(updated) })
   } catch (err) {

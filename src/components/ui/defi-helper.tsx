@@ -7,15 +7,24 @@ export const DEFI_GLOSSARY = {
   TVL: 'Total Value Locked: The total amount of money deposited by users inside this protocol. High TVL means high trust and deeper liquidity.',
   LTV: 'Loan-to-Value: The ratio of borrowed funds compared to your collateral. If LTV gets too high, your safety deposit can be automatically sold (liquidated).',
   APY: 'Annual Percentage Yield: The total return you would earn on an investment in one year, including the compound interest.',
-  'Risk State': 'Risk Status: Calculated by tracking rapid drops in value. "Watch" indicates moderate volatility; "Critical" means massive liquidity flight.',
-  Slippage: 'Slippage: The difference between the price you expect for a trade and the price you actually get due to market movement during execution.',
-  'Impermanent Loss': 'Impermanent Loss: A temporary drop in value that occurs when you provide liquidity to a pool, and the price ratio of your tokens changes compared to when you put them in.',
-  'Liquidity Score': 'Liquidity Score: A rating (1-100) indicating how easily assets can be swapped without causing extreme price changes.',
-  Volatility: 'Volatility: A measure of how much and how fast an asset\'s price fluctuates. High volatility means higher risk but potential for higher return.',
-  'Oracle Delay': 'Oracle Delay: A delay in the network feed that updates prices. A long delay can cause protocols to use stale prices, risking exploits.',
-  'Sequencer Downtime': 'Sequencer Downtime: When the central controller of a Layer-2 network stops working, temporarily freezing all transactions and trades.',
-  'Bridge Outage': 'Bridge Outage: When the connection between two blockchains breaks, locking your funds on the network they are currently on.',
-  'Market Shock': 'Market Shock: An extreme, sudden drop in asset prices across the entire crypto market (e.g. -20% or more).',
+  'Risk State':
+    'Risk Status: Calculated by tracking rapid drops in value. "Watch" indicates moderate volatility; "Critical" means massive liquidity flight.',
+  Slippage:
+    'Slippage: The difference between the price you expect for a trade and the price you actually get due to market movement during execution.',
+  'Impermanent Loss':
+    'Impermanent Loss: A temporary drop in value that occurs when you provide liquidity to a pool, and the price ratio of your tokens changes compared to when you put them in.',
+  'Liquidity Score':
+    'Liquidity Score: A rating (1-100) indicating how easily assets can be swapped without causing extreme price changes.',
+  Volatility:
+    "Volatility: A measure of how much and how fast an asset's price fluctuates. High volatility means higher risk but potential for higher return.",
+  'Oracle Delay':
+    'Oracle Delay: A delay in the network feed that updates prices. A long delay can cause protocols to use stale prices, risking exploits.',
+  'Sequencer Downtime':
+    'Sequencer Downtime: When the central controller of a Layer-2 network stops working, temporarily freezing all transactions and trades.',
+  'Bridge Outage':
+    'Bridge Outage: When the connection between two blockchains breaks, locking your funds on the network they are currently on.',
+  'Market Shock':
+    'Market Shock: An extreme, sudden drop in asset prices across the entire crypto market (e.g. -20% or more).',
 } as const
 
 export type GlossaryTerm = keyof typeof DEFI_GLOSSARY
@@ -59,16 +68,14 @@ export function BeginnerOnboardingCard({
   return (
     <div className="relative overflow-hidden rounded-md border border-cyan-500/20 bg-zinc-950/70 p-5 shadow-[0_0_15px_rgba(6,182,212,0.05)] backdrop-blur-lg text-left mb-6">
       <div className="absolute top-0 left-0 h-full w-[3px] bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
-      
+
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3">
           <div className="p-2 rounded bg-cyan-500/10 text-cyan-400 shrink-0 mt-0.5">
             <BookOpen className="h-5 w-5" />
           </div>
           <div>
-            <h4 className="font-orbitron font-bold text-xs uppercase tracking-wide text-zinc-200">
-              {title}
-            </h4>
+            <h4 className="font-orbitron font-bold text-xs uppercase tracking-wide text-zinc-200">{title}</h4>
             <div className="mt-2.5 space-y-2 text-[10.5px] leading-relaxed text-zinc-400 font-mono">
               {steps.map((step, idx) => (
                 <div key={idx} className="flex gap-2 items-start">

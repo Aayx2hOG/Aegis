@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Activity, BarChart3, BellRing, FlaskConical, Search, ShieldCheck, Star } from 'lucide-react'
+import { Activity, BarChart3, BellRing, Search, ShieldCheck, Star } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -25,10 +25,10 @@ const WORKFLOW_STEPS = [
     icon: ShieldCheck,
   },
   {
-    title: 'Simulate',
-    body: 'Stress-test portfolio impact when an alert or protocol deserves deeper review.',
-    href: '/war-room',
-    icon: FlaskConical,
+    title: 'Compare',
+    body: 'Rank selected protocols against your risk preference.',
+    href: '/research/compare',
+    icon: BarChart3,
   },
 ]
 
@@ -45,12 +45,6 @@ const OPTIONAL_TOOLS = [
     href: '/watchlist',
     icon: Activity,
   },
-  {
-    title: 'Compare protocols',
-    body: 'Use side-by-side research only when one protocol brief is not enough.',
-    href: '/research/compare',
-    icon: BarChart3,
-  },
 ]
 
 export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
@@ -60,7 +54,7 @@ export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
         <div>
           <p className="finance-label text-cyan-300">Core workflow</p>
           <h2 className="mt-1 text-lg font-semibold text-white">
-            Research, save, alert, then simulate what needs deeper review.
+            Research, save, compare opportunities, then monitor what matters.
           </h2>
         </div>
         <Button asChild className="aegis-button-primary h-9 w-full text-xs md:w-auto">

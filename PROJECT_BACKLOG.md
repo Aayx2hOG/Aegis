@@ -1,22 +1,22 @@
 # Aegis Improvement Backlog
 
-Previously completed:
+## Recently completed
 
-- Lock down production access to test endpoints.
-- Replace simulated telemetry panels with real product state.
-- Make the research -> watchlist -> alert -> notification -> simulation workflow visible on Dashboard and Research.
-- Extract alert telemetry UI and War Room multichain configuration out of oversized page files.
-- Add focused tests for alert evaluation, notification delivery idempotency, research fallback, and war-room risk math.
+- Replaced the War Room simulation workflow with a simpler Opportunity Finder.
+- Added deterministic, risk-profile-aware scoring for two to five selected protocols.
+- Made live TVL, 24-hour movement, 7-day movement, relative risk, and scoring limitations visible.
+- Removed the unused War Room UI, simulation APIs, engines, configuration, and types.
+- Kept `/war-room` as a compatibility redirect to `/research/compare`.
+- Added focused tests for opportunity scoring.
+- Added a browser-level Opportunity Finder workflow test.
+- Added a complete `.env.example` and removed unused Express dependencies.
+- Added independent TVL, yield, and audit-evidence freshness labels.
+- Split Alerts into focused components and hooks.
+- Added tests for alert evaluation, notification delivery, research fallback, wallet authentication, and API behavior.
 
-Completed in this pass:
+## Remaining high-impact improvements
 
-- Split alert types, local alert storage utilities, market data fetching, guest alert identity, and alert dialogs out of the Alerts page.
-- Split the Alerts rule form, rule list, evaluation results, and recent activity panels out of the Alerts page.
-- Split the reusable War Room metric card out of the main War Room client component.
-- Split the War Room overview, scenario controls, and simulation results out of the main War Room client component.
-- Made npm the documented primary package manager while keeping Bun documented for workers/Docker.
-- Documented the Anchor watchlist as optional Solana-native infrastructure instead of required app setup.
-
-Remaining high-impact improvements:
-
-1. Continue splitting the large Alerts and War Room client files into focused components and hooks.
+1. Consolidate the two watchlist storage implementations into one shared module.
+2. Split the large Watchlist page into selection, market-data, anomaly, and presentation modules.
+3. Extend browser coverage to the full Research → Opportunity Finder → Alerts workflow.
+4. Continue extracting the Opportunity Finder table and selection controls into smaller presentation components.

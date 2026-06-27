@@ -352,22 +352,28 @@ export default function ChannelManager() {
               {type === 'DISCORD' ? (
                 <ol className="list-decimal list-inside space-y-2.5 text-zinc-100 pl-1 leading-relaxed">
                   <li>
-                    Open <span className="text-white font-bold">Discord</span> and go to the server where you want to receive alerts.
+                    Open <span className="text-white font-bold">Discord</span> and go to the server where you want to
+                    receive alerts.
                   </li>
                   <li>
                     Go to <span className="text-white font-bold">Server Settings</span> &gt;{' '}
                     <span className="text-white font-bold">Integrations</span> &gt;{' '}
                     <span className="text-white font-bold">Webhooks</span> (this requires the{' '}
-                    <code className="text-cyan-300 font-bold bg-zinc-900 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">Manage Webhooks</code> permission).
+                    <code className="text-cyan-300 font-bold bg-zinc-900 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">
+                      Manage Webhooks
+                    </code>{' '}
+                    permission).
                   </li>
                   <li>
                     Click <span className="text-cyan-400 font-bold">Create Webhook</span> (or edit an existing one).
                   </li>
                   <li>
-                    Select the target text channel, then click <span className="text-cyan-400 font-bold">Copy Webhook URL</span>.
+                    Select the target text channel, then click{' '}
+                    <span className="text-cyan-400 font-bold">Copy Webhook URL</span>.
                   </li>
                   <li>
-                    Paste the copied URL into the <span className="text-white font-bold">Webhook URL</span> input field above.
+                    Paste the copied URL into the <span className="text-white font-bold">Webhook URL</span> input field
+                    above.
                   </li>
                 </ol>
               ) : (
@@ -398,8 +404,11 @@ export default function ChannelManager() {
                       </li>
                       <li>
                         Copy the <span className="text-cyan-400 font-bold">HTTP API Token</span> provided (looks like{' '}
-                        <code className="bg-zinc-900 text-zinc-300 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">123456789:ABCdef...</code>) and
-                        paste it in the <span className="text-white font-bold">Telegram Bot Token</span> field above.
+                        <code className="bg-zinc-900 text-zinc-300 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">
+                          123456789:ABCdef...
+                        </code>
+                        ) and paste it in the <span className="text-white font-bold">Telegram Bot Token</span> field
+                        above.
                       </li>
                     </ol>
                   </div>
@@ -414,7 +423,10 @@ export default function ChannelManager() {
                       </li>
                       <li>
                         Post a message in that group or channel (e.g.,{' '}
-                        <code className="bg-zinc-900 text-zinc-400 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">hello</code>).
+                        <code className="bg-zinc-900 text-zinc-400 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">
+                          hello
+                        </code>
+                        ).
                       </li>
                       <li>
                         Search for{' '}
@@ -438,9 +450,13 @@ export default function ChannelManager() {
                         ), start it, and forward the message you sent in your group/channel to it.
                       </li>
                       <li>
-                        It will reply with details. Copy the <span className="text-cyan-400 font-bold">Chat ID</span> (usually starts with a minus sign for groups, e.g.,{' '}
-                        <code className="bg-zinc-900 text-cyan-300 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">-10023456789</code>) and paste it
-                        into the <span className="text-white font-bold">Telegram Chat ID</span> field above.
+                        It will reply with details. Copy the <span className="text-cyan-400 font-bold">Chat ID</span>{' '}
+                        (usually starts with a minus sign for groups, e.g.,{' '}
+                        <code className="bg-zinc-900 text-cyan-300 px-1.5 py-0.5 rounded font-mono text-xs border border-zinc-800">
+                          -10023456789
+                        </code>
+                        ) and paste it into the <span className="text-white font-bold">Telegram Chat ID</span> field
+                        above.
                       </li>
                     </ol>
                   </div>

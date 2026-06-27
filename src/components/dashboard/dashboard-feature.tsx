@@ -120,8 +120,8 @@ export function DashboardFeature() {
             <div className="space-y-4">
               <h1 className="aegis-heading max-w-4xl leading-[1.06]">Know what to check next.</h1>
               <p className="aegis-muted max-w-2xl">
-                Use Aegis as one loop: research a protocol, save it for monitoring, create an alert, and run a War Room
-                simulation only when risk needs deeper review.
+                Use Aegis as one loop: research protocols, save them for monitoring, compare the strongest
+                opportunities, and create alerts for what matters.
               </p>
             </div>
 
@@ -139,9 +139,9 @@ export function DashboardFeature() {
                 </Link>
               </Button>
               <Button asChild className="aegis-button-secondary h-11">
-                <Link href="/war-room">
+                <Link href="/research/compare">
                   <Activity className="h-4 w-4" />
-                  Simulate risk
+                  Compare opportunities
                 </Link>
               </Button>
             </div>

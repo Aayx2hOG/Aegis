@@ -10,6 +10,9 @@
 !.yarn/versions
 
 /coverage
+/.playwright/
+/playwright-report/
+/test-results/
 /.next/
 /out/
 /build

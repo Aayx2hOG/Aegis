@@ -1,7 +1,6 @@
 import { ChainType } from '@/lib/chain/types'
 import type { ParsedTransaction, TokenPrice } from '@/lib/types'
 
-
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 6000) {
   const controller = new AbortController()
   const id = setTimeout(() => controller.abort(), timeout)

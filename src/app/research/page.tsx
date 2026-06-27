@@ -311,7 +311,9 @@ function ResearchContent() {
                 <div className="flex gap-2">
                   {brief?.protocol && (
                     <Button asChild size="sm" className="aegis-button-primary">
-                      <Link href={`/war-room?protocol=${brief.protocol.toLowerCase()}`}>Simulate risk</Link>
+                      <Link href={`/research/compare?protocols=${brief.protocol.toLowerCase()}`}>
+                        Compare opportunity
+                      </Link>
                     </Button>
                   )}
                   <Button

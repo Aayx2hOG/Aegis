@@ -14,4 +14,3 @@ export const researchResultAtom = atom<ResearchResponse | null>(null)
 export const queryHistoryAtom = atom<string[]>([])
 
 export const beginnerModeAtom = atomWithStorage<boolean>('aegis-beginner-mode', false)
-

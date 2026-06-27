@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 
-export default function ProtocolPage({ params }: { params: { slug: string } }) {
-  redirect(`/research?q=${params.slug}`)
+export default async function ProtocolPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  redirect(`/research?q=${encodeURIComponent(slug)}`)
 }

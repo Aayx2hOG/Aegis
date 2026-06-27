@@ -724,7 +724,7 @@ export default function WatchlistPage() {
     if (!alert.protocolSlug) return
 
     if (alert.actionKind === 'war-room') {
-      router.push(`/war-room?protocol=${encodeURIComponent(alert.protocolSlug)}`)
+      router.push(`/research/compare?protocols=${encodeURIComponent(alert.protocolSlug)}`)
       return
     }
 
@@ -874,8 +874,8 @@ export default function WatchlistPage() {
             Saved Protocol Detail
           </h1>
           <p className="max-w-3xl text-zinc-400 text-xs sm:text-sm leading-relaxed">
-            Advanced detail view for saved protocols. The default path is still Research, Alerts, and War Room; use this
-            page when you need bulk review and anomaly diagnostics.
+            Advanced detail view for saved protocols. The default path is Research, Opportunity Finder, and Alerts; use
+            this page when you need bulk review and anomaly diagnostics.
           </p>
         </div>
 
@@ -990,7 +990,9 @@ export default function WatchlistPage() {
                             type="button"
                             className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-orbitron font-bold text-xs uppercase tracking-wider rounded-xs shadow-[0_0_8px_rgba(6,182,212,0.25)] h-9 px-4 cursor-pointer"
                           >
-                            <Link href={`/war-room?protocol=${alert.protocolSlug ?? ''}`}>Simulate Risk</Link>
+                            <Link href={`/research/compare?protocols=${alert.protocolSlug ?? ''}`}>
+                              Compare Opportunity
+                            </Link>
                           </Button>
                         )}
                       </div>
@@ -1169,8 +1171,11 @@ export default function WatchlistPage() {
                           size="sm"
                           className="border border-zinc-800 bg-zinc-900/40 text-zinc-450 hover:text-white hover:bg-zinc-800 rounded-xs h-7 text-[10px] font-mono font-bold uppercase tracking-wider flex-1"
                         >
-                          <Link href={`/war-room?protocol=${slug}`} className="flex items-center justify-center gap-1">
-                            Simulate Risk <ShieldAlert className="h-3 w-3" />
+                          <Link
+                            href={`/research/compare?protocols=${slug}`}
+                            className="flex items-center justify-center gap-1"
+                          >
+                            Compare <ShieldAlert className="h-3 w-3" />
                           </Link>
                         </Button>
                         <Button

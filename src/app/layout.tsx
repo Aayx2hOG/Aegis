@@ -14,7 +14,7 @@ const links: { label: string; path: string }[] = [
   { label: 'Dashboard', path: '/' },
   { label: 'Research', path: '/research' },
   { label: 'Alerts', path: '/alerts' },
-  { label: 'War Room', path: '/war-room' },
+  { label: 'Opportunities', path: '/research/compare' },
 ]
 
 const utilityLinks: { label: string; path: string }[] = [{ label: 'Notifications', path: '/alerts?tab=channels' }]

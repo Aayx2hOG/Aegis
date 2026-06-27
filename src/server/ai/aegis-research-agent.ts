@@ -38,7 +38,6 @@ function usd(value: unknown): string {
   return formatUsd(value)
 }
 
-
 function displayText(value: unknown, fallbackText: string): string {
   if (value == null) return fallbackText
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : fallbackText
