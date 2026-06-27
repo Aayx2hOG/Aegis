@@ -14,6 +14,7 @@ export type OpportunityAssessment = {
   confidence: 'High' | 'Medium' | 'Low'
   verdict: 'Standard review' | 'Elevated risk' | 'Review required'
   securityEvidence: 'Verified' | 'Unverified'
+  issueSummary?: string
 }
 
 export function getOpportunityRiskFlags(
@@ -90,7 +91,7 @@ export function getOpportunityRiskFlags(
       id: 'yield-unavailable',
       label: 'Yield unavailable',
       detail: 'No representative yield pool was matched for this protocol.',
-      impact: 'Confidence reduced; yield is excluded from all protocols in this comparison.',
+      impact: 'Confidence reduced; yield is shown separately until coverage is complete.',
       severity: 'info',
     })
   }
@@ -105,6 +106,7 @@ export function getOpportunityAssessment(
 ): OpportunityAssessment {
   const flags = getOpportunityRiskFlags(protocol, yieldSummary)
   const securityEvidence = getProtocolAuditEvidence(protocol) ? 'Verified' : 'Unverified'
+  const primaryIssue = flags.find((flag) => flag.severity === 'warning' || flag.severity === 'caution')
   const confidenceReductions =
     (protocol.dataCompleteness < 100 ? 1 : 0) +
     (securityEvidence === 'Unverified' ? 1 : 0) +
@@ -118,5 +120,6 @@ export function getOpportunityAssessment(
         ? 'Elevated risk'
         : 'Standard review',
     securityEvidence,
+    issueSummary: primaryIssue?.label,
   }
 }

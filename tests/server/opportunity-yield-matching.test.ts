@@ -31,4 +31,15 @@ describe('findProtocolYieldSummary', () => {
       ])?.apy,
     ).toBe(4.5)
   })
+
+  it('falls back to loose slug matching when the project id is close but not exact', () => {
+    const raydiumAmm: ProtocolYieldSummary = {
+      ...sanctumInfinity,
+      protocolSlug: 'raydium',
+      apy: 12.3,
+      symbol: 'RAY-USDC',
+    }
+
+    expect(findProtocolYieldSummary({ slug: 'raydium-amm', name: 'Raydium AMM' }, [raydiumAmm])).toEqual(raydiumAmm)
+  })
 })

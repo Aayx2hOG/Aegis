@@ -68,6 +68,7 @@ describe('getOpportunityRiskFlags', () => {
       confidence: 'Medium',
       verdict: 'Review required',
       securityEvidence: 'Unverified',
+      issueSummary: 'Low protocol TVL',
     })
   })
 })

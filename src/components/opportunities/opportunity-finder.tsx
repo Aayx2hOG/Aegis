@@ -521,8 +521,11 @@ function OpportunityFinderContent() {
                     No manual overrides
                   </span>
                   {!yieldIncludedInScore && (
-                    <span className="rounded-full border border-amber-300/20 px-2.5 py-1 text-amber-300">
-                      Yield excluded from score · incomplete coverage
+                    <span
+                      className="rounded-full border border-amber-300/20 px-2.5 py-1 text-amber-300"
+                      title="Yield is not counted in this comparison until every selected protocol has a representative APY."
+                    >
+                      Yield not counted yet · incomplete APY coverage
                     </span>
                   )}
                 </div>
@@ -733,6 +736,9 @@ function OpportunityFinderContent() {
                           >
                             {assessment.verdict}
                           </span>
+                          {assessment.issueSummary && assessment.verdict !== 'Standard review' && (
+                            <span className="mt-0.5 block text-[10px] text-zinc-500">{assessment.issueSummary}</span>
+                          )}
                         </td>
                       </tr>
                     )
