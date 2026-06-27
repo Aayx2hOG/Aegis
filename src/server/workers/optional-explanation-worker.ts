@@ -2,7 +2,6 @@ import Redis from 'ioredis'
 import { Worker } from 'bullmq'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
-import { enqueueNotification } from '@/server/queue/notification-queue'
 import { updateEventAndPublishSummary } from '@/server/db/redis'
 
 const redisUrl = process.env.REDIS_URL
@@ -28,14 +27,6 @@ const worker = new Worker(
     const summary = typeof brief.brief === 'string' ? brief.brief : null
 
     await updateEventAndPublishSummary(eventId, summary)
-
-    // Enqueue notification job (notification worker will deliver)
-    try {
-      await enqueueNotification(eventId)
-    } catch (err) {
-      console.error('[optional-explanation-worker] failed to enqueue notification', err)
-      throw err
-    }
   },
   { connection, concurrency: 2 },
 )

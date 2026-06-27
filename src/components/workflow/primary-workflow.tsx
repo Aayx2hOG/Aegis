@@ -25,6 +25,12 @@ const WORKFLOW_STEPS = [
     icon: ShieldCheck,
   },
   {
+    title: 'Notification delivery',
+    body: 'Connect Discord or Telegram to receive triggered alerts automatically.',
+    href: '/alerts?tab=channels',
+    icon: BellRing,
+  },
+  {
     title: 'Compare',
     body: 'Rank selected protocols against your risk preference.',
     href: '/research/compare',
@@ -33,12 +39,6 @@ const WORKFLOW_STEPS = [
 ]
 
 const OPTIONAL_TOOLS = [
-  {
-    title: 'Notifications',
-    body: 'Send triggered alert events to Discord or Telegram.',
-    href: '/alerts?tab=channels',
-    icon: BellRing,
-  },
   {
     title: 'Saved protocols',
     body: 'Open the full saved-protocol workspace when you need bulk review tools.',
@@ -62,7 +62,7 @@ export function PrimaryWorkflow({ compact = false }: { compact?: boolean }) {
         </Button>
       </div>
 
-      <div className={`mt-4 grid gap-3 ${compact ? 'md:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-4'}`}>
+      <div className={`mt-4 grid gap-3 ${compact ? 'md:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-5'}`}>
         {WORKFLOW_STEPS.map((step, index) => {
           const Icon = step.icon
           return (

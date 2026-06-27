@@ -19,19 +19,35 @@ export async function POST(req: NextRequest) {
 
   if (!prisma) return new Response(JSON.stringify({ error: 'Database not configured.' }), { status: 503 })
 
-  const messages = body.messages ?? []
+  const messages = Array.isArray(body.messages) ? body.messages : body.eventId ? [{ body }] : []
+  if (messages.length === 0) {
+    return Response.json({ error: 'At least one notification event is required.' }, { status: 400 })
+  }
+
+  let failed = 0
   for (const msg of messages) {
     const data = msg.body ?? {}
     const eventId = data.eventId as string | undefined
-    if (!eventId) continue
+    if (!eventId) {
+      failed += 1
+      continue
+    }
 
     try {
-      // Delegate delivery to shared helper which handles per-channel logging and concurrency
-      await deliverNotificationsForEvent(eventId)
+      const result = await deliverNotificationsForEvent(eventId)
+      failed += result.failed
     } catch (err) {
       console.error('[notifications-webhook] processing message failed', err)
+      failed += 1
     }
   }
 
-  return new Response('ok')
+  if (failed > 0) {
+    return Response.json(
+      { error: `${failed} notification delivery attempt${failed === 1 ? '' : 's'} failed.` },
+      { status: 503 },
+    )
+  }
+
+  return Response.json({ ok: true })
 }

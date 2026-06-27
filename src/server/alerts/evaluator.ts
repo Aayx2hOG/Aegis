@@ -2,6 +2,7 @@ import { AlertDirection, AlertMetric } from '@prisma/client'
 import { prisma } from '@/server/db/prisma'
 import { getSolanaProtocols } from '@/server/api/defillama'
 import { enqueueOptionalExplanation } from '@/server/queue/optional-explanation-queue'
+import { enqueueNotification } from '@/server/queue/notification-queue'
 import { resolveProtocolFromList } from '@/lib/protocol/slug-resolver'
 import { publishAlertEvent } from '@/server/db/redis'
 import { executeTool } from '@/server/ai/aegis-tools'
@@ -165,7 +166,7 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
         direction: rule.direction,
         status: 'skipped',
         currentValue,
-        reason: 'Rule already triggered in the last 6 hours; alert event and email were not repeated.',
+        reason: 'Rule already triggered in the last 6 hours; the alert event and notifications were not repeated.',
       })
       continue
     }
@@ -201,8 +202,14 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
       console.error('[evaluateAlertsForWallet] failed to publish event to Redis:', err)
     }
 
-    // Email delivery is disabled. Record that delivery was not attempted.
-    const emailMessage = 'Email delivery disabled.'
+    // Delivery is independent of optional AI explanations. With no enabled
+    // channels this is a safe no-op; configured Discord/Telegram channels
+    // receive the deterministic alert message immediately.
+    try {
+      await enqueueNotification(createdEvent.id)
+    } catch (err) {
+      console.error('[evaluateAlertsForWallet] failed to enqueue notification job', err)
+    }
 
     if (areAlertAiSummariesEnabled()) {
       // Optional explanation layer; alert triggering itself is fully rule-based.
@@ -229,7 +236,7 @@ export async function evaluateAlertsForWallet(walletAddress: string) {
       direction: rule.direction,
       status: 'triggered',
       currentValue,
-      reason: `Rule condition met (live value ${formattedVal} is ${relation} ${formattedThreshold}) and alert event created. ${emailMessage}`,
+      reason: `Rule condition met (live value ${formattedVal} is ${relation} ${formattedThreshold}); alert event created and notification delivery queued.`,
     })
   }
 

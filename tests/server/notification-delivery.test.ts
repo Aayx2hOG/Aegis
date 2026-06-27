@@ -1,4 +1,4 @@
-import { NotificationChannelType, Prisma } from '@prisma/client'
+import { AlertDirection, AlertMetric, NotificationChannelType, Prisma } from '@prisma/client'
 
 const mockFindEvent = jest.fn()
 const mockFindChannels = jest.fn()
@@ -45,6 +45,11 @@ describe('deliverNotificationsForEvent', () => {
       id: 'event-1',
       walletAddress: 'wallet-1',
       protocolSlug: 'jito',
+      metric: AlertMetric.CHANGE_1D,
+      threshold: 5,
+      direction: AlertDirection.ABOVE,
+      currentValue: 6.5,
+      triggeredAt: new Date('2026-06-24T00:00:00.000Z'),
       summary: 'Jito alert summary',
     })
     mockUpdateLog.mockResolvedValue({})
@@ -69,7 +74,8 @@ describe('deliverNotificationsForEvent', () => {
       data: { eventId: 'event-1', channelId: 'channel-1', status: 'PENDING' },
     })
     expect(mockSendDiscordWebhook).toHaveBeenCalledTimes(1)
-    expect(mockSendDiscordWebhook).toHaveBeenCalledWith(url, 'Jito alert summary')
+    expect(mockSendDiscordWebhook).toHaveBeenCalledWith(url, expect.stringContaining('🚨 AEGIS ALERT TRIGGERED'))
+    expect(mockSendDiscordWebhook).toHaveBeenCalledWith(url, expect.stringContaining('Current value: 6.50%'))
   })
 
   it('does not resend when the event-channel log is already SENT', async () => {

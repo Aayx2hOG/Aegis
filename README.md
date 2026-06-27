@@ -6,7 +6,7 @@ Aegis is a Next.js DeFi risk monitoring dashboard. Its core workflow is simple: 
 
 - Guest mode (default): saved protocols are stored locally in the browser and work without wallet connection.
 - Wallet-connected mode: scopes saved protocols and research history to a wallet, and unlocks alert automation endpoints when configured.
-- Optional advanced tools include generated explanations, notifications, and Solana-native on-chain watchlist experiments.
+- Notification delivery connects triggered alerts to Discord or Telegram. Optional advanced tools include generated explanations and Solana-native on-chain watchlist experiments.
 
 ## Storage Model
 
@@ -61,7 +61,7 @@ cp .env.example .env.local
 
 Set `AEGIS_RESEARCH_AI_ENABLED=true` to allow Groq-backed research generation, and set `AEGIS_ALERT_AI_SUMMARIES_ENABLED=true` to automatically generate alert explanations after rule-based triggers.
 
-Email alert delivery has been removed in this branch; alerts still create events but delivery is disabled.
+Discord and Telegram delivery is independent of AI explanations: triggered events are sent to any enabled notification channels. Email delivery has been removed in this branch.
 
 ## Database
 

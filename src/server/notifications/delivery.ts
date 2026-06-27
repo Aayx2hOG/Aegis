@@ -3,6 +3,7 @@ import { prisma } from '@/server/db/prisma'
 import { sendDiscordWebhook } from '@/server/notifications/adapters/discord'
 import { sendTelegramMessage } from '@/server/notifications/adapters/telegram'
 import { normalizeNotificationConfig } from '@/server/notifications/config'
+import { formatAlertNotification } from '@/server/notifications/message'
 
 type DeliverResult = {
   sent: number
@@ -30,6 +31,7 @@ export async function deliverNotificationsForEvent(
 
   const event = await db.alertEvent.findUnique({ where: { id: eventId } })
   if (!event) throw new Error('Alert event not found')
+  const message = formatAlertNotification(event)
 
   const channels = await db.notificationChannel.findMany({
     where: {
@@ -98,9 +100,9 @@ export async function deliverNotificationsForEvent(
 
         try {
           if (ch.type === 'DISCORD') {
-            await sendDiscordWebhook(cfg.url!, event.summary ?? `Alert: ${event.protocolSlug}`)
+            await sendDiscordWebhook(cfg.url!, message)
           } else if (ch.type === 'TELEGRAM') {
-            await sendTelegramMessage(cfg.botToken!, cfg.chatId!, event.summary ?? `Alert: ${event.protocolSlug}`)
+            await sendTelegramMessage(cfg.botToken!, cfg.chatId!, message)
           }
 
           await db.notificationLog.update({ where: { id: log.id }, data: { status: 'SENT', sentAt: new Date() } })

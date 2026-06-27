@@ -2,7 +2,6 @@ import Redis from 'ioredis'
 import type { Queue } from 'bullmq'
 import { runResearchAgent } from '@/server/ai/aegis-research-agent'
 import { prisma } from '@/server/db/prisma'
-import { enqueueNotification } from '@/server/queue/notification-queue'
 import { updateEventAndPublishSummary } from '@/server/db/redis'
 
 const redisUrl = process.env.REDIS_URL
@@ -87,12 +86,6 @@ export async function enqueueOptionalExplanation(eventId: string, protocolSlug: 
     const brief = await runResearchAgent(protocolSlug)
     const summary = typeof brief.brief === 'string' ? brief.brief : null
     await updateEventAndPublishSummary(eventId, summary)
-    // Trigger notifications inline when no queue is configured
-    try {
-      await enqueueNotification(eventId)
-    } catch (err) {
-      console.error('[optional-explanation-inline] failed to enqueue notification', err)
-    }
 
     return { id: `inline-${eventId}` }
   } catch (err) {
