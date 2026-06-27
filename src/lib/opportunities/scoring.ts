@@ -20,6 +20,13 @@ export interface OpportunityScore extends OpportunityInput {
   yieldScore: number
   stabilityBand: 'Stable' | 'Mixed' | 'Volatile'
   dataCompleteness: number
+  includedFactors: {
+    scale: boolean
+    stability: boolean
+    momentum: boolean
+    yield: boolean
+  }
+  effectiveWeights: OpportunityWeights
   contributions: {
     scale: number
     stability: number
@@ -63,7 +70,37 @@ function roundOne(value: number) {
 export function scoreOpportunities(protocols: OpportunityInput[], profile: OpportunityProfile): OpportunityScore[] {
   if (protocols.length === 0) return []
 
-  const weights = PROFILE_WEIGHTS[profile]
+  const configuredWeights = PROFILE_WEIGHTS[profile]
+  const includedFactors = {
+    scale: protocols.every((protocol) => Number.isFinite(protocol.tvl) && protocol.tvl > 0),
+    stability: protocols.every(
+      (protocol) =>
+        protocol.change1d != null &&
+        Number.isFinite(protocol.change1d) &&
+        protocol.change7d != null &&
+        Number.isFinite(protocol.change7d),
+    ),
+    momentum: protocols.every(
+      (protocol) =>
+        protocol.change1d != null &&
+        Number.isFinite(protocol.change1d) &&
+        protocol.change7d != null &&
+        Number.isFinite(protocol.change7d),
+    ),
+    yield: protocols.every((protocol) => protocol.apy != null && Number.isFinite(protocol.apy)),
+  }
+  const includedWeight =
+    (includedFactors.scale ? configuredWeights.scale : 0) +
+    (includedFactors.stability ? configuredWeights.stability : 0) +
+    (includedFactors.momentum ? configuredWeights.momentum : 0) +
+    (includedFactors.yield ? configuredWeights.yield : 0)
+  const weightDivisor = includedWeight || 1
+  const effectiveWeights: OpportunityWeights = {
+    scale: includedFactors.scale ? configuredWeights.scale / weightDivisor : 0,
+    stability: includedFactors.stability ? configuredWeights.stability / weightDivisor : 0,
+    momentum: includedFactors.momentum ? configuredWeights.momentum / weightDivisor : 0,
+    yield: includedFactors.yield ? configuredWeights.yield / weightDivisor : 0,
+  }
   const logTvls = protocols.map((protocol) => Math.log10(Math.max(protocol.tvl, 1)))
   const momentums = protocols.map((protocol) => finite(protocol.change7d) * 0.7 + finite(protocol.change1d) * 0.3)
   const yields = protocols.map((protocol) => finite(protocol.apy))
@@ -77,10 +114,10 @@ export function scoreOpportunities(protocols: OpportunityInput[], profile: Oppor
     const volatilityProxy = Math.abs(oneDay) + Math.abs(sevenDay - oneDay) * 0.5
     const stabilityScore = clamp(100 - volatilityProxy * 4)
     const score = clamp(
-      scaleScore * weights.scale +
-        stabilityScore * weights.stability +
-        momentumScore * weights.momentum +
-        yieldScore * weights.yield,
+      scaleScore * effectiveWeights.scale +
+        stabilityScore * effectiveWeights.stability +
+        momentumScore * effectiveWeights.momentum +
+        yieldScore * effectiveWeights.yield,
     )
     const dataPoints = [protocol.tvl > 0, protocol.change1d != null, protocol.change7d != null, protocol.apy != null]
     const dataCompleteness = Math.round((dataPoints.filter(Boolean).length / dataPoints.length) * 100)
@@ -96,11 +133,13 @@ export function scoreOpportunities(protocols: OpportunityInput[], profile: Oppor
       stabilityBand:
         stabilityScore >= 75 ? ('Stable' as const) : stabilityScore < 45 ? ('Volatile' as const) : ('Mixed' as const),
       dataCompleteness,
+      includedFactors,
+      effectiveWeights,
       contributions: {
-        scale: roundOne(scaleScore * weights.scale),
-        stability: roundOne(stabilityScore * weights.stability),
-        momentum: roundOne(momentumScore * weights.momentum),
-        yield: roundOne(yieldScore * weights.yield),
+        scale: roundOne(scaleScore * effectiveWeights.scale),
+        stability: roundOne(stabilityScore * effectiveWeights.stability),
+        momentum: roundOne(momentumScore * effectiveWeights.momentum),
+        yield: roundOne(yieldScore * effectiveWeights.yield),
       },
     }
   })

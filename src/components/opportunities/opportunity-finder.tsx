@@ -186,6 +186,7 @@ function OpportunityFinderContent() {
   )
   const rankings = useMemo(() => scoreOpportunities(selectedProtocols, profile), [profile, selectedProtocols])
   const leader = rankings[0]
+  const yieldIncludedInScore = leader?.includedFactors.yield ?? false
   const leaderYieldSummary = leader ? findYieldSummary(leader, yieldSummaries) : undefined
   const depositValue = Math.max(0, Number(depositAmount) || 0)
   const historySignature = `${activeChain.type}:${profile}:${[...selectedSlugs].sort().join(',')}`
@@ -513,6 +514,11 @@ function OpportunityFinderContent() {
                   <span className="rounded-full border border-white/10 px-2.5 py-1 text-zinc-300">
                     No manual overrides
                   </span>
+                  {!yieldIncludedInScore && (
+                    <span className="rounded-full border border-amber-300/20 px-2.5 py-1 text-amber-300">
+                      Yield excluded from score · incomplete coverage
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -680,7 +686,10 @@ function OpportunityFinderContent() {
                               </span>
                             </>
                           ) : (
-                            <span className="text-xs text-zinc-500">No matched yield pool</span>
+                            <>
+                              <span className="block text-xs text-zinc-500">Current yield unavailable</span>
+                              <span className="mt-0.5 block text-[10px] text-zinc-600">Excluded from every score</span>
+                            </>
                           )}
                         </td>
                         <td className="px-4 py-3 font-medium text-zinc-200">

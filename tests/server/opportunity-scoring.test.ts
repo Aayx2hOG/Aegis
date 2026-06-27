@@ -62,4 +62,14 @@ describe('scoreOpportunities', () => {
     expect(Math.abs(result.score - contributionTotal)).toBeLessThanOrEqual(0.2)
     expect(result.dataCompleteness).toBe(100)
   })
+
+  it('excludes yield from every score when any compared protocol has no yield data', () => {
+    const incomplete = protocols.map((protocol, index) => (index === 1 ? { ...protocol, apy: null } : protocol))
+    const result = scoreOpportunities(incomplete, 'balanced')
+
+    expect(result.every((item) => item.includedFactors.yield === false)).toBe(true)
+    expect(result.every((item) => item.effectiveWeights.yield === 0)).toBe(true)
+    expect(result.every((item) => item.contributions.yield === 0)).toBe(true)
+    expect(result.every((item) => item.score >= 0 && item.score <= 100)).toBe(true)
+  })
 })
