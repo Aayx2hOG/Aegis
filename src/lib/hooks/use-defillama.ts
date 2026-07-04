@@ -24,7 +24,8 @@ export function useChainProtocols(chainType: ChainType) {
     staleTime: 5 * 60_000,
     refetchOnMount: 'always',
     refetchInterval: false,
-    retry: 1,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(750 * 2 ** attempt, 3_000),
   })
 }
 

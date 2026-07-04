@@ -41,6 +41,23 @@ async function tryGetCachedProtocols(chainType: ChainType): Promise<string | nul
   }
 }
 
+async function readCachedProtocols(chainType: ChainType): Promise<SolanaProtocol[] | null> {
+  const cached = await tryGetCachedProtocols(chainType)
+  if (!cached) return null
+
+  try {
+    const parsed = JSON.parse(cached) as unknown
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      await tryDeleteCorruptCache(chainType)
+      return null
+    }
+    return parsed as SolanaProtocol[]
+  } catch {
+    await tryDeleteCorruptCache(chainType)
+    return null
+  }
+}
+
 async function trySetCachedProtocols(chainType: ChainType, protocols: SolanaProtocol[]): Promise<void> {
   if (!redis) return
   try {
@@ -97,17 +114,8 @@ function getChainTvl(protocol: SolanaProtocol, chainType: ChainType): number {
 }
 
 export async function getProtocolsByChain(chainType: ChainType): Promise<SolanaProtocol[]> {
-  // Try cache first
-  const cached = await tryGetCachedProtocols(chainType)
-  let protocols: SolanaProtocol[]
-  if (cached) {
-    try {
-      protocols = JSON.parse(cached) as SolanaProtocol[]
-    } catch {
-      await tryDeleteCorruptCache(chainType)
-      protocols = []
-    }
-  } else {
+  let protocols = await readCachedProtocols(chainType)
+  if (!protocols) {
     // external fetch with timeout so the server doesn't hang
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
@@ -115,12 +123,16 @@ export async function getProtocolsByChain(chainType: ChainType): Promise<SolanaP
       const res = await fetch(`${BASE}/protocols`, { signal: controller.signal })
       if (!res.ok) throw new Error(`DeFiLlama error: ${res.status}`)
       const all = (await res.json()) as SolanaProtocol[]
+      if (!Array.isArray(all)) throw new Error('DeFiLlama returned an invalid protocol catalog')
       protocols = all.filter((protocol) => matchesChain(protocol.chains, chainType))
     } finally {
       clearTimeout(timeout)
     }
-    // Cache the result for PROTOCOLS_TTL seconds
-    await trySetCachedProtocols(chainType, protocols)
+    // Never cache an empty response. A transient upstream issue should recover on
+    // the next request instead of looking like a valid, synchronized catalog.
+    if (protocols.length > 0) {
+      await trySetCachedProtocols(chainType, protocols)
+    }
   }
   return protocols
     .map((protocol) => ({ ...protocol, tvl: getChainTvl(protocol, chainType) }))

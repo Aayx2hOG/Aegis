@@ -452,7 +452,8 @@ export function useAlertsState(wallet: WalletContextState) {
       const res = await fetch(`/api/alerts/rules/${rule.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !rule.enabled }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ enabled: !rule.enabled, walletAddress: alertWalletAddress }),
       })
 
       const body = (await res.json().catch(() => null)) as { error?: string } | null
@@ -471,8 +472,6 @@ export function useAlertsState(wallet: WalletContextState) {
   }
 
   async function deleteAlertRule(rule: AlertRuleItem) {
-    if (!window.confirm(`Delete the alert for ${rule.protocolSlug}?`)) return
-
     setDeletingRuleId(rule.id)
     try {
       if (alertStorageMode === 'local' && alertWalletAddress) {
@@ -484,7 +483,13 @@ export function useAlertsState(wallet: WalletContextState) {
         return
       }
 
-      const res = await fetch(`/api/alerts/rules/${rule.id}`, { method: 'DELETE' })
+      const res = await fetch(
+        `/api/alerts/rules/${rule.id}?walletAddress=${encodeURIComponent(alertWalletAddress ?? '')}`,
+        {
+          method: 'DELETE',
+          credentials: 'same-origin',
+        },
+      )
 
       if (!res.ok && res.status !== 204) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null

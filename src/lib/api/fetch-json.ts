@@ -6,13 +6,15 @@ export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit)
     const fallbackMessage = `Request failed with status ${res.status}`
     if (!text) throw new Error(fallbackMessage)
 
+    let parsed: { error?: string } | null = null
     try {
-      const parsed = JSON.parse(text) as { error?: string }
-      if (typeof parsed.error === 'string' && parsed.error.trim()) {
-        throw new Error(parsed.error)
-      }
+      parsed = JSON.parse(text) as { error?: string }
     } catch {
-      // Fall through to the raw response body below.
+      // The response is not JSON; use its raw body below.
+    }
+
+    if (typeof parsed?.error === 'string' && parsed.error.trim()) {
+      throw new Error(parsed.error)
     }
 
     throw new Error(text || fallbackMessage)

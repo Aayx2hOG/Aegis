@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const protocols = chainType === ChainType.Solana ? await getSolanaProtocols() : await getProtocolsByChain(chainType)
     return Response.json(protocols)
   } catch (err) {
-    console.error('[api/defillama] falling back to empty protocol list', err)
-    return Response.json([])
+    console.error('[api/defillama] protocol catalog request failed', err)
+    return Response.json({ error: 'Live market data is temporarily unavailable. Please retry.' }, { status: 502 })
   }
 }

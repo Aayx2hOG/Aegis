@@ -11,7 +11,7 @@ import { useChainProtocols } from '@/lib/hooks/use-defillama'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { AlertCircle, BarChart3, Loader2, RefreshCw, Search, Star, Swords, Terminal } from 'lucide-react'
+import { AlertCircle, BarChart3, Database, Loader2, RefreshCw, Search, Star, Swords, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useMultiChain } from '@/components/chain/chain-provider'
@@ -155,7 +155,14 @@ function ResearchContent() {
   const [protocolSearch, setProtocolSearch] = useState('')
   const [visibleProtocols, setVisibleProtocols] = useState(INITIAL_VISIBLE_PROTOCOLS)
   const { isWatched, toggle, isConnected } = useWatchlist()
-  const { data: chainProtocols = [], isLoading: protocolsLoading } = useChainProtocols(activeChain.type)
+  const {
+    data: chainProtocols = [],
+    isLoading: protocolsLoading,
+    isFetching: protocolsFetching,
+    isError: protocolsError,
+    error: protocolsErrorDetails,
+    refetch: refetchProtocols,
+  } = useChainProtocols(activeChain.type)
 
   const [simulatedLogs, setSimulatedLogs] = useState<string[]>([])
 
@@ -416,16 +423,18 @@ function ResearchContent() {
             <div className="finance-card p-3">
               <p className="finance-label">Status</p>
               <p className="mt-1 text-sm font-semibold text-cyan-100">
-                {protocolsLoading ? 'Refreshing' : 'Synchronized'}
+                {protocolsError ? 'Unavailable' : protocolsFetching ? 'Fetching market data' : 'Synchronized'}
               </p>
             </div>
             <div className="finance-card p-3">
               <p className="finance-label">Categories</p>
-              <p className="mt-1 text-sm font-semibold text-white">{catalogCategoryCount}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{protocolsLoading ? '—' : catalogCategoryCount}</p>
             </div>
             <div className="finance-card p-3">
               <p className="finance-label">Visible</p>
-              <p className="mt-1 text-sm font-semibold text-white">{filteredProtocols.length}</p>
+              <p className="mt-1 text-sm font-semibold text-white">
+                {protocolsLoading ? '—' : filteredProtocols.length}
+              </p>
             </div>
           </div>
         </div>
@@ -437,7 +446,9 @@ function ResearchContent() {
               <p className="text-xs text-zinc-500">Filter by name, slug, or category.</p>
             </div>
             <div className="text-xs font-medium text-zinc-500">
-              {protocolsLoading ? 'Awaiting metrics...' : `${supportedProtocols.length} entries matching filters`}
+              {protocolsFetching
+                ? 'Fetching protocol and liquidity metrics...'
+                : `${supportedProtocols.length} entries matching filters`}
             </div>
           </div>
           <div>
@@ -447,98 +458,151 @@ function ResearchContent() {
               onChange={(e) => setProtocolSearch(e.target.value)}
               placeholder="Search jito, aave, kamino..."
               className="h-10 w-full rounded-md border-white/10 bg-zinc-950/70 text-sm focus:border-cyan-300/40"
+              disabled={protocolsLoading}
             />
           </div>
         </div>
 
-        <div className="mt-6 max-h-[28rem] overflow-auto rounded-md border border-white/10 bg-zinc-950/35 p-4 scrollbar-thin">
-          <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-500">
-            <span>
-              Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length} protocols
-            </span>
-            {deferredProtocolSearch && (
-              <button
-                type="button"
-                onClick={() => setProtocolSearch('')}
-                className="font-semibold text-cyan-200 hover:text-white"
-              >
-                Clear filter
-              </button>
-            )}
+        {protocolsLoading && (
+          <div
+            className="mt-6 overflow-hidden rounded-md border border-white/10 bg-zinc-950/35"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex flex-col gap-4 border-b border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-8 w-8 items-center justify-center rounded-md border border-cyan-300/20 bg-cyan-300/10">
+                  <Database className="h-4 w-4 text-cyan-200" />
+                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-zinc-950 bg-cyan-300" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">Loading protocols</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">Fetching the latest catalog from DeFiLlama</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 rounded border border-cyan-300/15 bg-cyan-300/[0.06] px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-cyan-200">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Request in progress
+              </div>
+            </div>
+
+            <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="relative h-[62px] overflow-hidden rounded-lg border border-white/[0.07] bg-white/[0.025] px-4 py-3"
+                >
+                  <div className="h-3 w-24 rounded-sm bg-white/[0.08]" />
+                  <div className="mt-2.5 h-3 w-14 rounded-full bg-white/[0.05]" />
+                  <div className="absolute right-4 top-3 h-2 w-7 rounded-sm bg-white/[0.05]" />
+                  <div className="absolute right-4 top-7 h-3 w-12 rounded-sm bg-white/[0.08]" />
+                  <div
+                    className="absolute inset-0 -translate-x-full animate-[catalog-shimmer_1.8s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-cyan-100/[0.035] to-transparent"
+                    style={{ animationDelay: `${index * 90}ms` }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {visibleFilteredProtocols.map((protocol) => (
-              <button
-                key={protocol.slug}
-                type="button"
-                onClick={() => {
-                  void runResearch(protocol.slug)
-                }}
-                className="group flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-3 text-left transition hover:border-cyan-300/25 hover:bg-white/[0.06]"
-                style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
-                disabled={loading}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white transition-colors group-hover:text-cyan-100">
-                    {protocol.label}
-                  </p>
-                  <span
-                    className={`mt-1.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${getCategoryTone(protocol.category)}`}
-                  >
-                    {protocol.category}
-                  </span>
+        )}
+
+        {protocolsError && !protocolsLoading && (
+          <div className="mt-6 flex items-start gap-3 rounded-md border border-rose-400/20 bg-rose-400/10 p-4">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-rose-100">Market details could not be loaded</p>
+              <p className="mt-1 text-xs text-rose-100/70">
+                {protocolsErrorDetails instanceof Error
+                  ? protocolsErrorDetails.message
+                  : 'The market data service did not respond.'}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="aegis-button-secondary"
+              onClick={() => void refetchProtocols()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {!protocolsLoading && !protocolsError && (
+          <div className="mt-6 max-h-[28rem] overflow-auto rounded-md border border-white/10 bg-zinc-950/35 p-4 scrollbar-thin">
+            <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-zinc-500">
+              <span>
+                Showing {Math.min(visibleProtocols, filteredProtocols.length)} of {filteredProtocols.length} protocols
+              </span>
+              {deferredProtocolSearch && (
+                <button
+                  type="button"
+                  onClick={() => setProtocolSearch('')}
+                  className="font-semibold text-cyan-200 hover:text-white"
+                >
+                  Clear filter
+                </button>
+              )}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleFilteredProtocols.map((protocol) => (
+                <button
+                  key={protocol.slug}
+                  type="button"
+                  onClick={() => {
+                    void runResearch(protocol.slug)
+                  }}
+                  className="group flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-3 text-left transition hover:border-cyan-300/25 hover:bg-white/[0.06]"
+                  style={{ contentVisibility: 'auto', containIntrinsicSize: '60px' }}
+                  disabled={loading}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white transition-colors group-hover:text-cyan-100">
+                      {protocol.label}
+                    </p>
+                    <span
+                      className={`mt-1.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${getCategoryTone(protocol.category)}`}
+                    >
+                      {protocol.category}
+                    </span>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] font-medium text-zinc-500">TVL</p>
+                    <p className="text-sm font-semibold text-white">{protocol.tvl}</p>
+                  </div>
+                </button>
+              ))}
+              {filteredProtocols.length === 0 && (
+                <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.025] px-4 py-8 text-center text-sm text-zinc-500 sm:col-span-2 xl:col-span-3">
+                  No protocols match that search.
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[10px] font-medium text-zinc-500">TVL</p>
-                  <p className="text-sm font-semibold text-white">{protocol.tvl}</p>
-                </div>
-              </button>
-            ))}
-            {filteredProtocols.length === 0 && (
-              <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.025] px-4 py-8 text-center text-sm text-zinc-500 sm:col-span-2 xl:col-span-3">
-                No protocols match that search.
+              )}
+            </div>
+            {filteredProtocols.length > visibleProtocols && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    setVisibleProtocols((current) =>
+                      Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length),
+                    )
+                  }
+                  variant="outline"
+                  size="sm"
+                  className="aegis-button-secondary text-sm"
+                >
+                  Load more
+                </Button>
               </div>
             )}
           </div>
-          {filteredProtocols.length > visibleProtocols && (
-            <div className="mt-4 flex justify-center">
-              <Button
-                type="button"
-                onClick={() =>
-                  setVisibleProtocols((current) =>
-                    Math.min(current + INITIAL_VISIBLE_PROTOCOLS, filteredProtocols.length),
-                  )
-                }
-                variant="outline"
-                size="sm"
-                className="aegis-button-secondary text-sm"
-              >
-                Load more
-              </Button>
-            </div>
-          )}
-        </div>
+        )}
       </section>
 
       <style jsx global>{`
-        @keyframes progress-fast {
-          0% {
-            width: 0%;
-            left: 0;
-          }
-          40% {
-            width: 70%;
-            left: 0;
-          }
-          100% {
-            width: 0%;
-            left: 100%;
-          }
-        }
-        .animate-progress-fast {
-          animation: progress-fast 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-          position: absolute;
-        }
         @keyframes caret {
           0%,
           100% {
@@ -550,6 +614,11 @@ function ResearchContent() {
         }
         .animate-caret {
           animation: caret 1s step-end infinite;
+        }
+        @keyframes catalog-shimmer {
+          100% {
+            transform: translateX(100%);
+          }
         }
       `}</style>
     </div>
