@@ -19,9 +19,6 @@ import MiniMetric from '@/components/ui/mini-metric'
 import { ChainEnvironment, ChainType } from '@/lib/chain/types'
 import type { SolanaProtocol } from '@/lib/types'
 import { toast } from 'sonner'
-import { useAtom } from 'jotai'
-import { beginnerModeAtom } from '@/lib/store/research-store'
-import { DeFiTooltip, BeginnerOnboardingCard } from '@/components/ui/defi-helper'
 
 type CoinGeckoResponse = {
   market_data?: {
@@ -208,7 +205,6 @@ function isTestNetwork(environment: ChainEnvironment) {
 }
 
 function WatchlistAnalyticsPanel({ rows }: { rows: WatchlistMarketRow[] }) {
-  const [beginnerMode] = useAtom(beginnerModeAtom)
   const chainMetrics = useMemo(() => {
     const tvlByChain: Record<string, number> = {}
     let totalTvl = 0
@@ -293,13 +289,7 @@ function WatchlistAnalyticsPanel({ rows }: { rows: WatchlistMarketRow[] }) {
       <div className="space-y-5 font-mono text-xs">
         {/* Stacked Chart */}
         <div className="space-y-2 text-left">
-          <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">
-            {beginnerMode ? (
-              <DeFiTooltip term="TVL">TVL ALLOCATION BY NETWORK</DeFiTooltip>
-            ) : (
-              'TVL ALLOCATION BY NETWORK'
-            )}
-          </p>
+          <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">TVL ALLOCATION BY NETWORK</p>
           {chainMetrics.totalTvl === 0 ? (
             <div className="text-[10px] text-zinc-650 py-1">&gt; Metric inputs currently zero or unavailable.</div>
           ) : (
@@ -329,13 +319,7 @@ function WatchlistAnalyticsPanel({ rows }: { rows: WatchlistMarketRow[] }) {
 
         {/* Risk Distribution */}
         <div className="space-y-2 text-left">
-          <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">
-            {beginnerMode ? (
-              <DeFiTooltip term="Risk State">BASKET RISK THREAT FACTOR</DeFiTooltip>
-            ) : (
-              'BASKET RISK THREAT FACTOR'
-            )}
-          </p>
+          <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-550">BASKET RISK THREAT FACTOR</p>
           <div className="space-y-2.5">
             <div className="space-y-1">
               <div className="flex justify-between text-[9px] text-emerald-400 font-bold">
@@ -573,7 +557,6 @@ function buildAnomalyAlerts(current: AnomalySnapshot | null, previous: AnomalySn
 export default function WatchlistPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const [beginnerMode] = useAtom(beginnerModeAtom)
   const { activeChain, activeChainConnections, allChains } = useMultiChain()
   const wallet = useWallet()
   const walletAddress = wallet.publicKey?.toBase58()
@@ -802,18 +785,6 @@ export default function WatchlistPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 py-6 px-2 cyber-grid">
-      {beginnerMode && (
-        <BeginnerOnboardingCard
-          title="DeFi Asset Monitor Guide"
-          steps={[
-            'This dashboard allows you to track key performance metrics of DeFi protocols you are interested in.',
-            'TVL (Total Value Locked) shows the volume of funds deposited in each protocol. High TVL indicates popularity and stability.',
-            "The 'Risk State' column displays how safe a protocol is based on sudden value drops: Stable is green, Watch is yellow, and Critical is red.",
-            'Hover over dotted terms like LTV, APY, or Risk State to view their definitions instantly.',
-            'Toggling off Beginner Mode in the header navigation will restore the technical system parameters.',
-          ]}
-        />
-      )}
       <header className="space-y-4 text-left">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -1117,7 +1088,7 @@ export default function WatchlistPage() {
                         <span
                           className={`inline-flex rounded-xs border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-wider ${status.tone}`}
                         >
-                          {beginnerMode ? <DeFiTooltip term="Risk State">{status.label}</DeFiTooltip> : status.label}
+                          {status.label}
                         </span>
                       </div>
 
@@ -1127,21 +1098,10 @@ export default function WatchlistPage() {
                           value={formatUsd(priceUsd)}
                           tone={(priceChange24h ?? 0) < 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}
                         />
-                        {beginnerMode ? (
-                          <div className="flex flex-col">
-                            <span className="text-[10px] text-zinc-500 font-mono">
-                              <DeFiTooltip term="TVL">TVL</DeFiTooltip>
-                            </span>
-                            <span className="text-xs font-bold text-white font-mono mt-0.5">
-                              {market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'}
-                            </span>
-                          </div>
-                        ) : (
-                          <MiniMetric
-                            label="TVL"
-                            value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'}
-                          />
-                        )}
+                        <MiniMetric
+                          label="TVL"
+                          value={market?.tvl ? `$${Math.round(market.tvl / 1_000_000)}M` : 'N/A'}
+                        />
                         <MiniMetric
                           label="24h Change"
                           value={formatPct(market?.change_1d)}

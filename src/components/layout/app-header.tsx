@@ -3,8 +3,6 @@
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useAtom } from 'jotai'
-import { beginnerModeAtom } from '@/lib/store/research-store'
 import { Button } from '@/components/ui/button'
 import { Bell, Menu, X } from 'lucide-react'
 import { ThemeSelect } from '@/components/ui/theme-select'
@@ -21,7 +19,6 @@ export function AppHeader({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [showMenu, setShowMenu] = useState(false)
-  const [beginnerMode, setBeginnerMode] = useAtom(beginnerModeAtom)
 
   const activeTab = searchParams.get('tab')
 
@@ -83,25 +80,6 @@ export function AppHeader({
           </div>
 
           <div className="ml-4 hidden items-center gap-3 lg:flex xl:gap-4">
-            <button
-              onClick={() => setBeginnerMode(!beginnerMode)}
-              className={`mr-1 flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-300 ${
-                beginnerMode
-                  ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
-                  : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-white/15 hover:text-zinc-200'
-              }`}
-              title="Toggle Beginner / Pro Mode"
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
-                  beginnerMode ? 'bg-cyan-200' : 'bg-zinc-600'
-                }`}
-              />
-              <span>{beginnerMode ? 'Beginner' : 'Pro'}</span>
-            </button>
-
-            <div className="mx-1 my-auto h-5 border-l border-white/10" />
-
             <Button
               asChild
               variant="ghost"
@@ -160,20 +138,6 @@ export function AppHeader({
               <p className="text-xs font-semibold text-zinc-500">Identity & Settings</p>
               <div className="flex flex-col gap-3">
                 <WalletButton />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500 uppercase font-semibold">Workspace:</span>
-                  <button
-                    onClick={() => setBeginnerMode(!beginnerMode)}
-                    className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition-all duration-300 ${
-                      beginnerMode
-                        ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100'
-                        : 'border-white/10 bg-white/[0.03] text-zinc-400'
-                    }`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${beginnerMode ? 'bg-cyan-400' : 'bg-zinc-700'}`} />
-                    <span>{beginnerMode ? 'Beginner' : 'Pro'}</span>
-                  </button>
-                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500 uppercase font-semibold">Chain:</span>
                   <ChainUiSelect />
